@@ -7,22 +7,34 @@ import { NeoCard } from '../neo/NeoCard';
 import { NeoSegmented } from '../neo/NeoSegmented';
 import { CategoryIcon } from '../common/CategoryIcon';
 import { useTheme } from '../../stores/themeStore';
+import { useLanguage } from '../../stores/languageStore';
 import { formatRupiah, formatCompact } from '../../utils/formatters';
 
 export const PieChartSection = ({
   categoryStats = { type: 'expense', totalNominal: 0, categories: [] },
   periodFilter = 'all',
-  onSelectPeriod,
+  onSelectPeriod = () => {},
   typeFilter = 'expense',
-  onSelectType,
+  onSelectType = () => {},
 }) => {
   const { colors } = useTheme();
+  const { t, isIndonesian } = useLanguage();
   const [selectedCategory, setSelectedCategory] = useState(null);
 
   const categories = categoryStats.categories || [];
   const totalNominal = categoryStats.totalNominal || 0;
+  const isIncome = typeFilter === 'income';
 
-  // Responsive larger Donut chart parameters
+  // Computed helper strings
+  const emptyText = isIndonesian
+    ? `Belum ada catatan ${isIncome ? 'pemasukan' : 'pengeluaran'} pada periode ini.`
+    : `No ${isIncome ? 'income' : 'expense'} records found in this period.`;
+
+  const typeLabel = isIncome
+    ? (isIndonesian ? 'Pemasukan' : 'Income')
+    : (isIndonesian ? 'Pengeluaran' : 'Expense');
+
+  // Responsive Donut chart parameters
   const size = 220;
   const strokeWidth = 38;
   const radius = 95;
@@ -90,23 +102,26 @@ export const PieChartSection = ({
 
   return (
     <NeoCard variant="white" padding={16} style={styles.container}>
-      {/* Top Filter Bar */}
+      {/* Top Period Selector Bar */}
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <Ionicons name="pie-chart" size={16} color={colors.primary} />
           <Text style={[styles.title, { color: colors.text }]}>
-            STATISTIK & PROPORSI
+            {isIndonesian ? 'STATISTIK & PROPORSI' : 'STATISTICS & BREAKDOWN'}
           </Text>
         </View>
         <NeoSegmented
           options={[
-            { label: 'Hari Ini', value: 'today' },
-            { label: 'Minggu', value: 'week' },
-            { label: 'Bulan', value: 'month' },
-            { label: 'Semua', value: 'all' },
+            { label: t('finance.today', 'Hari Ini'), value: 'today' },
+            { label: t('finance.thisWeek', 'Minggu Ini'), value: 'week' },
+            { label: t('finance.thisMonth', 'Bulan Ini'), value: 'month' },
+            { label: t('finance.allPeriods', 'Semua'), value: 'all' },
           ]}
           selectedValue={periodFilter}
-          onSelect={onSelectPeriod}
+          onSelect={(val) => {
+            setSelectedCategory(null);
+            onSelectPeriod(val);
+          }}
           style={styles.periodSegmented}
         />
       </View>
@@ -115,20 +130,23 @@ export const PieChartSection = ({
       <NeoSegmented
         options={[
           {
-            label: 'Pengeluaran',
+            label: t('finance.expense', 'Pengeluaran'),
             value: 'expense',
             iconName: 'arrow-up',
             activeColor: colors.expense,
           },
           {
-            label: 'Pemasukan',
+            label: t('finance.income', 'Pemasukan'),
             value: 'income',
             iconName: 'arrow-down',
             activeColor: colors.income,
           },
         ]}
-        selectedValue={typeFilter}
-        onSelect={onSelectType}
+        selectedValue={isIncome ? 'income' : 'expense'}
+        onSelect={(val) => {
+          setSelectedCategory(null);
+          onSelectType(val);
+        }}
         style={styles.typeSegmented}
       />
 
@@ -147,12 +165,10 @@ export const PieChartSection = ({
             />
           </View>
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
-            Belum Ada Transaksi
+            {isIndonesian ? 'Belum Ada Transaksi' : 'No Transactions Recorded'}
           </Text>
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            Belum ada catatan{' '}
-            {typeFilter === 'income' ? 'pemasukan' : 'pengeluaran'} pada periode
-            ini.
+            {emptyText}
           </Text>
         </View>
       ) : (
@@ -180,6 +196,7 @@ export const PieChartSection = ({
                     stroke={categories[0].color || colors.primary}
                     strokeWidth={strokeWidth}
                     fill="none"
+                    onPress={() => setSelectedCategory(categories[0])}
                   />
                 ) : (
                   slices.map((slice) => (
@@ -188,7 +205,8 @@ export const PieChartSection = ({
                       d={slice.pathData}
                       fill={slice.color || colors.primary}
                       stroke={colors.surface}
-                      strokeWidth={2}
+                      strokeWidth={slice.isSelected ? 3 : 2}
+                      onPress={() => setSelectedCategory(slice.isSelected ? null : slice)}
                     />
                   ))
                 )}
@@ -196,7 +214,10 @@ export const PieChartSection = ({
             </Svg>
 
             {/* Central Donut Text */}
-            <View style={styles.donutCenter}>
+            <Pressable
+              style={styles.donutCenter}
+              onPress={() => setSelectedCategory(null)}
+            >
               {selectedCategory ? (
                 <>
                   <Text
@@ -234,29 +255,26 @@ export const PieChartSection = ({
                     style={[
                       styles.donutCenterSub,
                       {
-                        color:
-                          typeFilter === 'income'
-                            ? colors.incomeDark
-                            : colors.expenseDark,
+                        color: isIncome ? colors.incomeDark : colors.expenseDark,
                       },
                     ]}
                   >
-                    {typeFilter === 'income' ? 'Pemasukan' : 'Pengeluaran'}
+                    {typeLabel}
                   </Text>
                 </>
               )}
-            </View>
+            </Pressable>
           </View>
 
           {/* Interactive Legend List */}
           <View style={styles.legendContainer}>
-            {categories.slice(0, 6).map((cat) => {
+            {categories.slice(0, 8).map((cat) => {
               const isSelected = selectedCategory && selectedCategory.id === cat.id;
 
               return (
                 <Pressable
                   key={cat.id}
-                  style={[
+                  style={({ pressed }) => [
                     styles.legendItem,
                     {
                       backgroundColor: isSelected
@@ -264,6 +282,7 @@ export const PieChartSection = ({
                         : colors.surface,
                       borderColor: isSelected ? colors.primary : colors.border,
                     },
+                    pressed && styles.legendItemPressed,
                   ]}
                   onPress={() => {
                     setSelectedCategory(isSelected ? null : cat);
@@ -271,8 +290,8 @@ export const PieChartSection = ({
                 >
                   <View style={styles.legendLeft}>
                     <CategoryIcon
-                      name={cat.iconName || 'cube'}
-                      family={cat.iconFamily || 'Ionicons'}
+                      iconName={cat.iconName || 'cube'}
+                      iconFamily={cat.iconFamily || 'Ionicons'}
                       color={cat.color || colors.primary}
                       bgColor={cat.bgColor || colors.surfaceLight}
                       size={14}
@@ -352,33 +371,33 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   periodSegmented: {
-    marginBottom: 4,
+    marginBottom: 6,
   },
   typeSegmented: {
     marginBottom: 10,
   },
   emptyContainer: {
-    paddingVertical: 32,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 32,
+    gap: 6,
   },
   emptyIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 60,
+    height: 60,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    marginBottom: 6,
   },
   emptyTitle: {
     fontSize: TYPOGRAPHY.size.sm,
     fontWeight: '800',
   },
   emptyText: {
-    fontSize: TYPOGRAPHY.size.xs,
-    marginTop: 3,
+    fontSize: 12,
     textAlign: 'center',
-    paddingHorizontal: 20,
+    maxWidth: 240,
   },
   contentRow: {
     alignItems: 'center',
@@ -387,16 +406,15 @@ const styles = StyleSheet.create({
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: 6,
+    marginVertical: 8,
   },
   donutCenter: {
     position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
     width: 110,
     height: 110,
     borderRadius: 55,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 8,
   },
   donutCenterLabel: {
     fontSize: 10,
@@ -404,32 +422,36 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   donutCenterAmount: {
-    fontSize: 17,
+    fontSize: TYPOGRAPHY.size.sm,
     fontWeight: '900',
     marginVertical: 1,
   },
   donutCenterSub: {
-    fontSize: 11,
-    fontWeight: '800',
+    fontSize: 10,
+    fontWeight: '700',
   },
   legendContainer: {
     width: '100%',
-    marginTop: 10,
+    marginTop: 8,
     gap: 6,
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 6,
+    paddingVertical: 8,
     paddingHorizontal: 10,
     borderRadius: 12,
     borderWidth: 1,
   },
+  legendItemPressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.98 }],
+  },
   legendLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
     flex: 1,
   },
   legendTexts: {
@@ -439,13 +461,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   legendAmount: {
-    fontSize: 10,
+    fontSize: 11,
     marginTop: 1,
-    fontWeight: '500',
   },
   legendBadge: {
-    paddingVertical: 2,
-    paddingHorizontal: 6,
+    paddingVertical: 3,
+    paddingHorizontal: 7,
     borderRadius: 6,
   },
   legendPercent: {

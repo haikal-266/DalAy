@@ -17,6 +17,7 @@ import { useQuran } from '../stores/quranStore';
 import { useFinance } from '../stores/financeStore';
 import { exportTransactionsToExcel } from '../services/excelExport';
 import { ReminderModal } from '../components/quran/ReminderModal';
+import { ImportModal } from '../components/finance/ImportModal';
 
 export const SettingsScreen = () => {
   const { colors, currentThemeId, setTheme, availableThemes } = useTheme();
@@ -24,6 +25,7 @@ export const SettingsScreen = () => {
   const { clearHistory, history } = useQuran();
   const { clearAllTransactions, transactions, summary } = useFinance();
   const [reminderModalVisible, setReminderModalVisible] = useState(false);
+  const [importModalVisible, setImportModalVisible] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState(null); // { visible, title, message, type, confirmText, onConfirm }
@@ -480,6 +482,31 @@ export const SettingsScreen = () => {
         </View>
 
         <NeoCard variant="white" padding={14} style={styles.actionCard}>
+          {/* Import Excel / CSV */}
+          <View style={styles.actionItem}>
+            <View style={styles.actionTexts}>
+              <Text style={[styles.actionTitle, { color: colors.text }]}>
+                {isIndonesian ? 'Impor Data Transaksi (.xlsx / .csv)' : 'Import Transactions (.xlsx / .csv)'}
+              </Text>
+              <Text style={[styles.actionSubtitle, { color: colors.textSecondary }]}>
+                {isIndonesian
+                  ? 'Unggah dan masukkan catatan transaksi dari file spreadsheet Excel.'
+                  : 'Upload and parse financial transactions from spreadsheet files.'}
+              </Text>
+            </View>
+            <NeoButton
+              title={isIndonesian ? 'Impor' : 'Import'}
+              iconName="cloud-upload-outline"
+              variant="primary"
+              size="sm"
+              onPress={() => setImportModalVisible(true)}
+            />
+          </View>
+
+          <View
+            style={[styles.divider, { backgroundColor: colors.borderLight }]}
+          />
+
           {/* Export full Excel */}
           <View style={styles.actionItem}>
             <View style={styles.actionTexts}>
@@ -494,7 +521,7 @@ export const SettingsScreen = () => {
               </Text>
             </View>
             <NeoButton
-              title="Ekspor"
+              title={isIndonesian ? 'Ekspor' : 'Export'}
               iconName="download-outline"
               variant="income"
               size="sm"
@@ -514,11 +541,11 @@ export const SettingsScreen = () => {
                 {t('settings.clearHistoryBtn', 'Bersihkan Riwayat Bacaan')}
               </Text>
               <Text style={[styles.actionSubtitle, { color: colors.textSecondary }]}>
-                {history.length} ayat tersimpan di riwayat bacaan.
+                {history.length} {isIndonesian ? 'ayat tersimpan di riwayat bacaan.' : 'ayats stored in reading history.'}
               </Text>
             </View>
             <NeoButton
-              title="Bersihkan"
+              title={isIndonesian ? 'Bersihkan' : 'Clear'}
               iconName="trash-outline"
               variant="outline"
               size="sm"
@@ -537,11 +564,11 @@ export const SettingsScreen = () => {
                 {t('settings.clearFinanceBtn', 'Hapus Seluruh Data Keuangan')}
               </Text>
               <Text style={[styles.actionSubtitle, { color: colors.textSecondary }]}>
-                {transactions.length} catatan transaksi keuangan saat ini.
+                {transactions.length} {isIndonesian ? 'catatan transaksi keuangan saat ini.' : 'current financial transaction records.'}
               </Text>
             </View>
             <NeoButton
-              title="Reset"
+              title={isIndonesian ? 'Reset' : 'Reset'}
               iconName="alert-circle-outline"
               variant="expense"
               size="sm"
@@ -571,6 +598,12 @@ export const SettingsScreen = () => {
       <ReminderModal
         visible={reminderModalVisible}
         onClose={() => setReminderModalVisible(false)}
+      />
+
+      {/* Import Modal */}
+      <ImportModal
+        visible={importModalVisible}
+        onClose={() => setImportModalVisible(false)}
       />
 
       {/* Modern Confirm Modal Dialog */}

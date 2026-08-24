@@ -22,6 +22,7 @@ import { PieChartSection } from '../components/finance/PieChartSection';
 import { TransactionList } from '../components/finance/TransactionList';
 import { ManualTransactionModal } from '../components/finance/ManualTransactionModal';
 import { ExportModal } from '../components/finance/ExportModal';
+import { ImportModal } from '../components/finance/ImportModal';
 import { NeoSegmented } from '../components/neo/NeoSegmented';
 
 export const FinanceScreen = () => {
@@ -29,7 +30,7 @@ export const FinanceScreen = () => {
   const isTablet = width >= 768;
   const scrollViewRef = useRef(null);
   const { colors } = useTheme();
-  const { t } = useLanguage();
+  const { t, isIndonesian } = useLanguage();
 
   const {
     filteredTransactions,
@@ -52,6 +53,7 @@ export const FinanceScreen = () => {
   const [manualModalVisible, setManualModalVisible] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [exportModalVisible, setExportModalVisible] = useState(false);
+  const [importModalVisible, setImportModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const handleRefresh = async () => {
@@ -141,15 +143,36 @@ export const FinanceScreen = () => {
           </View>
 
           <View style={styles.headerButtons}>
+            {/* Import Button */}
             <Pressable
-              onPress={() => setExportModalVisible(true)}
+              onPress={() => setImportModalVisible(true)}
               style={({ pressed }) => [
-                styles.exportIconBtn,
+                styles.actionIconBtn,
                 {
                   backgroundColor: colors.surface,
                   borderColor: colors.border,
                 },
-                pressed && styles.exportIconBtnPressed,
+                pressed && styles.actionIconBtnPressed,
+              ]}
+              accessibilityLabel={isIndonesian ? 'Impor Excel' : 'Import Excel'}
+            >
+              <Ionicons
+                name="cloud-upload-outline"
+                size={18}
+                color={colors.primary}
+              />
+            </Pressable>
+
+            {/* Export Button */}
+            <Pressable
+              onPress={() => setExportModalVisible(true)}
+              style={({ pressed }) => [
+                styles.actionIconBtn,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                },
+                pressed && styles.actionIconBtnPressed,
               ]}
               accessibilityLabel={t('finance.exportBtn', 'Ekspor ke Excel')}
             >
@@ -162,81 +185,54 @@ export const FinanceScreen = () => {
           </View>
         </View>
 
-        {/* Executive Hero Balance Card */}
+        {/* Financial Summary KPI Cards */}
         <SummaryCards
           summary={summary}
-          periodLabel={getPeriodLabel()}
+          periodFilter={periodFilter}
+          onPeriodChange={setPeriodFilter}
         />
 
-        {/* Date Selector for Logging */}
+        {/* 7-Day Date Strip & Calendar Picker */}
         <DateStripSelector
           selectedDate={selectedInputDate}
-          onSelectDate={(d) => setSelectedInputDate(d)}
+          onSelectDate={setSelectedInputDate}
         />
 
-        {/* Quick Input Bar */}
+        {/* Smart Natural Language Quick Input Bar */}
         <QuickInputBar
           onAdd={addFromNaturalLanguage}
           onOpenManual={() => {
             setEditingTransaction(null);
             setManualModalVisible(true);
           }}
-          onFocus={handleFocusInput}
           selectedDate={selectedInputDate}
+          onFocusInput={handleFocusInput}
         />
 
-        {/* Clean Segmented View Toggle on Mobile Screen */}
-        {!isTablet && (
-          <View style={styles.viewToggleContainer}>
-            <NeoSegmented
-              options={[
-                {
-                  value: 'list',
-                  label: `${t('finance.transactionsListTab', 'Daftar Transaksi')} (${filteredTransactions.length})`,
-                },
-                {
-                  value: 'chart',
-                  label: t('finance.statsTab', 'Statistik & Grafik'),
-                },
-              ]}
-              selectedValue={activeViewTab}
-              onValueChange={(val) => setActiveViewTab(val)}
-            />
-          </View>
-        )}
+        {/* View Toggle Tabs (Transaction List vs Stats & Charts) */}
+        <View style={styles.viewToggleContainer}>
+          <NeoSegmented
+            options={[
+              {
+                label: `${t('finance.transactionHistory', 'Daftar Transaksi')} (${filteredTransactions.length})`,
+                value: 'list',
+                iconName: 'list-outline',
+              },
+              {
+                label: t('finance.chartView', 'Statistik & Grafik'),
+                value: 'chart',
+                iconName: 'pie-chart-outline',
+              },
+            ]}
+            selectedValue={activeViewTab}
+            onSelect={setActiveViewTab}
+          />
+        </View>
 
-        {/* Adaptive Layout (Tablet: Side by Side, Mobile: Tabbed Switcher) */}
-        {isTablet ? (
-          <View style={styles.tabletRow}>
-            <View style={styles.tabletColLeft}>
-              <TransactionList
-                transactions={filteredTransactions}
-                periodFilter={periodFilter}
-                setPeriodFilter={setPeriodFilter}
-                typeFilter={typeFilter}
-                setTypeFilter={setTypeFilter}
-                searchQuery={searchQuery}
-                setSearchQuery={setSearchQuery}
-                onEdit={handleOpenEdit}
-                onDelete={deleteTransaction}
-                onOpenManual={() => {
-                  setEditingTransaction(null);
-                  setManualModalVisible(true);
-                }}
-              />
-            </View>
-            <View style={styles.tabletColRight}>
-              <PieChartSection
-                categoryStats={categoryStats}
-                summary={summary}
-              />
-            </View>
-          </View>
-        ) : activeViewTab === 'list' ? (
+        {/* Main Content Area */}
+        {activeViewTab === 'list' ? (
           <TransactionList
             transactions={filteredTransactions}
-            periodFilter={periodFilter}
-            setPeriodFilter={setPeriodFilter}
             typeFilter={typeFilter}
             setTypeFilter={setTypeFilter}
             searchQuery={searchQuery}
@@ -252,6 +248,10 @@ export const FinanceScreen = () => {
           <PieChartSection
             categoryStats={categoryStats}
             summary={summary}
+            periodFilter={periodFilter}
+            onSelectPeriod={setPeriodFilter}
+            typeFilter={typeFilter}
+            onSelectType={setTypeFilter}
           />
         )}
       </ScrollView>
@@ -264,6 +264,7 @@ export const FinanceScreen = () => {
           setEditingTransaction(null);
         }}
         onSave={handleSaveManual}
+        initialTransaction={editingTransaction}
         initialData={editingTransaction}
         defaultDate={selectedInputDate}
       />
@@ -275,6 +276,12 @@ export const FinanceScreen = () => {
         transactions={filteredTransactions}
         summary={summary}
         periodLabel={getPeriodLabel()}
+      />
+
+      {/* Import from Excel / CSV Modal */}
+      <ImportModal
+        visible={importModalVisible}
+        onClose={() => setImportModalVisible(false)}
       />
     </KeyboardAvoidingView>
   );
@@ -329,35 +336,23 @@ const styles = StyleSheet.create({
   headerButtons: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
-  exportIconBtn: {
+  actionIconBtn: {
     width: 36,
     height: 36,
-    borderRadius: 10,
+    borderRadius: 11,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  exportIconBtnPressed: {
+  actionIconBtnPressed: {
     opacity: 0.7,
-    transform: [{ scale: 0.94 }],
+    transform: [{ scale: 0.93 }],
   },
   viewToggleContainer: {
     marginTop: 10,
     marginBottom: 6,
-  },
-  tabletRow: {
-    flexDirection: 'row',
-    gap: 16,
-    marginTop: 12,
-    alignItems: 'flex-start',
-  },
-  tabletColLeft: {
-    flex: 3,
-  },
-  tabletColRight: {
-    flex: 2,
   },
 });
 

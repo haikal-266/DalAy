@@ -15,6 +15,7 @@ export const ManualTransactionModal = ({
   visible,
   onClose,
   initialTransaction = null,
+  initialData = null,
   onSave,
   defaultDate = null,
 }) => {
@@ -26,19 +27,23 @@ export const ManualTransactionModal = ({
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [alertConfig, setAlertConfig] = useState(null); // { visible, title, message, type }
 
+  const activeTx = initialTransaction || initialData;
+
   useEffect(() => {
-    if (initialTransaction) {
-      setType(initialTransaction.type || 'expense');
-      setName(initialTransaction.name || '');
-      setAmount((initialTransaction.amount || '').toString());
+    if (visible && activeTx) {
+      setType(activeTx.type || 'expense');
+      setName(activeTx.name || '');
+      setAmount(activeTx.amount ? String(activeTx.amount) : '');
       const categories =
-        initialTransaction.type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
-      const found = categories.find((c) => c.id === initialTransaction.categoryId);
+        activeTx.type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+      const found = categories.find(
+        (c) => c.id === activeTx.categoryId || c.name.toLowerCase() === (activeTx.categoryName || '').toLowerCase()
+      );
       setSelectedCategory(found || categories[0]);
-    } else {
+    } else if (visible && !activeTx) {
       resetForm();
     }
-  }, [initialTransaction, visible]);
+  }, [activeTx, visible]);
 
   const resetForm = () => {
     setType('expense');
@@ -90,14 +95,14 @@ export const ManualTransactionModal = ({
         ? INCOME_CATEGORIES[INCOME_CATEGORIES.length - 1]
         : EXPENSE_CATEGORIES[EXPENSE_CATEGORIES.length - 1]);
 
-    const txDate = initialTransaction
-      ? initialTransaction.date
+    const txDate = activeTx
+      ? activeTx.date
       : defaultDate
       ? new Date(defaultDate).toISOString()
       : new Date().toISOString();
 
     const txData = {
-      id: initialTransaction ? initialTransaction.id : undefined,
+      id: activeTx ? activeTx.id : undefined,
       type,
       name: name.trim(),
       amount: cleanAmount,
@@ -125,18 +130,18 @@ export const ManualTransactionModal = ({
         visible={visible}
         onClose={onClose}
         title={
-          initialTransaction
+          activeTx
             ? t('modal.manualEditTitle', 'Edit Transaksi')
             : t('modal.manualTitle', 'Tambah Transaksi Manual')
         }
         subtitle={
-          initialTransaction
+          activeTx
             ? t('modal.manualEditSubtitle', 'Perbarui detail catatan transaksi')
             : t('modal.manualSubtitle', 'Lengkapi formulir transaksi keuangan')
         }
         footer={
           <NeoButton
-            title={t('modal.saveRecordBtn', 'Simpan Catatan')}
+            title={activeTx ? (isIndonesian ? 'Perbarui Catatan' : 'Update Record') : t('modal.saveRecordBtn', 'Simpan Catatan')}
             variant={type === 'expense' ? 'expense' : 'income'}
             onPress={handleSubmit}
             fullWidth

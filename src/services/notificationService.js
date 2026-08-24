@@ -10,7 +10,6 @@ import { scheduleNotificationAsync } from 'expo-notifications/build/scheduleNoti
 import { cancelAllScheduledNotificationsAsync } from 'expo-notifications/build/cancelAllScheduledNotificationsAsync';
 import { AndroidImportance } from 'expo-notifications/build/NotificationChannelManager.types';
 import { getRandomSurahAyah } from '../utils/surahData';
-import { fetchAyah } from './quranApi';
 
 const SETTINGS_KEY = '@dalay_reminder_settings';
 const CHANNEL_ID = 'dalay-reminder';
@@ -32,13 +31,93 @@ try {
 }
 
 export const REMINDER_INTERVALS = [
-  { id: '1h', label: 'Setiap 1 Jam', seconds: 3600, minutes: 60 },
-  { id: '2h', label: 'Setiap 2 Jam', seconds: 7200, minutes: 120 },
-  { id: '4h', label: 'Setiap 4 Jam', seconds: 14400, minutes: 240 },
-  { id: '6h', label: 'Setiap 6 Jam', seconds: 21600, minutes: 360 },
-  { id: '12h', label: 'Setiap 12 Jam', seconds: 43200, minutes: 720 },
-  { id: '24h', label: '1x Sehari (Harian)', seconds: 86400, minutes: 1440 },
+  { id: '1h', label: 'Setiap 1 Jam', labelEn: 'Every 1 Hour', seconds: 3600, minutes: 60 },
+  { id: '2h', label: 'Setiap 2 Jam', labelEn: 'Every 2 Hours', seconds: 7200, minutes: 120 },
+  { id: '4h', label: 'Setiap 4 Jam', labelEn: 'Every 4 Hours', seconds: 14400, minutes: 240 },
+  { id: '6h', label: 'Setiap 6 Jam', labelEn: 'Every 6 Hours', seconds: 21600, minutes: 360 },
+  { id: '12h', label: 'Setiap 12 Jam', labelEn: 'Every 12 Hours', seconds: 43200, minutes: 720 },
+  { id: '24h', label: '1x Sehari (Harian)', labelEn: 'Once a Day (Daily)', seconds: 86400, minutes: 1440 },
 ];
+
+/**
+ * Rich randomized pool of warm, inspiring Quran invitation messages
+ */
+export const INSPIRING_MESSAGES = {
+  id: [
+    {
+      title: '🌟 Waktunya Sejenak Bersama Al-Quran',
+      body: 'Ada pesan penuh hikmah untuk harimu. Yuk luangkan 1 menit untuk membaca ayat pilihan hari ini ✨',
+    },
+    {
+      title: '📖 Penenang Hati & Jiwa',
+      body: 'Rehat sejenak dari kesibukan. Simak ayat pilihan dan renungkan maknanya hari ini 🌿',
+    },
+    {
+      title: '✨ Cahaya Petunjuk Hari Ini',
+      body: 'Awali dan isi harimu dengan petunjuk Al-Quran. Ketuk untuk membuka ayat dan tafsirnya 🤲',
+    },
+    {
+      title: '🌿 Oase Spiritual Untukmu',
+      body: 'Segarkan hati dan pikiran dengan firman-Nya. Mari lihat ayat inspiratif hari ini 💫',
+    },
+    {
+      title: '🤲 Renungan Harian Menunggumu',
+      body: 'Jangan lewatkan pesan kebaikan hari ini. Buka DalAy untuk menyimak ayat pilihanmu 📖',
+    },
+    {
+      title: '🌸 Rehat Sejenak & Renungkan',
+      body: 'Satu ayat bisa mengubah sudut pandang harimu. Ketuk untuk membaca ayat dan terjemahannya ✨',
+    },
+    {
+      title: '🤍 Luangkan Waktu untuk Al-Quran',
+      body: 'Mari mendekat kepada firman Allah. Ayat penuh inspirasi telah siap untukmu hari ini 🌙',
+    },
+    {
+      title: '💡 Inspirasi Harian DalAy',
+      body: 'Temukan ketenangan dan petunjuk hidup dari Al-Quran hari ini. Ketuk untuk menyimak 🌟',
+    },
+  ],
+  en: [
+    {
+      title: '🌟 A Moment of Peace with Quran',
+      body: 'A heartfelt message is waiting for you today. Take a minute to read and reflect ✨',
+    },
+    {
+      title: '📖 Your Daily Quran Reflection',
+      body: 'Pause your busy day and nourish your soul with today’s inspiring verse 🌿',
+    },
+    {
+      title: '✨ Daily Light & Guidance',
+      body: 'Enrich your day with timeless wisdom. Tap to read today’s ayah and commentary 🤲',
+    },
+    {
+      title: '🌿 Spiritual Oasis for You',
+      body: 'Refresh your mind and heart with Allah’s words. Check out today’s inspiring verse 💫',
+    },
+    {
+      title: '🤲 Daily Wisdom Awaits You',
+      body: 'Don’t miss today’s reminder of goodness. Open DalAy to reflect on the verse 📖',
+    },
+    {
+      title: '🌸 Pause & Reflect',
+      body: 'A single verse can bring tranquility to your entire day. Tap to read now ✨',
+    },
+    {
+      title: '🤍 A Timeless Reminder',
+      body: 'Find peace and clarity in the Quran today. Tap to discover your daily ayah 🌙',
+    },
+    {
+      title: '💡 DalAy Daily Inspiration',
+      body: 'Discover solace and guidance from the Holy Quran today. Tap to explore 🌟',
+    },
+  ],
+};
+
+export const getRandomNotificationMessage = (lang = 'en') => {
+  const pool = INSPIRING_MESSAGES[lang] || INSPIRING_MESSAGES.en;
+  const randomIndex = Math.floor(Math.random() * pool.length);
+  return pool[randomIndex];
+};
 
 /**
  * Request notification permissions and register notification channel
@@ -65,7 +144,7 @@ export const requestNotificationPermission = async () => {
           sound: 'default',
         });
       } catch (err) {
-        // ignore channel creation errors on web or unsupported devices
+        // ignore channel creation errors
       }
     }
 
@@ -77,13 +156,18 @@ export const requestNotificationPermission = async () => {
 };
 
 /**
- * Schedule recurring Quran Reminder (compatible with Expo SDK 57)
+ * Schedule recurring Quran Reminder with randomized inspiring call-to-action
  */
-export const scheduleQuranReminder = async (intervalId = '4h') => {
+export const scheduleQuranReminder = async (intervalId = '4h', lang = 'en') => {
   try {
     const hasPermission = await requestNotificationPermission();
     if (!hasPermission) {
-      return { success: false, message: 'Izin notifikasi belum diaktifkan di HP Anda.' };
+      return {
+        success: false,
+        message: lang === 'id'
+          ? 'Izin notifikasi belum diaktifkan di HP Anda.'
+          : 'Notification permission is not enabled on your device.',
+      };
     }
 
     // Cancel all previous scheduled notifications first
@@ -93,14 +177,19 @@ export const scheduleQuranReminder = async (intervalId = '4h') => {
 
     const selectedInterval =
       REMINDER_INTERVALS.find((i) => i.id === intervalId) || REMINDER_INTERVALS[2];
-    const { surah, ayah, surahInfo } = getRandomSurahAyah();
+    const { surah, ayah } = getRandomSurahAyah();
+    const msg = getRandomNotificationMessage(lang);
 
-    // Schedule next notification with SDK 57 compatible trigger
+    // Schedule next notification with SDK 57 compatible trigger and target ayah data
     const notificationId = await scheduleNotificationAsync({
       content: {
-        title: `📖 Ayat Hari Ini: ${surahInfo.name_latin} : ${ayah}`,
-        body: `Ketuk untuk membaca & merenungkan ayat Al-Quran.`,
-        data: { surah, ayah },
+        title: msg.title,
+        body: msg.body,
+        data: {
+          type: 'daily_ayah',
+          surah,
+          ayah,
+        },
         sound: true,
         channelId: CHANNEL_ID,
       },
@@ -151,25 +240,32 @@ export const cancelAllReminders = async () => {
 };
 
 /**
- * Trigger immediate test notification (compatible with Expo SDK 57)
+ * Trigger immediate test notification with inspiring invitation
  */
-export const triggerTestNotification = async () => {
+export const triggerTestNotification = async (lang = 'en') => {
   try {
     const hasPermission = await requestNotificationPermission();
     if (!hasPermission) {
-      return { success: false, message: 'Izin notifikasi diperlukan. Silakan aktifkan izin notifikasi di Pengaturan HP.' };
+      return {
+        success: false,
+        message: lang === 'id'
+          ? 'Izin notifikasi diperlukan. Silakan aktifkan izin notifikasi di Pengaturan HP.'
+          : 'Notification permission required. Please enable it in device settings.',
+      };
     }
 
     const { surah, ayah, surahInfo } = getRandomSurahAyah();
-    const ayahData = await fetchAyah(surah, ayah);
+    const msg = getRandomNotificationMessage(lang);
 
     await scheduleNotificationAsync({
       content: {
-        title: `✨ Pengingat Ayat: QS. ${surahInfo.name_latin} (${surah}:${ayah})`,
-        body: ayahData.translation
-          ? `"${ayahData.translation.slice(0, 90)}..."`
-          : 'Ketuk untuk membaca ayat selengkapnya.',
-        data: { surah, ayah },
+        title: msg.title,
+        body: msg.body,
+        data: {
+          type: 'daily_ayah',
+          surah,
+          ayah,
+        },
         sound: true,
         channelId: CHANNEL_ID,
       },
@@ -209,6 +305,8 @@ export const getReminderSettings = async () => {
 
 export default {
   REMINDER_INTERVALS,
+  INSPIRING_MESSAGES,
+  getRandomNotificationMessage,
   requestNotificationPermission,
   scheduleQuranReminder,
   cancelAllReminders,

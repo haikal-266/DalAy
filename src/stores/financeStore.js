@@ -78,8 +78,8 @@ export const FinanceProvider = ({ children }) => {
       id: txData.id || `tx_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
       type: txData.type || 'expense',
       name: txData.name || 'Transaksi Baru',
-      amount: parseInt(txData.amount, 10) || 0,
-      categoryId: txData.categoryId || 'other_expense',
+      amount: txData.amount || 0,
+      categoryId: txData.categoryId || 'other',
       categoryName: txData.categoryName || 'Lain-lain',
       iconName: txData.iconName || 'cube',
       iconFamily: txData.iconFamily || 'Ionicons',
@@ -92,6 +92,18 @@ export const FinanceProvider = ({ children }) => {
     const updated = [newTx, ...transactions];
     await saveTransactions(updated);
     return newTx;
+  };
+
+  /**
+   * Import multiple transactions from Excel/CSV
+   */
+  const importTransactions = async (importedList) => {
+    if (!Array.isArray(importedList) || importedList.length === 0) {
+      return { success: false, count: 0 };
+    }
+    const updated = [...importedList, ...transactions];
+    await saveTransactions(updated);
+    return { success: true, count: importedList.length };
   };
 
   const updateTransaction = async (id, updatedFields) => {
@@ -140,7 +152,7 @@ export const FinanceProvider = ({ children }) => {
     });
   }, [transactions, periodFilter, typeFilter, searchQuery]);
 
-  // Overall & Filtered Financial Summaries
+  // Overall Financial Summary
   const summary = useMemo(() => {
     let totalIncome = 0;
     let totalExpense = 0;
@@ -153,32 +165,32 @@ export const FinanceProvider = ({ children }) => {
       }
     });
 
+    const balance = totalIncome - totalExpense;
+
     return {
       totalIncome,
       totalExpense,
-      balance: totalIncome - totalExpense,
+      balance,
       transactionCount: filteredTransactions.length,
     };
   }, [filteredTransactions]);
 
-  // Category stats for Pie Chart breakdown
+  // Category breakdown for statistics & charts
   const categoryStats = useMemo(() => {
-    const currentType = typeFilter === 'income' ? 'income' : 'expense';
-    const targetTransactions = filteredTransactions.filter(
-      (tx) => tx.type === currentType
-    );
-
-    const totalNominal = targetTransactions.reduce(
-      (acc, tx) => acc + (tx.amount || 0),
-      0
-    );
-
     const map = {};
-    targetTransactions.forEach((tx) => {
-      const key = tx.categoryId || 'other';
-      if (!map[key]) {
-        map[key] = {
-          id: key,
+    let totalNominal = 0;
+
+    const currentType = typeFilter === 'income' ? 'income' : 'expense';
+
+    filteredTransactions.forEach((tx) => {
+      // If we are looking at all or specific type
+      if (typeFilter !== 'all' && tx.type !== typeFilter) return;
+      if (typeFilter === 'all' && tx.type !== 'expense') return; // Default breakdown is expense
+
+      const catId = tx.categoryId || 'other';
+      if (!map[catId]) {
+        map[catId] = {
+          id: catId,
           name: tx.categoryName || 'Lain-lain',
           iconName: tx.iconName || 'cube',
           iconFamily: tx.iconFamily || 'Ionicons',
@@ -188,13 +200,14 @@ export const FinanceProvider = ({ children }) => {
           count: 0,
         };
       }
-      map[key].amount += tx.amount || 0;
-      map[key].count += 1;
+      map[catId].amount += tx.amount || 0;
+      map[catId].count += 1;
+      totalNominal += tx.amount || 0;
     });
 
-    const list = Object.values(map).map((cat) => ({
-      ...cat,
-      percentage: totalNominal > 0 ? (cat.amount / totalNominal) * 100 : 0,
+    const list = Object.values(map).map((item) => ({
+      ...item,
+      percentage: totalNominal > 0 ? Math.round((item.amount / totalNominal) * 100) : 0,
     }));
 
     // Sort highest amount first
@@ -222,6 +235,7 @@ export const FinanceProvider = ({ children }) => {
       categoryStats,
       addFromNaturalLanguage,
       addTransaction,
+      importTransactions,
       updateTransaction,
       deleteTransaction,
       clearAllTransactions,

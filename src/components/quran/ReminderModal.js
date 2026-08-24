@@ -6,6 +6,7 @@ import { NeoModal } from '../neo/NeoModal';
 import { NeoButton } from '../neo/NeoButton';
 import { NeoCard } from '../neo/NeoCard';
 import { useTheme } from '../../stores/themeStore';
+import { useLanguage } from '../../stores/languageStore';
 import {
   REMINDER_INTERVALS,
   scheduleQuranReminder,
@@ -16,6 +17,7 @@ import {
 
 export const ReminderModal = ({ visible, onClose }) => {
   const { colors } = useTheme();
+  const { currentLanguage, isIndonesian, t } = useLanguage();
   const [isEnabled, setIsEnabled] = useState(false);
   const [selectedInterval, setSelectedInterval] = useState('4h');
   const [testing, setTesting] = useState(false);
@@ -44,32 +46,44 @@ export const ReminderModal = ({ visible, onClose }) => {
   const handleToggleReminder = async (val) => {
     setIsEnabled(val);
     if (val) {
-      const res = await scheduleQuranReminder(selectedInterval);
+      const res = await scheduleQuranReminder(selectedInterval, currentLanguage);
       if (res.success) {
         showFeedback(
           'success',
-          'Pengingat Aktif',
-          `Notifikasi ayat akan dikirim secara berkala (${res.interval?.label || selectedInterval}).`
+          isIndonesian ? 'Pengingat Aktif' : 'Reminder Enabled',
+          isIndonesian
+            ? `Notifikasi ayat akan dikirim secara berkala (${res.interval?.label || selectedInterval}).`
+            : `Ayah reminders will be sent periodically (${res.interval?.labelEn || selectedInterval}).`
         );
       } else {
         setIsEnabled(false);
-        showFeedback('error', 'Gagal Mengaktifkan', res.message || 'Izin notifikasi belum diaktifkan di HP.');
+        showFeedback(
+          'error',
+          isIndonesian ? 'Gagal Mengaktifkan' : 'Failed to Enable',
+          res.message || (isIndonesian ? 'Izin notifikasi belum diaktifkan di HP.' : 'Notification permission not granted.')
+        );
       }
     } else {
       await cancelAllReminders();
-      showFeedback('success', 'Pengingat Dinonaktifkan', 'Notifikasi terjadwal telah dihentikan.');
+      showFeedback(
+        'success',
+        isIndonesian ? 'Pengingat Dinonaktifkan' : 'Reminder Disabled',
+        isIndonesian ? 'Notifikasi terjadwal telah dihentikan.' : 'Scheduled notifications stopped.'
+      );
     }
   };
 
   const handleSelectInterval = async (intervalId) => {
     setSelectedInterval(intervalId);
     if (isEnabled) {
-      const res = await scheduleQuranReminder(intervalId);
+      const res = await scheduleQuranReminder(intervalId, currentLanguage);
       if (res.success) {
         showFeedback(
           'success',
-          'Jadwal Diperbarui',
-          `Frekuensi pengingat diubah ke ${res.interval?.label || intervalId}.`
+          isIndonesian ? 'Jadwal Diperbarui' : 'Schedule Updated',
+          isIndonesian
+            ? `Frekuensi pengingat diubah ke ${res.interval?.label || intervalId}.`
+            : `Reminder frequency updated to ${res.interval?.labelEn || intervalId}.`
         );
       }
     }
@@ -77,16 +91,22 @@ export const ReminderModal = ({ visible, onClose }) => {
 
   const handleTestNotification = async () => {
     setTesting(true);
-    const res = await triggerTestNotification();
+    const res = await triggerTestNotification(currentLanguage);
     setTesting(false);
     if (res.success) {
       showFeedback(
         'success',
-        'Notifikasi Contoh Terkirim!',
-        `Ayat QS. ${res.surahInfo.name_latin} : ${res.ayah} telah dikirim ke status bar HP Anda.`
+        isIndonesian ? 'Notifikasi Contoh Terkirim!' : 'Sample Notification Sent!',
+        isIndonesian
+          ? `Notifikasi ajakan membaca ayat (${res.surahInfo.name_latin} : ${res.ayah}) telah dikirim ke HP Anda. Ketuk notifikasi untuk langsung membukanya.`
+          : `An inspiring reminder (${res.surahInfo.name_latin} : ${res.ayah}) was sent to your device. Tap it to view the verse.`
       );
     } else {
-      showFeedback('error', 'Gagal Mengirim', res.message || 'Izin notifikasi belum aktif.');
+      showFeedback(
+        'error',
+        isIndonesian ? 'Gagal Mengirim' : 'Failed to Send',
+        res.message || (isIndonesian ? 'Izin notifikasi belum aktif.' : 'Notification permission is required.')
+      );
     }
   };
 
@@ -94,27 +114,33 @@ export const ReminderModal = ({ visible, onClose }) => {
     <NeoModal
       visible={visible}
       onClose={onClose}
-      title="Pengingat Ayat Terjadwal"
-      subtitle="Jadwalkan notifikasi ayat Al-Quran berkala di HP Anda"
+      title={isIndonesian ? 'Pengingat Ayat Terjadwal' : 'Scheduled Ayah Reminder'}
+      subtitle={isIndonesian ? 'Notifikasi ajakan membaca Al-Quran berkala di HP Anda' : 'Inspiring daily Quran reminders on your phone'}
       footer={
         <NeoButton
-          title="Tutup Pengaturan"
+          title={testing ? (isIndonesian ? 'Mengirim Notifikasi...' : 'Sending Reminder...') : (isIndonesian ? 'Kirim Notifikasi Contoh' : 'Send Sample Notification')}
+          iconName="send-outline"
           variant="secondary"
-          onPress={onClose}
+          loading={testing}
+          onPress={handleTestNotification}
           fullWidth
         />
       }
     >
-      {/* Custom In-App Notification / Feedback Banner */}
+      {/* Floating In-Modal Feedback Alert Banner */}
       {feedback && (
         <View
           style={[
             styles.feedbackBanner,
             {
               backgroundColor:
-                feedback.type === 'success' ? colors.incomeLight : colors.expenseLight,
+                feedback.type === 'success'
+                  ? colors.incomeLight || '#D1FAE5'
+                  : colors.expenseLight || '#FEE2E2',
               borderColor:
-                feedback.type === 'success' ? colors.incomeBorder : colors.expenseBorder,
+                feedback.type === 'success'
+                  ? colors.incomeBorder || '#10B981'
+                  : colors.expenseBorder || '#EF4444',
             },
           ]}
         >
@@ -124,21 +150,23 @@ export const ReminderModal = ({ visible, onClose }) => {
                 ? 'checkmark-circle'
                 : 'alert-circle'
             }
-            size={20}
+            size={18}
             color={
-              feedback.type === 'success' ? colors.incomeDark : colors.expenseDark
+              feedback.type === 'success'
+                ? colors.incomeDark || '#059669'
+                : colors.expenseDark || '#DC2626'
             }
             style={styles.feedbackIcon}
           />
-          <View style={styles.feedbackTextContainer}>
+          <View style={styles.feedbackTexts}>
             <Text
               style={[
                 styles.feedbackTitle,
                 {
                   color:
                     feedback.type === 'success'
-                      ? colors.incomeDark
-                      : colors.expenseDark,
+                      ? colors.incomeDark || '#059669'
+                      : colors.expenseDark || '#DC2626',
                 },
               ]}
             >
@@ -150,205 +178,254 @@ export const ReminderModal = ({ visible, onClose }) => {
                 {
                   color:
                     feedback.type === 'success'
-                      ? colors.incomeDark
-                      : colors.expenseDark,
+                      ? colors.incomeDark || '#059669'
+                      : colors.expenseDark || '#DC2626',
                 },
               ]}
             >
               {feedback.message}
             </Text>
           </View>
-          <Pressable onPress={() => setFeedback(null)}>
-            <Ionicons
-              name="close"
-              size={16}
-              color={
-                feedback.type === 'success'
-                  ? colors.incomeDark
-                  : colors.expenseDark
-              }
-            />
-          </Pressable>
         </View>
       )}
 
-      {/* Switch Card */}
-      <NeoCard variant="accent" padding={14} style={styles.switchCard}>
+      {/* Main Switch Card */}
+      <NeoCard variant="white" padding={14} style={styles.card}>
         <View style={styles.switchRow}>
-          <View style={styles.switchTextContainer}>
-            <View style={styles.switchTitleRow}>
-              <Ionicons name="notifications" size={18} color={colors.primaryDark} />
-              <Text style={[styles.switchTitle, { color: colors.primaryDark }]}>
-                Aktifkan Pengingat
-              </Text>
-            </View>
-            <Text style={[styles.switchSub, { color: colors.textSecondary }]}>
+          <View style={styles.switchTexts}>
+            <Text style={[styles.switchTitle, { color: colors.text }]}>
+              {isIndonesian ? 'Aktifkan Notifikasi Harian' : 'Enable Daily Reminders'}
+            </Text>
+            <Text style={[styles.switchSubtitle, { color: colors.textSecondary }]}>
               {isEnabled
-                ? 'Notifikasi lokal akan berjalan otomatis di background'
-                : 'Pengingat berkala saat ini dinonaktifkan'}
+                ? (isIndonesian ? 'Pengingat aktif mengirim pesan inspiratif' : 'Active and sending inspiring reminders')
+                : (isIndonesian ? 'Pengingat otomatis saat ini dinonaktifkan' : 'Automated reminders currently paused')}
             </Text>
           </View>
+
           <Switch
             value={isEnabled}
             onValueChange={handleToggleReminder}
-            trackColor={{ false: colors.border, true: colors.primaryLight }}
-            thumbColor={isEnabled ? colors.primary : colors.textMuted}
+            trackColor={{
+              false: colors.borderLight || '#E2E8F0',
+              true: colors.primary,
+            }}
+            thumbColor="#FFFFFF"
           />
         </View>
       </NeoCard>
 
-      {/* Interval Selector */}
-      <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>
-        PILIH FREKUENSI PENGINGAT :
-      </Text>
+      {/* Frequency Interval Grid */}
+      <View style={styles.sectionHeader}>
+        <Ionicons name="time-outline" size={16} color={colors.primary} />
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>
+          {isIndonesian ? 'PILIH FREKUENSI PENGINGAT :' : 'SELECT REMINDER FREQUENCY :'}
+        </Text>
+      </View>
 
       <View style={styles.intervalGrid}>
         {REMINDER_INTERVALS.map((item) => {
           const isSelected = selectedInterval === item.id;
+          const displayLabel = isIndonesian ? item.label : item.labelEn;
+
           return (
-            <NeoCard
+            <Pressable
               key={item.id}
-              variant={isSelected ? 'accent' : 'white'}
-              padding={12}
               onPress={() => handleSelectInterval(item.id)}
-              style={[
-                styles.intervalCard,
-                isSelected && styles.selectedIntervalCard,
+              style={({ pressed }) => [
+                styles.intervalItem,
+                {
+                  backgroundColor: isSelected
+                    ? colors.primarySurface || '#F0FDFA'
+                    : colors.surface,
+                  borderColor: isSelected ? colors.primary : colors.border,
+                },
+                isSelected && styles.intervalItemSelected,
+                pressed && styles.intervalItemPressed,
               ]}
             >
-              <View style={styles.intervalContent}>
-                <View style={styles.intervalLeft}>
-                  <Ionicons
-                    name="time-outline"
-                    size={16}
-                    color={isSelected ? colors.primaryDark : colors.textMuted}
-                  />
-                  <Text
-                    style={[
-                      styles.intervalLabel,
-                      {
-                        color: isSelected ? colors.primaryDark : colors.text,
-                        fontWeight: isSelected ? '800' : '600',
-                      },
-                    ]}
-                  >
-                    {item.label}
-                  </Text>
+              <View style={styles.intervalLeft}>
+                <View
+                  style={[
+                    styles.radioOuter,
+                    {
+                      borderColor: isSelected ? colors.primary : colors.border,
+                    },
+                  ]}
+                >
+                  {isSelected && (
+                    <View
+                      style={[
+                        styles.radioInner,
+                        { backgroundColor: colors.primary },
+                      ]}
+                    />
+                  )}
                 </View>
-                {isSelected && (
-                  <Ionicons name="checkmark-circle" size={18} color={colors.primaryDark} />
-                )}
+                <Text
+                  style={[
+                    styles.intervalLabel,
+                    {
+                      color: isSelected ? colors.primaryDark : colors.text,
+                      fontWeight: isSelected ? '800' : '600',
+                    },
+                  ]}
+                >
+                  {displayLabel}
+                </Text>
               </View>
-            </NeoCard>
+
+              {isSelected && (
+                <Ionicons
+                  name="checkmark-circle"
+                  size={16}
+                  color={colors.primary}
+                />
+              )}
+            </Pressable>
           );
         })}
       </View>
 
-      {/* Test Notification Action */}
-      <View style={styles.testSection}>
-        <Text style={[styles.testHint, { color: colors.textSecondary }]}>
-          Ingin mencoba memeriksa tampilan notifikasi di status bar HP sekarang?
-        </Text>
-        <NeoButton
-          title="Kirim Notifikasi Tes Sekarang"
-          iconName="send-outline"
-          variant="secondary"
-          size="md"
-          loading={testing}
-          onPress={handleTestNotification}
-          fullWidth
+      {/* Helper Info Note */}
+      <View
+        style={[
+          styles.noteBox,
+          {
+            backgroundColor: colors.surfaceLight,
+            borderColor: colors.border,
+          },
+        ]}
+      >
+        <Ionicons
+          name="sparkles-outline"
+          size={14}
+          color={colors.primary}
+          style={styles.noteIcon}
         />
+        <Text style={[styles.noteText, { color: colors.textSecondary }]}>
+          {isIndonesian
+            ? 'Setiap notifikasi berisi pesan ajakan inspiratif yang bervariasi. Mengetuk notifikasi akan langsung membuka ayat dan tafsirnya di aplikasi.'
+            : 'Each notification features a unique inspiring message. Tapping the notification will immediately open that specific verse and commentary.'}
+        </Text>
       </View>
     </NeoModal>
   );
 };
 
 const styles = StyleSheet.create({
+  card: {
+    marginBottom: 14,
+  },
   feedbackBanner: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     padding: 10,
     borderRadius: 12,
     borderWidth: 1,
-    marginBottom: 10,
+    marginBottom: 12,
   },
   feedbackIcon: {
     marginRight: 8,
+    marginTop: 1,
   },
-  feedbackTextContainer: {
+  feedbackTexts: {
     flex: 1,
-    marginRight: 6,
   },
   feedbackTitle: {
     fontSize: 12,
     fontWeight: '800',
+    marginBottom: 2,
   },
   feedbackMessage: {
     fontSize: 11,
-    marginTop: 1,
-  },
-  switchCard: {
-    marginBottom: 14,
+    lineHeight: 16,
   },
   switchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  switchTextContainer: {
+  switchTexts: {
     flex: 1,
     marginRight: 10,
-  },
-  switchTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
   },
   switchTitle: {
     fontSize: TYPOGRAPHY.size.sm,
     fontWeight: '800',
   },
-  switchSub: {
-    fontSize: TYPOGRAPHY.size.xs,
+  switchSubtitle: {
+    fontSize: 11,
     marginTop: 2,
   },
   sectionHeader: {
-    fontSize: TYPOGRAPHY.size.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  sectionTitle: {
+    fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.5,
-    marginBottom: 8,
-    marginTop: 4,
   },
   intervalGrid: {
-    gap: 4,
+    gap: 6,
+    marginBottom: 12,
   },
-  intervalCard: {
-    marginVertical: 3,
-  },
-  selectedIntervalCard: {
-    borderWidth: 1.5,
-  },
-  intervalContent: {
+  intervalItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  intervalItemSelected: {
+    borderWidth: 1.5,
+  },
+  intervalItemPressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.98 }],
   },
   intervalLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
+  },
+  radioOuter: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioInner: {
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
   },
   intervalLabel: {
-    fontSize: TYPOGRAPHY.size.xs,
+    fontSize: 12,
   },
-  testSection: {
-    marginTop: 14,
-    paddingTop: 8,
+  noteBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 6,
   },
-  testHint: {
+  noteIcon: {
+    marginRight: 8,
+    marginTop: 2,
+  },
+  noteText: {
     fontSize: 11,
-    marginBottom: 8,
-    textAlign: 'center',
+    lineHeight: 16,
+    flex: 1,
   },
 });
 
