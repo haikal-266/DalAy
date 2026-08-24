@@ -1,55 +1,120 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, Pressable } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Pressable,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../theme/colors';
 import { TYPOGRAPHY } from '../theme/typography';
 import { NeoCard } from '../components/neo/NeoCard';
 import { NeoButton } from '../components/neo/NeoButton';
-import { ReminderModal } from '../components/quran/ReminderModal';
-import { useFinance } from '../stores/financeStore';
-import { useQuran } from '../stores/quranStore';
+import { ConfirmModal } from '../components/neo/ConfirmModal';
 import { useTheme } from '../stores/themeStore';
+import { useLanguage } from '../stores/languageStore';
+import { useQuran } from '../stores/quranStore';
+import { useFinance } from '../stores/financeStore';
+import { exportTransactionsToExcel } from '../services/excelExport';
+import { ReminderModal } from '../components/quran/ReminderModal';
 
 export const SettingsScreen = () => {
+  const { colors, currentThemeId, setTheme, availableThemes } = useTheme();
+  const { currentLanguage, setLanguage, availableLanguages, t, isIndonesian } = useLanguage();
+  const { clearHistory, history } = useQuran();
+  const { clearAllTransactions, transactions, summary } = useFinance();
   const [reminderModalVisible, setReminderModalVisible] = useState(false);
-  const { clearAllTransactions, transactions } = useFinance();
-  const { clearHistory, history, favorites } = useQuran();
-  const { currentThemeId, setTheme, availableThemes, colors, isDark } = useTheme();
+  const [exporting, setExporting] = useState(false);
+  const [toastMessage, setToastMessage] = useState(null);
+  const [confirmDialog, setConfirmDialog] = useState(null); // { visible, title, message, type, confirmText, onConfirm }
 
-  const handleResetFinanceData = () => {
-    Alert.alert(
-      'Hapus Semua Data Keuangan',
-      `Yakin ingin menghapus seluruh ${transactions.length} catatan transaksi? Tindakan ini akan mengembalikan saldo ke Rp 0.`,
-      [
-        { text: 'Batal', style: 'cancel' },
-        {
-          text: 'Hapus Semua',
-          style: 'destructive',
-          onPress: async () => {
-            await clearAllTransactions();
-            Alert.alert('Sukses', 'Semua data transaksi keuangan telah direset ke 0.');
-          },
-        },
-      ]
+  const showToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const handleSelectLanguage = (langId) => {
+    setLanguage(langId);
+    showToast(
+      langId === 'en'
+        ? 'Language switched to English (Default)'
+        : 'Bahasa diubah ke Bahasa Indonesia'
     );
   };
 
-  const handleResetQuranHistory = () => {
-    Alert.alert(
-      'Bersihkan Riwayat Bacaan',
-      'Yakin ingin membersihkan riwayat ayat yang pernah dibuka?',
-      [
-        { text: 'Batal', style: 'cancel' },
-        {
-          text: 'Bersihkan',
-          style: 'destructive',
-          onPress: async () => {
-            await clearHistory();
-            Alert.alert('Sukses', 'Riwayat ayat telah dibersihkan.');
-          },
-        },
-      ]
+  const handleClearHistoryPrompt = () => {
+    setConfirmDialog({
+      title: t('modal.clearHistory', 'Bersihkan Riwayat'),
+      message: isIndonesian
+        ? 'Yakin ingin menghapus seluruh riwayat bacaan ayat dari penyimpanan?'
+        : 'Are you sure you want to delete all reading history records?',
+      type: 'danger',
+      confirmText: t('modal.delete', 'Hapus'),
+      onConfirm: () => {
+        clearHistory();
+        setConfirmDialog(null);
+        showToast(isIndonesian ? 'Riwayat bacaan berhasil dibersihkan' : 'Reading history cleared');
+      },
+    });
+  };
+
+  const handleClearFinancePrompt = () => {
+    setConfirmDialog({
+      title: isIndonesian ? 'Reset Semua Data Keuangan' : 'Reset All Financial Records',
+      message: isIndonesian
+        ? 'PERINGATAN: Seluruh catatan pengeluaran, pemasukan, dan saldo akan dihapus permanen. Lanjutkan?'
+        : 'WARNING: All income and expense transaction records will be permanently deleted. Continue?',
+      type: 'danger',
+      confirmText: isIndonesian ? 'Reset Semua' : 'Reset All',
+      onConfirm: () => {
+        clearAllTransactions();
+        setConfirmDialog(null);
+        showToast(isIndonesian ? 'Seluruh data keuangan berhasil direset' : 'All financial data reset');
+      },
+    });
+  };
+
+  const handleExportFull = async () => {
+    if (transactions.length === 0) {
+      setConfirmDialog({
+        title: isIndonesian ? 'Belum Ada Data' : 'No Data Available',
+        message: isIndonesian
+          ? 'Belum ada catatan transaksi keuangan yang dapat diekspor ke Excel.'
+          : 'There are no financial records available to export to Excel.',
+        type: 'warning',
+        confirmText: isIndonesian ? 'Mengerti' : 'Got it',
+        onConfirm: () => setConfirmDialog(null),
+      });
+      return;
+    }
+
+    setExporting(true);
+    const res = await exportTransactionsToExcel(
+      transactions,
+      summary,
+      isIndonesian ? 'Semua Periode' : 'All Periods'
     );
+    setExporting(false);
+
+    if (res.success) {
+      setConfirmDialog({
+        title: isIndonesian ? 'Ekspor Berhasil!' : 'Export Successful!',
+        message: isIndonesian
+          ? `Laporan Excel (${res.fileName}) telah selesai dibuat dan siap disimpan / dibagikan.`
+          : `Excel report (${res.fileName}) has been successfully generated.`,
+        type: 'success',
+        confirmText: isIndonesian ? 'Selesai' : 'Done',
+        onConfirm: () => setConfirmDialog(null),
+      });
+    } else {
+      setConfirmDialog({
+        title: isIndonesian ? 'Gagal Ekspor' : 'Export Failed',
+        message: res.error || (isIndonesian ? 'Terjadi kesalahan saat mengekspor data.' : 'An error occurred during export.'),
+        type: 'danger',
+        confirmText: isIndonesian ? 'Tutup' : 'Close',
+        onConfirm: () => setConfirmDialog(null),
+      });
+    }
   };
 
   return (
@@ -59,45 +124,192 @@ export const SettingsScreen = () => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Enhanced Header */}
+        {/* Header */}
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
-          <View style={styles.logoRow}>
-            <View style={[styles.logoBadge, { backgroundColor: colors.primaryLight }]}>
-              <Ionicons name="settings" size={20} color={colors.primary} />
+          <View style={styles.headerLeft}>
+            <View style={styles.logoRow}>
+              <View
+                style={[
+                  styles.logoBadge,
+                  { backgroundColor: colors.accentLight || '#DBEAFE' },
+                ]}
+              >
+                <Ionicons
+                  name="settings"
+                  size={20}
+                  color={colors.accent || '#2563EB'}
+                />
+              </View>
+              <Text style={[styles.headerLogo, { color: colors.text }]}>
+                {t('settings.headerTitle', 'Pengaturan')}
+              </Text>
             </View>
-            <Text style={[styles.headerLogo, { color: colors.text }]}>Pengaturan</Text>
+            <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
+              {t('settings.headerSubtitle', 'Bahasa, Tema & Opsi Pengingat')}
+            </Text>
           </View>
-          <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
-            Tema Visual, Notifikasi & Manajemen Data
-          </Text>
         </View>
+
+        {/* Floating Toast Feedback */}
+        {toastMessage && (
+          <View
+            style={[
+              styles.toastBox,
+              { backgroundColor: colors.primary, borderColor: colors.primaryDark },
+            ]}
+          >
+            <Ionicons name="checkmark-circle" size={16} color="#FFFFFF" />
+            <Text style={styles.toastText}>{toastMessage}</Text>
+          </View>
+        )}
 
         {/* App Profile Card */}
         <NeoCard variant="white" padding={16} style={styles.profileCard}>
           <View style={styles.profileHeader}>
-            <View style={[styles.appIconBox, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}>
+            <View
+              style={[
+                styles.appIconBox,
+                {
+                  backgroundColor: colors.primaryLight,
+                  borderColor: colors.primary,
+                },
+              ]}
+            >
               <Ionicons name="book" size={26} color={colors.primary} />
             </View>
             <View style={styles.appInfo}>
-              <Text style={[styles.appName, { color: colors.text }]}>DalAy (Daily Ayah)</Text>
-              <Text style={[styles.appTagline, { color: colors.textSecondary }]}>
-                Daily Quran Reminder & Smart Finance Tracker
+              <Text style={[styles.appName, { color: colors.text }]}>
+                {t('settings.appProfile', 'DalAy (Daily Ayah)')}
               </Text>
-              <View style={[styles.versionBadge, { backgroundColor: colors.incomeLight, borderColor: colors.incomeBorder }]}>
-                <Ionicons name="shield-checkmark-outline" size={12} color={colors.incomeDark} />
-                <Text style={[styles.versionText, { color: colors.incomeDark }]}>
-                  Versi 1.0.0 • Offline First
+              <Text style={[styles.appTagline, { color: colors.textSecondary }]}>
+                {t(
+                  'settings.appTagline',
+                  'Daily Quran Reminder & Smart Finance Tracker'
+                )}
+              </Text>
+              <View
+                style={[
+                  styles.versionBadge,
+                  {
+                    backgroundColor: colors.incomeLight,
+                    borderColor: colors.incomeBorder,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name="shield-checkmark-outline"
+                  size={12}
+                  color={colors.incomeDark}
+                />
+                <Text
+                  style={[styles.versionText, { color: colors.incomeDark }]}
+                >
+                  {t('settings.versionText', 'Versi 1.0.0 • Offline First')}
                 </Text>
               </View>
             </View>
           </View>
         </NeoCard>
 
+        {/* Language Selector Section */}
+        <View style={styles.sectionTitleRow}>
+          <Ionicons name="language-outline" size={16} color={colors.primary} />
+          <Text style={[styles.sectionHeader, { color: colors.text }]}>
+            {t('settings.languageSection', 'BAHASA APLIKASI')}
+          </Text>
+        </View>
+        <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
+          {t(
+            'settings.languageSectionSub',
+            'Pilih bahasa tampilan yang Anda inginkan'
+          )}
+        </Text>
+
+        <View style={styles.languageGrid}>
+          {availableLanguages.map((lang) => {
+            const isSelected = currentLanguage === lang.id;
+
+            return (
+              <Pressable
+                key={lang.id}
+                onPress={() => handleSelectLanguage(lang.id)}
+                style={({ pressed }) => [
+                  styles.langCard,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: isSelected ? colors.primary : colors.border,
+                  },
+                  isSelected && [
+                    styles.langCardSelected,
+                    { backgroundColor: colors.primarySurface },
+                  ],
+                  pressed && styles.pressed,
+                ]}
+              >
+                <View style={styles.langLeft}>
+                  <Text style={styles.langFlag}>{lang.flag}</Text>
+                  <View style={styles.langTexts}>
+                    <Text
+                      style={[
+                        styles.langName,
+                        {
+                          color: isSelected ? colors.primaryDark : colors.text,
+                          fontWeight: isSelected ? '800' : '700',
+                        },
+                      ]}
+                    >
+                      {lang.nativeName}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.langSub,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      {lang.name} • {lang.description}
+                    </Text>
+                  </View>
+                </View>
+
+                {isSelected ? (
+                  <View
+                    style={[
+                      styles.langActiveBadge,
+                      { backgroundColor: colors.primary },
+                    ]}
+                  >
+                    <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                  </View>
+                ) : (
+                  <View
+                    style={[
+                      styles.inactiveRadio,
+                      { borderColor: colors.border },
+                    ]}
+                  />
+                )}
+              </Pressable>
+            );
+          })}
+        </View>
+
         {/* Interactive Theme Selector */}
         <View style={styles.sectionTitleRow}>
-          <Ionicons name="color-palette-outline" size={16} color={colors.primary} />
-          <Text style={[styles.sectionHeader, { color: colors.text }]}>PILIHAN TEMA APLIKASI</Text>
+          <Ionicons
+            name="color-palette-outline"
+            size={16}
+            color={colors.primary}
+          />
+          <Text style={[styles.sectionHeader, { color: colors.text }]}>
+            {t('settings.themeSection', 'PILIHAN TEMA APLIKASI')}
+          </Text>
         </View>
+        <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
+          {t(
+            'settings.themeSectionSub',
+            'Pilih palet warna dinamis & mode gelap OLED'
+          )}
+        </Text>
 
         <View style={styles.themesGrid}>
           {availableThemes.map((theme) => {
@@ -135,53 +347,88 @@ export const SettingsScreen = () => {
                       <Text style={[styles.themeName, { color: colors.text }]}>
                         {theme.name}
                       </Text>
-                      <Text style={[styles.themeSubtitle, { color: colors.textSecondary }]}>
+                      <Text
+                        style={[
+                          styles.themeSubtitle,
+                          { color: colors.textSecondary },
+                        ]}
+                      >
                         {theme.subtitle}
                       </Text>
                     </View>
                   </View>
 
                   {isSelected ? (
-                    <View style={[styles.activeBadge, { backgroundColor: theme.previewPrimary }]}>
+                    <View
+                      style={[
+                        styles.activeBadge,
+                        { backgroundColor: theme.previewPrimary },
+                      ]}
+                    >
                       <Ionicons name="checkmark" size={13} color="#FFFFFF" />
-                      <Text style={styles.activeBadgeText}>Aktif</Text>
+                      <Text style={styles.activeBadgeText}>
+                        {currentLanguage === 'en' ? 'Active' : 'Aktif'}
+                      </Text>
                     </View>
                   ) : (
-                    <View style={[styles.inactiveRadio, { borderColor: colors.border }]} />
+                    <View
+                      style={[
+                        styles.inactiveRadio,
+                        { borderColor: colors.border },
+                      ]}
+                    />
                   )}
                 </View>
 
                 {/* Color Swatch Preview Bar */}
                 <View style={styles.swatchRow}>
                   <View style={styles.swatchItem}>
-                    <View style={[styles.swatchCircle, { backgroundColor: theme.previewPrimary }]} />
-                    <Text style={[styles.swatchLabel, { color: colors.textMuted }]}>Aksen</Text>
+                    <View
+                      style={[
+                        styles.swatchCircle,
+                        { backgroundColor: theme.previewPrimary },
+                      ]}
+                    />
+                    <Text
+                      style={[
+                        styles.swatchLabel,
+                        { color: colors.textMuted },
+                      ]}
+                    >
+                      Primary
+                    </Text>
                   </View>
                   <View style={styles.swatchItem}>
                     <View
                       style={[
                         styles.swatchCircle,
-                        {
-                          backgroundColor: theme.previewBg,
-                          borderWidth: 1,
-                          borderColor: '#CBD5E1',
-                        },
+                        { backgroundColor: theme.previewSurface },
                       ]}
                     />
-                    <Text style={[styles.swatchLabel, { color: colors.textMuted }]}>Latar</Text>
+                    <Text
+                      style={[
+                        styles.swatchLabel,
+                        { color: colors.textMuted },
+                      ]}
+                    >
+                      Card
+                    </Text>
                   </View>
                   <View style={styles.swatchItem}>
                     <View
                       style={[
                         styles.swatchCircle,
-                        {
-                          backgroundColor: theme.previewSurface,
-                          borderWidth: 1,
-                          borderColor: '#CBD5E1',
-                        },
+                        { backgroundColor: theme.previewBg },
                       ]}
                     />
-                    <Text style={[styles.swatchLabel, { color: colors.textMuted }]}>Kartu</Text>
+                    <Text
+                      style={[
+                        styles.swatchLabel,
+                        { color: colors.textMuted },
+                      ]}
+                    >
+                      Bg
+                    </Text>
                   </View>
                 </View>
               </Pressable>
@@ -189,22 +436,33 @@ export const SettingsScreen = () => {
           })}
         </View>
 
-        {/* Reminder Settings Card */}
+        {/* Daily Reminder Setting */}
         <View style={styles.sectionTitleRow}>
-          <Ionicons name="notifications-outline" size={16} color={colors.primary} />
-          <Text style={[styles.sectionHeader, { color: colors.text }]}>NOTIFIKASI & JADWAL</Text>
+          <Ionicons
+            name="notifications-outline"
+            size={16}
+            color={colors.primary}
+          />
+          <Text style={[styles.sectionHeader, { color: colors.text }]}>
+            {t('settings.reminderSection', 'PENGINGAT AYAT HARIAN')}
+          </Text>
         </View>
 
-        <NeoCard variant="white" padding={14} style={styles.card}>
-          <View style={styles.rowBetween}>
-            <View style={styles.rowLeft}>
-              <Text style={[styles.cardTitle, { color: colors.text }]}>Pengingat Ayat Terjadwal</Text>
-              <Text style={[styles.cardDesc, { color: colors.textSecondary }]}>
-                Atur frekuensi (1 jam, 2 jam, 4 jam, harian) & tes notifikasi ayat
+        <NeoCard variant="white" padding={14} style={styles.actionCard}>
+          <View style={styles.actionCardRow}>
+            <View style={styles.actionCardTexts}>
+              <Text style={[styles.actionTitle, { color: colors.text }]}>
+                {t('reminder.title', 'Pengingat Terjadwal')}
+              </Text>
+              <Text style={[styles.actionSubtitle, { color: colors.textSecondary }]}>
+                {t(
+                  'settings.reminderDesc',
+                  'Notifikasi ayat Al-Quran terjadwal berkala ke perangkat Anda.'
+                )}
               </Text>
             </View>
             <NeoButton
-              title="Atur"
+              title={t('settings.reminderSettingsBtn', 'Atur Pengingat')}
               iconName="time-outline"
               variant="accent"
               size="sm"
@@ -216,41 +474,78 @@ export const SettingsScreen = () => {
         {/* Data & Storage Management */}
         <View style={styles.sectionTitleRow}>
           <Ionicons name="server-outline" size={16} color={colors.primary} />
-          <Text style={[styles.sectionHeader, { color: colors.text }]}>MANAJEMEN DATA LOKAL</Text>
+          <Text style={[styles.sectionHeader, { color: colors.text }]}>
+            {t('settings.dataSection', 'DATA & PENYIMPANAN')}
+          </Text>
         </View>
 
-        <NeoCard variant="white" padding={14} style={styles.card}>
-          <View style={styles.dataRow}>
-            <View style={styles.dataTextLeft}>
-              <Text style={[styles.dataTitle, { color: colors.text }]}>Total Catatan Keuangan</Text>
-              <Text style={[styles.dataDesc, { color: colors.textSecondary }]}>
-                {transactions.length} transaksi tersimpan di perangkat
+        <NeoCard variant="white" padding={14} style={styles.actionCard}>
+          {/* Export full Excel */}
+          <View style={styles.actionItem}>
+            <View style={styles.actionTexts}>
+              <Text style={[styles.actionTitle, { color: colors.text }]}>
+                {t('settings.exportExcelBtn', 'Ekspor Rekap Keuangan (.xlsx)')}
+              </Text>
+              <Text style={[styles.actionSubtitle, { color: colors.textSecondary }]}>
+                {t(
+                  'settings.exportExcelDesc',
+                  'Unduh seluruh riwayat transaksi ke dalam file spreadsheet Excel rapi.'
+                )}
               </Text>
             </View>
             <NeoButton
-              title="Reset ke 0"
-              iconName="trash-outline"
-              variant="expense"
+              title="Ekspor"
+              iconName="download-outline"
+              variant="income"
               size="sm"
-              onPress={handleResetFinanceData}
+              loading={exporting}
+              onPress={handleExportFull}
             />
           </View>
 
-          <View style={[styles.divider, { backgroundColor: colors.borderLight }]} />
+          <View
+            style={[styles.divider, { backgroundColor: colors.borderLight }]}
+          />
 
-          <View style={styles.dataRow}>
-            <View style={styles.dataTextLeft}>
-              <Text style={[styles.dataTitle, { color: colors.text }]}>Riwayat Bacaan Ayat</Text>
-              <Text style={[styles.dataDesc, { color: colors.textSecondary }]}>
-                {history.length} riwayat, {favorites.length} favorit
+          {/* Clear History */}
+          <View style={styles.actionItem}>
+            <View style={styles.actionTexts}>
+              <Text style={[styles.actionTitle, { color: colors.text }]}>
+                {t('settings.clearHistoryBtn', 'Bersihkan Riwayat Bacaan')}
+              </Text>
+              <Text style={[styles.actionSubtitle, { color: colors.textSecondary }]}>
+                {history.length} ayat tersimpan di riwayat bacaan.
               </Text>
             </View>
             <NeoButton
               title="Bersihkan"
-              iconName="refresh-outline"
-              variant="secondary"
+              iconName="trash-outline"
+              variant="outline"
               size="sm"
-              onPress={handleResetQuranHistory}
+              onPress={handleClearHistoryPrompt}
+            />
+          </View>
+
+          <View
+            style={[styles.divider, { backgroundColor: colors.borderLight }]}
+          />
+
+          {/* Reset Finance */}
+          <View style={styles.actionItem}>
+            <View style={styles.actionTexts}>
+              <Text style={[styles.actionTitle, { color: colors.expense }]}>
+                {t('settings.clearFinanceBtn', 'Hapus Seluruh Data Keuangan')}
+              </Text>
+              <Text style={[styles.actionSubtitle, { color: colors.textSecondary }]}>
+                {transactions.length} catatan transaksi keuangan saat ini.
+              </Text>
+            </View>
+            <NeoButton
+              title="Reset"
+              iconName="alert-circle-outline"
+              variant="expense"
+              size="sm"
+              onPress={handleClearFinancePrompt}
             />
           </View>
         </NeoCard>
@@ -259,10 +554,15 @@ export const SettingsScreen = () => {
         <NeoCard variant="accent" padding={14} style={styles.aboutCard}>
           <View style={styles.aboutHeader}>
             <Ionicons name="heart" size={16} color={colors.primary} />
-            <Text style={[styles.aboutTitle, { color: colors.primaryDark }]}>Tentang DalAy</Text>
+            <Text style={[styles.aboutTitle, { color: colors.primaryDark }]}>
+              {t('settings.aboutSection', 'Tentang DalAy')}
+            </Text>
           </View>
           <Text style={[styles.aboutText, { color: colors.textSecondary }]}>
-            Aplikasi islami dan pencatat keuangan harian dengan arsitektur offline-first, cepat, dan terorganisir.
+            {t(
+              'settings.aboutText',
+              'Aplikasi islami dan pencatat keuangan harian dengan arsitektur offline-first, cepat, dan terorganisir.'
+            )}
           </Text>
         </NeoCard>
       </ScrollView>
@@ -272,6 +572,20 @@ export const SettingsScreen = () => {
         visible={reminderModalVisible}
         onClose={() => setReminderModalVisible(false)}
       />
+
+      {/* Modern Confirm Modal Dialog */}
+      {confirmDialog && (
+        <ConfirmModal
+          visible={Boolean(confirmDialog)}
+          onClose={() => setConfirmDialog(null)}
+          onConfirm={confirmDialog.onConfirm}
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          type={confirmDialog.type || 'danger'}
+          confirmText={confirmDialog.confirmText}
+          cancelText={isIndonesian ? 'Batal' : 'Cancel'}
+        />
+      )}
     </View>
   );
 };
@@ -289,10 +603,16 @@ const styles = StyleSheet.create({
     paddingBottom: 48,
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 12,
     paddingBottom: 12,
     paddingTop: 4,
     borderBottomWidth: 1,
+  },
+  headerLeft: {
+    flex: 1,
   },
   logoRow: {
     flexDirection: 'row',
@@ -316,17 +636,32 @@ const styles = StyleSheet.create({
     marginTop: 3,
     fontWeight: '500',
   },
+  toastBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 10,
+    gap: 8,
+  },
+  toastText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
   profileCard: {
-    marginBottom: 12,
+    marginBottom: 16,
   },
   profileHeader: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   appIconBox: {
-    width: 50,
-    height: 50,
-    borderRadius: 14,
+    width: 52,
+    height: 52,
+    borderRadius: 15,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -341,17 +676,18 @@ const styles = StyleSheet.create({
   },
   appTagline: {
     fontSize: 11,
-    marginTop: 1,
+    marginTop: 2,
+    fontWeight: '500',
   },
   versionBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
     alignSelf: 'flex-start',
+    gap: 4,
+    marginTop: 6,
     paddingVertical: 2,
-    paddingHorizontal: 7,
-    borderRadius: 7,
-    marginTop: 5,
+    paddingHorizontal: 8,
+    borderRadius: 6,
     borderWidth: 1,
   },
   versionText: {
@@ -362,33 +698,76 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: 12,
-    marginBottom: 6,
+    marginTop: 10,
+    marginBottom: 2,
   },
   sectionHeader: {
-    fontSize: 11,
+    fontSize: TYPOGRAPHY.size.xs,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
+  sectionSubtitle: {
+    fontSize: 11,
+    marginBottom: 8,
+    paddingLeft: 2,
+  },
+  languageGrid: {
+    gap: 8,
+    marginBottom: 14,
+  },
+  langCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  langCardSelected: {
+    borderWidth: 1.5,
+  },
+  pressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.98 }],
+  },
+  langLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  langFlag: {
+    fontSize: 24,
+  },
+  langTexts: {
+    flex: 1,
+  },
+  langName: {
+    fontSize: TYPOGRAPHY.size.sm,
+  },
+  langSub: {
+    fontSize: 11,
+    marginTop: 1,
+  },
+  langActiveBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   themesGrid: {
     gap: 8,
-    marginVertical: 4,
+    marginBottom: 14,
   },
   themeCard: {
     borderRadius: 14,
+    borderWidth: 1,
     padding: 12,
-    borderWidth: 1.5,
-    shadowColor: '#64748B',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 5,
-    elevation: 1,
   },
   themeCardSelected: {
-    borderWidth: 2,
-    shadowOpacity: 0.09,
-    shadowRadius: 8,
-    elevation: 3,
+    borderWidth: 1.5,
   },
   themeCardPressed: {
     opacity: 0.85,
@@ -426,7 +805,7 @@ const styles = StyleSheet.create({
   activeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    gap: 4,
     paddingVertical: 3,
     paddingHorizontal: 8,
     borderRadius: 8,
@@ -437,92 +816,84 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   inactiveRadio: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     borderWidth: 1.5,
   },
   swatchRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
+    gap: 14,
     marginTop: 10,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: 'rgba(150, 150, 150, 0.1)',
   },
   swatchItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
   },
   swatchCircle: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
   },
   swatchLabel: {
     fontSize: 10,
     fontWeight: '600',
   },
-  card: {
-    marginVertical: 4,
+  actionCard: {
+    marginBottom: 14,
   },
-  rowBetween: {
+  actionCardRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 10,
   },
-  rowLeft: {
+  actionCardTexts: {
     flex: 1,
-    marginRight: 10,
   },
-  cardTitle: {
+  actionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    paddingVertical: 4,
+  },
+  actionTexts: {
+    flex: 1,
+  },
+  actionTitle: {
     fontSize: TYPOGRAPHY.size.sm,
     fontWeight: '800',
   },
-  cardDesc: {
+  actionSubtitle: {
     fontSize: 11,
     marginTop: 2,
-  },
-  dataRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 4,
-  },
-  dataTextLeft: {
-    flex: 1,
-    marginRight: 10,
-  },
-  dataTitle: {
-    fontSize: TYPOGRAPHY.size.sm,
-    fontWeight: '700',
-  },
-  dataDesc: {
-    fontSize: 11,
-    marginTop: 1,
+    lineHeight: 16,
   },
   divider: {
     height: 1,
-    marginVertical: 8,
+    marginVertical: 10,
   },
   aboutCard: {
-    marginTop: 14,
-    marginBottom: 10,
+    marginTop: 4,
+    marginBottom: 16,
   },
   aboutHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 4,
+    marginBottom: 6,
   },
   aboutTitle: {
     fontSize: TYPOGRAPHY.size.sm,
     fontWeight: '800',
   },
   aboutText: {
-    fontSize: 11,
+    fontSize: TYPOGRAPHY.size.xs,
     lineHeight: 18,
   },
 });

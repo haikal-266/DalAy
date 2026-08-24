@@ -2,28 +2,30 @@ import React from 'react';
 import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../stores/themeStore';
+import { useLanguage } from '../stores/languageStore';
 
 export const BottomTabBar = ({ activeTab, onTabPress }) => {
   const { colors } = useTheme();
+  const { t } = useLanguage();
 
   const tabs = [
     {
       id: 'quran',
-      label: 'Al-Quran',
+      label: t('tabs.quran', 'Al-Quran'),
       iconActive: 'book',
       iconInactive: 'book-outline',
       activeColor: colors.primary,
     },
     {
       id: 'finance',
-      label: 'Keuangan',
+      label: t('tabs.finance', 'Finance'),
       iconActive: 'wallet',
       iconInactive: 'wallet-outline',
       activeColor: colors.brandGold || '#D97706',
     },
     {
       id: 'settings',
-      label: 'Pengaturan',
+      label: t('tabs.settings', 'Settings'),
       iconActive: 'settings',
       iconInactive: 'settings-outline',
       activeColor: colors.accent || '#2563EB',

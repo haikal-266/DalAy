@@ -1,11 +1,12 @@
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SURAH_DATA, getRandomSurahAyah } from '../utils/surahData';
 
-const CACHE_KEY_AYAT = '@quranku_cached_ayats';
-const CACHE_KEY_LAST_RANDOM = '@quranku_last_random_ayah';
+const CACHE_KEY_AYAT = '@dalay_cached_ayats';
+const CACHE_KEY_LAST_RANDOM = '@dalay_last_random_ayah';
 
-// Built-in offline fallback ayahs for guaranteed offline functionality
-const OFFLINE_FALLBACK_AYAHS = [
+// Offline fallback dataset for high reliability
+export const OFFLINE_FALLBACK_AYAHS = [
   {
     surah: 1,
     ayah: 1,
@@ -15,7 +16,8 @@ const OFFLINE_FALLBACK_AYAHS = [
     surah_name_ar: 'الفاتحة',
     arab: 'بِسْمِ اللّٰهِ الرَّحْمٰنِ الرَّحِيْمِ',
     latin: 'Bismillāhir-raḥmānir-raḥīm(i).',
-    translation: 'Dengan nama Allah Yang Maha Pengasih, Maha Penyayang.',
+    translation: 'In the name of Allah, the Entirely Merciful, the Especially Merciful.',
+    translation_id: 'Dengan nama Allah Yang Maha Pengasih, Maha Penyayang.',
     audio: 'https://everyayah.com/data/Alafasy_128kbps/001001.mp3',
   },
   {
@@ -25,9 +27,10 @@ const OFFLINE_FALLBACK_AYAHS = [
     surah_name: 'Al-Baqarah',
     surahNameArab: 'البقرة',
     surah_name_ar: 'البقرة',
-    arab: 'اللّٰهُ لَآ اِلٰهَ اِلَّا هُوَ الْحَيُّ الْقَيُّوْمُۚ لَا تَأْخُذُهٗ سِنَةٌ وَّلَا نَوْمٌۗ لَهٗ مَا فِى السَّمٰوٰتِ وَمَا فِى الْاَرْضِۗ مَنْ ذَا الَّذِيْ يَشْفَعُ عِنْدَهٗٓ اِلَّا بِاِذْنِهٖۗ يَعْلَمُ مَا بَيْنَ اَيْدِيْهِمْ وَمَا خَلْفَهُمْۚ وَلَا يُحِيْطُوْنَ بِشَيْءٍ مِّنْ عِلْمِهٖٓ اِلَّا بِمَا شَاۤءَۚ وَسِعَ كُرْسِيُّهُ السَّمٰوٰتِ وَالْاَرْضَۚ وَلَا يَـُٔوْدُهٗ حِفْظُهُمَاۚ وَهُوَ الْعَلِيُّ الْعَظِيْمُ',
-    latin: 'Allāhu lā ilāha illā huwal-ḥayyul-qayyūm(u), lā ta\'khużuhū sinatuw wa lā naum(un), lahū mā fis-samāwāti wa mā fil-arḍ(i), man żal-lażī yasyfa‘u ‘indahū illā bi\'iżnih(ī), ya‘lamu mā baina aidīhim wa mā khalfahum, wa lā yuḥīṭūna bisyai\'im min ‘ilmihī illā bimā syā\'(a), wasi‘a kursiyyuhus-samāwāti wal-arḍ(a), wa lā ya\'ūduhū ḥifẓuhumā, wa huwal-‘aliyyul-‘aẓīm(u).',
-    translation: 'Allah, tidak ada tuhan selain Dia. Yang Mahahidup, Yang terus-menerus mengurus (makhluk-Nya), tidak mengantuk dan tidak tidur. Milik-Nya apa yang ada di langit dan apa yang ada di bumi. Tidak ada yang dapat memberi syafaat di sisi-Nya tanpa izin-Nya. Dia mengetahui apa yang ada di hadapan mereka dan apa yang ada di belakang mereka, dan mereka tidak mengetahui sesuatu apa pun tentang ilmu-Nya melainkan apa yang Dia kehendaki. Kursi-Nya (ilmu dan kekuasaan-Nya) meliputi langit dan bumi. Dan Dia tidak merasa berat memelihara keduanya, dan Dia Mahatinggi, Mahabesar.',
+    arab: 'اللّٰهُ لَآ اِلٰهَ اِلَّا هُوَ الْحَيُّ الْقَيُّوْمُۚ لَا تَأْخُذُهٗ سِنَةٌ وَّلَا نَوْمٌۗ لَهٗ مَا فِى السَّمٰوٰتِ وَمَا فِى الْاَرْضِۗ',
+    latin: 'Allāhu lā ilāha illā huwal-ḥayyul-qayyūm(u)...',
+    translation: 'Allah - there is no deity except Him, the Ever-Living, the Sustainer of all existence.',
+    translation_id: 'Allah, tidak ada tuhan selain Dia. Yang Mahahidup, Yang terus-menerus mengurus (makhluk-Nya)...',
     audio: 'https://everyayah.com/data/Alafasy_128kbps/002255.mp3',
   },
   {
@@ -39,7 +42,8 @@ const OFFLINE_FALLBACK_AYAHS = [
     surah_name_ar: 'الإخلاص',
     arab: 'قُلْ هُوَ اللّٰهُ اَحَدٌۚ',
     latin: 'Qul huwallāhu aḥad(un).',
-    translation: 'Katakanlah (Muhammad), "Dialah Allah, Yang Maha Esa."',
+    translation: 'Say, "He is Allah, [who is] One,"',
+    translation_id: 'Katakanlah (Muhammad), "Dialah Allah, Yang Maha Esa."',
     audio: 'https://everyayah.com/data/Alafasy_128kbps/112001.mp3',
   },
   {
@@ -51,7 +55,8 @@ const OFFLINE_FALLBACK_AYAHS = [
     surah_name_ar: 'الشرح',
     arab: 'فَاِنَّ مَعَ الْعُسْرِ يُسْرًاۙ',
     latin: 'Fa inna ma\'al-‘usri yusrā(n).',
-    translation: 'Maka sesungguhnya bersama kesulitan ada kemudahan,',
+    translation: 'For indeed, with hardship [will be] ease.',
+    translation_id: 'Maka sesungguhnya bersama kesulitan ada kemudahan,',
     audio: 'https://everyayah.com/data/Alafasy_128kbps/094005.mp3',
   },
   {
@@ -63,7 +68,8 @@ const OFFLINE_FALLBACK_AYAHS = [
     surah_name_ar: 'الشرح',
     arab: 'اِنَّ مَعَ الْعُسْرِ يُسْرًاۗ',
     latin: 'Inna ma\'al-‘usri yusrā(n).',
-    translation: 'sesungguhnya bersama kesulitan ada kemudahan.',
+    translation: 'Indeed, with hardship [will be] ease.',
+    translation_id: 'sesungguhnya bersama kesulitan ada kemudahan.',
     audio: 'https://everyayah.com/data/Alafasy_128kbps/094006.mp3',
   }
 ];
@@ -75,53 +81,75 @@ export const getAyahAudioUrl = (surahNumber, ayahNumber) => {
 };
 
 /**
+ * Clean HTML markup into clean readable plaintext
+ */
+const cleanHtmlText = (html) => {
+  if (!html) return '';
+  return html
+    .replace(/<br\s*[\/]?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<\/h[1-6]>/gi, '\n\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+};
+
+/**
  * Fetch a specific Ayah from API with multi-endpoint fallback & local cache
  */
-export const fetchAyah = async (surahNumber, ayahNumber) => {
+export const fetchAyah = async (surahNumber, ayahNumber, lang = 'en') => {
   const surahInfo = SURAH_DATA.find((s) => s.number === surahNumber) || SURAH_DATA[0];
+  const isIndo = lang === 'id';
 
-  try {
-    // Primary API endpoint: myQuran v3
-    const url = `https://api.myquran.com/v3/quran/${surahNumber}/${ayahNumber}`;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
+  // Primary API for Indonesian: myQuran v3
+  if (isIndo) {
+    try {
+      const url = `https://api.myquran.com/v3/quran/${surahNumber}/${ayahNumber}`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
 
-    const response = await fetch(url, { signal: controller.signal });
-    clearTimeout(timeoutId);
+      const response = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
 
-    if (response.ok) {
-      const json = await response.json();
-      const data = json.data || json;
+      if (response.ok) {
+        const json = await response.json();
+        const data = json.data || json;
 
-      const formatted = {
-        surah: surahNumber,
-        ayah: ayahNumber,
-        surahName: surahInfo.name_latin,
-        surah_name: surahInfo.name_latin,
-        surahNameArab: surahInfo.name,
-        surah_name_ar: surahInfo.name,
-        surah_meaning: surahInfo.meaning,
-        total_ayahs: surahInfo.number_of_ayahs,
-        revelation: surahInfo.revelation,
-        arab: data.arab || data.text_arab || data.ar || '',
-        latin: data.latin || data.text_latin || data.tr || '',
-        translation: data.text || data.translation || data.id || data.text_id || '',
-        audio: data.audio || getAyahAudioUrl(surahNumber, ayahNumber),
-      };
+        const formatted = {
+          surah: surahNumber,
+          ayah: ayahNumber,
+          surahName: surahInfo.name_latin,
+          surah_name: surahInfo.name_latin,
+          surahNameArab: surahInfo.name,
+          surah_name_ar: surahInfo.name,
+          surah_meaning: surahInfo.meaning,
+          total_ayahs: surahInfo.number_of_ayahs,
+          revelation: surahInfo.revelation,
+          arab: data.arab || data.text_arab || data.ar || '',
+          latin: data.latin || data.text_latin || data.tr || '',
+          translation: data.text || data.translation || data.id || data.text_id || '',
+          audio: data.audio || getAyahAudioUrl(surahNumber, ayahNumber),
+        };
 
-      // Save to cache
-      await cacheAyat(formatted);
-      return formatted;
+        await cacheAyat(formatted, lang);
+        return formatted;
+      }
+    } catch (error) {
+      console.log('myQuran API error, attempting alquran.cloud fallback:', error.message);
     }
-  } catch (error) {
-    console.log('Primary Quran API error, attempting fallback:', error.message);
   }
 
-  // Secondary fallback: Quran.com / alquran.cloud API
+  // Global Primary API (English Sahih International / Indonesian fallback)
   try {
-    const fallbackUrl = `https://api.alquran.cloud/v1/ayah/${surahNumber}:${ayahNumber}/editions/quran-uthmani,id.indonesian,ar.alafasy`;
+    const edition = isIndo ? 'id.indonesian' : 'en.sahih';
+    const fallbackUrl = `https://api.alquran.cloud/v1/ayah/${surahNumber}:${ayahNumber}/editions/quran-uthmani,${edition},ar.alafasy`;
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
 
     const res = await fetch(fallbackUrl, { signal: controller.signal });
     clearTimeout(timeoutId);
@@ -130,7 +158,7 @@ export const fetchAyah = async (surahNumber, ayahNumber) => {
       const json = await res.json();
       if (json.data && Array.isArray(json.data) && json.data.length >= 2) {
         const arabData = json.data[0];
-        const indoData = json.data[1];
+        const transData = json.data[1];
 
         const formatted = {
           surah: surahNumber,
@@ -144,20 +172,20 @@ export const fetchAyah = async (surahNumber, ayahNumber) => {
           revelation: surahInfo.revelation,
           arab: arabData.text || '',
           latin: '',
-          translation: indoData.text || '',
+          translation: transData.text || '',
           audio: getAyahAudioUrl(surahNumber, ayahNumber),
         };
 
-        await cacheAyat(formatted);
+        await cacheAyat(formatted, lang);
         return formatted;
       }
     }
   } catch (err) {
-    console.log('Secondary API error, checking local cache:', err.message);
+    console.log('AlQuran Cloud API error, checking local cache:', err.message);
   }
 
   // Offline fallback: Check local cache first
-  const cached = await getCachedAyat(surahNumber, ayahNumber);
+  const cached = await getCachedAyat(surahNumber, ayahNumber, lang);
   if (cached) return cached;
 
   // Built-in offline fallback
@@ -165,16 +193,21 @@ export const fetchAyah = async (surahNumber, ayahNumber) => {
     (a) => a.surah === surahNumber && a.ayah === ayahNumber
   ) || OFFLINE_FALLBACK_AYAHS[Math.floor(Math.random() * OFFLINE_FALLBACK_AYAHS.length)];
 
-  return builtin;
+  return {
+    ...builtin,
+    translation: isIndo ? (builtin.translation_id || builtin.translation) : builtin.translation,
+  };
 };
 
 /**
- * Fetch Tafsir for a specific Surah & Ayah (Kemenag RI)
+ * Fetch Tafsir for a specific Surah & Ayah in English or Indonesian
  */
-export const fetchTafsir = async (surahNumber, ayahNumber) => {
+export const fetchTafsir = async (surahNumber, ayahNumber, lang = 'en') => {
   const surahInfo = SURAH_DATA.find((s) => s.number === surahNumber) || SURAH_DATA[0];
-  const cacheKey = `@quranku_tafsir_${surahNumber}_${ayahNumber}`;
+  const isIndo = lang === 'id';
+  const cacheKey = `@dalay_tafsir_${lang}_${surahNumber}_${ayahNumber}`;
   
+  // 1. Check local cache
   try {
     const cached = await AsyncStorage.getItem(cacheKey);
     if (cached) {
@@ -182,65 +215,136 @@ export const fetchTafsir = async (surahNumber, ayahNumber) => {
     }
   } catch (e) {}
 
-  try {
-    const url = `https://equran.id/api/v2/tafsir/${surahNumber}`;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 7000);
+  // 2. English Tafsir (Quran.com API: Ibn Kathir / Ma'arif al-Qur'an)
+  if (!isIndo) {
+    // Attempt 1: Tafsir Ibn Kathir (English - ID 169)
+    try {
+      const url = `https://api.quran.com/api/v4/tafsirs/169/by_ayah/${surahNumber}:${ayahNumber}`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 7000);
 
-    const response = await fetch(url, { signal: controller.signal });
-    clearTimeout(timeoutId);
+      const response = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
 
-    if (response.ok) {
-      const json = await response.json();
-      const surahData = json.data;
-      const tafsirList = surahData.tafsir || [];
-      const item = tafsirList.find((t) => t.ayat === ayahNumber);
+      if (response.ok) {
+        const json = await response.json();
+        if (json.tafsir && json.tafsir.text) {
+          const result = {
+            surah: surahNumber,
+            ayah: ayahNumber,
+            surahName: surahInfo.name_latin,
+            surahNameAr: surahInfo.name,
+            surahDesc: surahInfo.meaning,
+            source: 'Tafsir Ibn Kathir (Abridged - English)',
+            text: cleanHtmlText(json.tafsir.text),
+          };
 
-      const result = {
-        surah: surahNumber,
-        ayah: ayahNumber,
-        surahName: surahData.namaLatin || surahInfo.name_latin,
-        surahNameAr: surahData.nama || surahInfo.name,
-        surahDesc: surahData.deskripsi || '',
-        source: 'Kementerian Agama RI (Kemenag)',
-        text: item ? item.teks : 'Tafsir untuk ayat ini belum tersedia.',
-      };
+          try {
+            await AsyncStorage.setItem(cacheKey, JSON.stringify(result));
+          } catch (e) {}
 
-      try {
-        await AsyncStorage.setItem(cacheKey, JSON.stringify(result));
-      } catch (e) {}
-
-      return result;
+          return result;
+        }
+      }
+    } catch (err) {
+      console.log('Error fetching English Tafsir Ibn Kathir:', err.message);
     }
-  } catch (err) {
-    console.log('Error fetching tafsir from equran.id, trying fallback:', err);
+
+    // Attempt 2: Ma'arif al-Qur'an (English - ID 168)
+    try {
+      const url2 = `https://api.quran.com/api/v4/tafsirs/168/by_ayah/${surahNumber}:${ayahNumber}`;
+      const controller2 = new AbortController();
+      const timeoutId2 = setTimeout(() => controller2.abort(), 6000);
+
+      const res2 = await fetch(url2, { signal: controller2.signal });
+      clearTimeout(timeoutId2);
+
+      if (res2.ok) {
+        const json2 = await res2.json();
+        if (json2.tafsir && json2.tafsir.text) {
+          const result = {
+            surah: surahNumber,
+            ayah: ayahNumber,
+            surahName: surahInfo.name_latin,
+            surahNameAr: surahInfo.name,
+            surahDesc: surahInfo.meaning,
+            source: "Ma'arif al-Qur'an (English Commentary)",
+            text: cleanHtmlText(json2.tafsir.text),
+          };
+
+          try {
+            await AsyncStorage.setItem(cacheKey, JSON.stringify(result));
+          } catch (e) {}
+
+          return result;
+        }
+      }
+    } catch (err2) {
+      console.log('Error fetching English Tafsir Maarif:', err2.message);
+    }
   }
 
-  // Fallback to myQuran API
-  try {
-    const fallbackUrl = `https://api.myquran.com/v3/quran/tafsir/${surahNumber}/${ayahNumber}`;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+  // 3. Indonesian Tafsir (equran.id / myQuran v3)
+  if (isIndo) {
+    try {
+      const url = `https://equran.id/api/v2/tafsir/${surahNumber}`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 7000);
 
-    const response = await fetch(fallbackUrl, { signal: controller.signal });
-    clearTimeout(timeoutId);
+      const response = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
 
-    if (response.ok) {
-      const json = await response.json();
-      const data = json.data || json;
-      const result = {
-        surah: surahNumber,
-        ayah: ayahNumber,
-        surahName: surahInfo.name_latin,
-        surahNameAr: surahInfo.name,
-        surahDesc: '',
-        source: 'Kementerian Agama RI (Kemenag)',
-        text: data.tafsir || data.text || 'Tafsir untuk ayat ini belum tersedia.',
-      };
-      return result;
+      if (response.ok) {
+        const json = await response.json();
+        const surahData = json.data;
+        const tafsirList = surahData.tafsir || [];
+        const item = tafsirList.find((t) => t.ayat === ayahNumber);
+
+        const result = {
+          surah: surahNumber,
+          ayah: ayahNumber,
+          surahName: surahData.namaLatin || surahInfo.name_latin,
+          surahNameAr: surahData.nama || surahInfo.name,
+          surahDesc: surahData.deskripsi || '',
+          source: 'Kementerian Agama RI (Kemenag)',
+          text: item ? item.teks : 'Tafsir untuk ayat ini belum tersedia.',
+        };
+
+        try {
+          await AsyncStorage.setItem(cacheKey, JSON.stringify(result));
+        } catch (e) {}
+
+        return result;
+      }
+    } catch (err) {
+      console.log('Error fetching tafsir from equran.id, trying fallback:', err.message);
     }
-  } catch (e) {
-    console.log('Fallback tafsir error:', e);
+
+    // Fallback to myQuran API
+    try {
+      const url2 = `https://api.myquran.com/v3/quran/tafsir/${surahNumber}/${ayahNumber}`;
+      const controller2 = new AbortController();
+      const timeoutId2 = setTimeout(() => controller2.abort(), 5000);
+
+      const res2 = await fetch(url2, { signal: controller2.signal });
+      clearTimeout(timeoutId2);
+
+      if (res2.ok) {
+        const json2 = await res2.json();
+        const data2 = json2.data || json2;
+        return {
+          surah: surahNumber,
+          ayah: ayahNumber,
+          surahName: surahInfo.name_latin,
+          surahNameAr: surahInfo.name,
+          surahDesc: '',
+          source: 'Kementerian Agama RI (Kemenag)',
+          text: data2.tafsir || data2.text || 'Tafsir untuk ayat ini belum tersedia.',
+        };
+      }
+    } catch (e) {
+      console.log('Fallback tafsir error:', e.message);
+    }
   }
 
   return {
@@ -248,71 +352,59 @@ export const fetchTafsir = async (surahNumber, ayahNumber) => {
     ayah: ayahNumber,
     surahName: surahInfo.name_latin,
     surahNameAr: surahInfo.name,
-    source: 'Kementerian Agama RI (Kemenag)',
-    text: 'Tafsir belum tersedia saat offline. Silakan hubungkan internet untuk memuat tafsir lengkap.',
+    source: isIndo ? 'Kementerian Agama RI (Kemenag)' : 'Tafsir Ibn Kathir',
+    text: isIndo
+      ? 'Tafsir belum tersedia saat offline. Silakan hubungkan internet untuk memuat tafsir lengkap.'
+      : 'Tafsir commentary is not cached yet. Please connect to the internet to load full commentary.',
   };
 };
 
 /**
- * Fetch Random Ayah
+ * Fetch a random Ayah
  */
-export const fetchRandomAyah = async () => {
+export const fetchRandomAyah = async (lang = 'en') => {
   const { surah, ayah } = getRandomSurahAyah();
-  const ayahData = await fetchAyah(surah, ayah);
-
-  // Store as last random ayah
+  const ayahData = await fetchAyah(surah, ayah, lang);
   try {
     await AsyncStorage.setItem(CACHE_KEY_LAST_RANDOM, JSON.stringify(ayahData));
-  } catch (e) {
-    // ignore
-  }
-
+  } catch (e) {}
   return ayahData;
 };
 
 /**
- * Get Last Random Ayah or fallback to Al-Fatihah
+ * Get last viewed ayah or initial fallback
  */
-export const getLastOrInitialAyah = async () => {
+export const getLastOrInitialAyah = async (lang = 'en') => {
   try {
-    const raw = await AsyncStorage.getItem(CACHE_KEY_LAST_RANDOM);
-    if (raw) {
-      return JSON.parse(raw);
+    const saved = await AsyncStorage.getItem(CACHE_KEY_LAST_RANDOM);
+    if (saved) {
+      return JSON.parse(saved);
     }
-  } catch (e) {
-    // ignore
-  }
-  return OFFLINE_FALLBACK_AYAHS[0];
+  } catch (e) {}
+  return fetchAyah(1, 1, lang);
 };
 
-/**
- * Local cache helpers
- */
-const cacheAyat = async (ayahObj) => {
+const cacheAyat = async (ayah, lang = 'en') => {
   try {
-    const raw = await AsyncStorage.getItem(CACHE_KEY_AYAT);
+    const raw = await AsyncStorage.getItem(`${CACHE_KEY_AYAT}_${lang}`);
     const list = raw ? JSON.parse(raw) : [];
-    const existingIndex = list.findIndex(
-      (a) => a.surah === ayahObj.surah && a.ayah === ayahObj.ayah
-    );
-    if (existingIndex >= 0) {
-      list[existingIndex] = ayahObj;
+    const idx = list.findIndex((a) => a.surah === ayah.surah && a.ayah === ayah.ayah);
+    if (idx >= 0) {
+      list[idx] = ayah;
     } else {
-      list.push(ayahObj);
-      if (list.length > 100) list.shift(); // Keep max 100 in cache
+      list.push(ayah);
+      if (list.length > 100) list.shift();
     }
-    await AsyncStorage.setItem(CACHE_KEY_AYAT, JSON.stringify(list));
-  } catch (e) {
-    // ignore
-  }
+    await AsyncStorage.setItem(`${CACHE_KEY_AYAT}_${lang}`, JSON.stringify(list));
+  } catch (e) {}
 };
 
-const getCachedAyat = async (surah, ayah) => {
+const getCachedAyat = async (surahNumber, ayahNumber, lang = 'en') => {
   try {
-    const raw = await AsyncStorage.getItem(CACHE_KEY_AYAT);
+    const raw = await AsyncStorage.getItem(`${CACHE_KEY_AYAT}_${lang}`);
     if (!raw) return null;
     const list = JSON.parse(raw);
-    return list.find((a) => a.surah === surah && a.ayah === ayah) || null;
+    return list.find((a) => a.surah === surahNumber && a.ayah === ayahNumber) || null;
   } catch (e) {
     return null;
   }

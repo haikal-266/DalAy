@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Alert, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { TYPOGRAPHY } from '../../theme/typography';
 import { NeoModal } from '../neo/NeoModal';
 import { NeoInput } from '../neo/NeoInput';
 import { NeoButton } from '../neo/NeoButton';
 import { NeoSegmented } from '../neo/NeoSegmented';
 import { CategoryIcon } from '../common/CategoryIcon';
+import { ConfirmModal } from '../neo/ConfirmModal';
 import { useTheme } from '../../stores/themeStore';
+import { useLanguage } from '../../stores/languageStore';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, detectCategory } from '../../utils/categories';
 
 export const ManualTransactionModal = ({
@@ -17,10 +19,12 @@ export const ManualTransactionModal = ({
   defaultDate = null,
 }) => {
   const { colors } = useTheme();
+  const { t, isIndonesian } = useLanguage();
   const [type, setType] = useState('expense');
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [alertConfig, setAlertConfig] = useState(null); // { visible, title, message, type }
 
   useEffect(() => {
     if (initialTransaction) {
@@ -60,11 +64,23 @@ export const ManualTransactionModal = ({
   const handleSubmit = () => {
     const cleanAmount = Number.parseInt(amount.replace(/\D/g, ''), 10);
     if (!name.trim()) {
-      Alert.alert('Data Kurang', 'Silakan masukkan nama atau keterangan transaksi.');
+      setAlertConfig({
+        title: isIndonesian ? 'Data Kurang' : 'Missing Information',
+        message: isIndonesian
+          ? 'Silakan masukkan nama atau keterangan catatan transaksi.'
+          : 'Please enter transaction name or description.',
+        type: 'warning',
+      });
       return;
     }
     if (!cleanAmount || cleanAmount <= 0) {
-      Alert.alert('Nominal Tidak Valid', 'Silakan masukkan nominal yang benar.');
+      setAlertConfig({
+        title: isIndonesian ? 'Nominal Tidak Valid' : 'Invalid Amount',
+        message: isIndonesian
+          ? 'Silakan masukkan nominal angka yang benar.'
+          : 'Please enter a valid monetary amount.',
+        type: 'warning',
+      });
       return;
     }
 
@@ -100,172 +116,187 @@ export const ManualTransactionModal = ({
     resetForm();
   };
 
-  const categories = type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+  const currentCategories =
+    type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
 
   return (
-    <NeoModal
-      visible={visible}
-      onClose={onClose}
-      title={initialTransaction ? 'Edit Transaksi' : 'Tambah Transaksi Manual'}
-      subtitle={
-        initialTransaction
-          ? 'Perbarui detail catatan transaksi'
-          : 'Lengkapi formulir transaksi keuangan'
-      }
-      footer={
-        <View style={styles.footerRow}>
+    <>
+      <NeoModal
+        visible={visible}
+        onClose={onClose}
+        title={
+          initialTransaction
+            ? t('modal.manualEditTitle', 'Edit Transaksi')
+            : t('modal.manualTitle', 'Tambah Transaksi Manual')
+        }
+        subtitle={
+          initialTransaction
+            ? t('modal.manualEditSubtitle', 'Perbarui detail catatan transaksi')
+            : t('modal.manualSubtitle', 'Lengkapi formulir transaksi keuangan')
+        }
+        footer={
           <NeoButton
-            title="Batal"
-            variant="outline"
-            onPress={onClose}
-            style={styles.cancelBtn}
-          />
-          <NeoButton
-            title="Simpan Catatan"
-            iconName="checkmark-circle-outline"
-            variant="primary"
+            title={t('modal.saveRecordBtn', 'Simpan Catatan')}
+            variant={type === 'expense' ? 'expense' : 'income'}
             onPress={handleSubmit}
-            style={styles.saveBtn}
+            fullWidth
+          />
+        }
+      >
+        {/* Type Segmented Switch */}
+        <View style={styles.section}>
+          <NeoSegmented
+            options={[
+              {
+                label: t('finance.expense', 'Pengeluaran'),
+                value: 'expense',
+                iconName: 'arrow-up',
+                activeColor: colors.expense,
+              },
+              {
+                label: t('finance.income', 'Pemasukan'),
+                value: 'income',
+                iconName: 'arrow-down',
+                activeColor: colors.income,
+              },
+            ]}
+            selectedValue={type}
+            onSelect={handleTypeChange}
           />
         </View>
-      }
-    >
-      {/* Type Toggle */}
-      <NeoSegmented
-        options={[
-          {
-            label: 'Pengeluaran',
-            value: 'expense',
-            iconName: 'arrow-up',
-            activeColor: colors.expense,
-          },
-          {
-            label: 'Pemasukan',
-            value: 'income',
-            iconName: 'arrow-down',
-            activeColor: colors.income,
-          },
-        ]}
-        selectedValue={type}
-        onSelect={handleTypeChange}
-        style={styles.segmented}
-      />
 
-      {/* Name Input */}
-      <NeoInput
-        label="Nama / Keterangan Transaksi"
-        placeholder="misal: Nasi Goreng Spesial, Gaji Bulanan..."
-        value={name}
-        onChangeText={handleNameChange}
-        leftIconName="text-outline"
-        style={styles.input}
-      />
+        {/* Name Input */}
+        <View style={styles.section}>
+          <Text style={[styles.label, { color: colors.textSecondary }]}>
+            {t('modal.txNameLabel', 'Nama / Keterangan Transaksi')}
+          </Text>
+          <NeoInput
+            placeholder={t('modal.txNamePlaceholder', 'misal: Nasi Goreng Spesial, Gaji Bulanan...')}
+            value={name}
+            onChangeText={handleNameChange}
+            leftIconName="create-outline"
+          />
+        </View>
 
-      {/* Amount Input */}
-      <NeoInput
-        label="Nominal (Rupiah)"
-        placeholder="misal: 25000"
-        value={amount}
-        onChangeText={setAmount}
-        keyboardType="numeric"
-        leftIconName="cash-outline"
-        style={styles.input}
-      />
+        {/* Amount Input */}
+        <View style={styles.section}>
+          <Text style={[styles.label, { color: colors.textSecondary }]}>
+            {t('modal.amountLabel', 'Nominal (Rupiah)')}
+          </Text>
+          <NeoInput
+            placeholder={t('modal.amountPlaceholder', 'misal: 25000')}
+            value={amount}
+            onChangeText={setAmount}
+            keyboardType="numeric"
+            leftIconName="cash-outline"
+          />
+        </View>
 
-      {/* Category Selection */}
-      <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
-        PILIH KATEGORI :
-      </Text>
-      <View style={styles.categoriesGrid}>
-        {categories.map((cat) => {
-          const isSelected = selectedCategory && selectedCategory.id === cat.id;
-          return (
-            <Pressable
-              key={cat.id}
-              onPress={() => setSelectedCategory(cat)}
-              style={[
-                styles.categoryChip,
-                {
-                  backgroundColor: isSelected
-                    ? colors.primarySurface
-                    : colors.surface,
-                  borderColor: isSelected ? colors.primary : colors.border,
-                  borderWidth: isSelected ? 1.5 : 1,
-                },
-              ]}
-            >
-              <CategoryIcon
-                iconName={cat.iconName || 'cube'}
-                iconFamily={cat.iconFamily || 'Ionicons'}
-                color={cat.color}
-                bgColor={cat.bgColor || colors.surfaceLight}
-                size={16}
-                containerSize={32}
-                borderRadius={8}
-              />
-              <Text
-                style={[
-                  styles.categoryChipText,
-                  {
-                    color: isSelected ? colors.primaryDark : colors.text,
-                    fontWeight: isSelected ? '800' : '600',
-                  },
-                ]}
-                numberOfLines={1}
-              >
-                {cat.name}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-    </NeoModal>
+        {/* Category Picker Grid */}
+        <View style={styles.section}>
+          <Text style={[styles.label, { color: colors.textSecondary }]}>
+            {t('modal.selectCategory', 'PILIH KATEGORI :')}
+          </Text>
+          <View style={styles.categoriesGrid}>
+            {currentCategories.map((cat) => {
+              const isSelected = selectedCategory?.id === cat.id;
+              const catColor = cat.color || colors.primary;
+
+              return (
+                <Pressable
+                  key={cat.id}
+                  onPress={() => setSelectedCategory(cat)}
+                  style={({ pressed }) => [
+                    styles.categoryCard,
+                    {
+                      backgroundColor: isSelected ? colors.primarySurface : colors.surface,
+                      borderColor: isSelected ? catColor : colors.border,
+                    },
+                    isSelected && styles.categoryCardSelected,
+                    pressed && styles.categoryCardPressed,
+                  ]}
+                >
+                  <CategoryIcon
+                    iconName={cat.iconName || 'cube'}
+                    iconFamily={cat.iconFamily || 'Ionicons'}
+                    color={catColor}
+                    bgColor={cat.bgColor || colors.surfaceLight}
+                    size={16}
+                    containerSize={36}
+                    borderRadius={10}
+                  />
+                  <Text
+                    style={[
+                      styles.categoryName,
+                      { color: isSelected ? colors.text : colors.textSecondary },
+                      isSelected && styles.categoryNameSelected,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {cat.name}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      </NeoModal>
+
+      {/* Modern Feedback / Alert Dialog */}
+      {alertConfig && (
+        <ConfirmModal
+          visible={Boolean(alertConfig)}
+          onClose={() => setAlertConfig(null)}
+          onConfirm={() => setAlertConfig(null)}
+          title={alertConfig.title}
+          message={alertConfig.message}
+          type={alertConfig.type}
+          confirmText={isIndonesian ? 'Mengerti' : 'Got it'}
+          cancelText={isIndonesian ? 'Tutup' : 'Close'}
+        />
+      )}
+    </>
   );
 };
 
 const styles = StyleSheet.create({
-  segmented: {
+  section: {
     marginBottom: 12,
   },
-  input: {
-    marginBottom: 8,
-  },
-  sectionLabel: {
+  label: {
     fontSize: TYPOGRAPHY.size.xs,
     fontWeight: '800',
-    letterSpacing: 0.5,
-    marginTop: 8,
-    marginBottom: 8,
-    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    marginBottom: 6,
   },
   categoriesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginBottom: 12,
   },
-  categoryChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+  categoryCard: {
+    width: '31%',
     borderRadius: 12,
-    marginRight: 4,
-    marginBottom: 4,
-    gap: 8,
+    borderWidth: 1,
+    padding: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  categoryChipText: {
-    fontSize: TYPOGRAPHY.size.xs,
+  categoryCardSelected: {
+    borderWidth: 1.5,
   },
-  footerRow: {
-    flexDirection: 'row',
-    gap: 8,
+  categoryCardPressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.95 }],
   },
-  cancelBtn: {
-    flex: 1,
+  categoryName: {
+    fontSize: 10,
+    marginTop: 4,
+    textAlign: 'center',
+    fontWeight: '600',
   },
-  saveBtn: {
-    flex: 2,
+  categoryNameSelected: {
+    fontWeight: '800',
   },
 });
 

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, Alert } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { TYPOGRAPHY } from '../../theme/typography';
 import { NeoCard } from '../neo/NeoCard';
@@ -7,20 +7,24 @@ import { NeoInput } from '../neo/NeoInput';
 import { NeoButton } from '../neo/NeoButton';
 import { NeoSegmented } from '../neo/NeoSegmented';
 import { NeoTag } from '../neo/NeoTag';
+import { ConfirmModal } from '../neo/ConfirmModal';
 import { useTheme } from '../../stores/themeStore';
+import { useLanguage } from '../../stores/languageStore';
 import { parseFinancialInput } from '../../utils/parser';
 import { formatRupiah } from '../../utils/formatters';
 
 export const QuickInputBar = ({
-  onAddFromNLP,
-  onOpenManualModal,
-  onFocusInput,
+  onAdd,
+  onOpenManual,
+  onFocus,
   selectedDate = new Date(),
 }) => {
   const { colors } = useTheme();
+  const { t, isIndonesian } = useLanguage();
   const [type, setType] = useState('expense'); // 'expense' | 'income'
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
+  const [alertConfig, setAlertConfig] = useState(null); // { title, message, type }
 
   // Live parsed items as user types
   const parsedPreview = useMemo(() => {
@@ -34,44 +38,59 @@ export const QuickInputBar = ({
 
   const handleSubmit = async () => {
     if (!inputText.trim() || parsedPreview.length === 0) {
-      Alert.alert(
-        'Format Belum Tepat',
-        'Contoh input: "makan siang 25k, bensin 15k" atau "gaji 5jt"'
-      );
+      setAlertConfig({
+        title: isIndonesian ? 'Format Belum Tepat' : 'Invalid Input Format',
+        message: isIndonesian
+          ? 'Contoh penulisan cepat:\n• "makan siang 25k, bensin 15rb, kopi 12k"\n• "gaji 5jt, freelance web 1.5jt"'
+          : 'Quick logging example:\n• "lunch 25k, gas 15k, coffee 12k"\n• "salary 5000k, freelance 1500k"',
+        type: 'warning',
+      });
       return;
     }
 
     setLoading(true);
-    const result = await onAddFromNLP(inputText, type, selectedDate);
+    const result = await onAdd(inputText, type, selectedDate);
     setLoading(false);
 
     if (result.success) {
       setInputText('');
     } else {
-      Alert.alert('Gagal Mencatat', result.message || 'Terjadi kesalahan.');
+      setAlertConfig({
+        title: isIndonesian ? 'Gagal Mencatat' : 'Failed to Record',
+        message: result.message || (isIndonesian ? 'Terjadi kesalahan saat menyimpan transaksi.' : 'An error occurred while saving transaction.'),
+        type: 'danger',
+      });
     }
   };
 
   return (
-    <NeoCard variant="white" padding={16} style={styles.container}>
-      {/* Header & Mode Switch */}
-      <View style={styles.header}>
-        <View style={styles.titleRow}>
-          <Ionicons name="sparkles" size={16} color={colors.primary} />
-          <Text style={[styles.title, { color: colors.text }]}>
-            CATAT CEPAT (NATURAL INPUT)
+    <NeoCard variant="white" padding={14} style={styles.container}>
+      {/* Header Title Row */}
+      <View style={styles.titleRow}>
+        <View style={styles.titleLeft}>
+          <Ionicons name="sparkles" size={15} color={colors.primary} />
+          <Text
+            style={[styles.title, { color: colors.text }]}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {t('finance.quickInputTitle', 'CATAT CEPAT (NATURAL INPUT)')}
           </Text>
         </View>
+      </View>
+
+      {/* Full-width Type Selector to prevent clipping */}
+      <View style={styles.segmentedWrapper}>
         <NeoSegmented
           options={[
             {
-              label: 'Pengeluaran',
+              label: t('finance.expense', 'Pengeluaran'),
               value: 'expense',
               iconName: 'arrow-up',
               activeColor: colors.expense,
             },
             {
-              label: 'Pemasukan',
+              label: t('finance.income', 'Pemasukan'),
               value: 'income',
               iconName: 'arrow-down',
               activeColor: colors.income,
@@ -79,7 +98,6 @@ export const QuickInputBar = ({
           ]}
           selectedValue={type}
           onSelect={setType}
-          style={styles.segmented}
         />
       </View>
 
@@ -87,18 +105,18 @@ export const QuickInputBar = ({
       <NeoInput
         placeholder={
           type === 'expense'
-            ? 'Ketik: "makan 25k, bensin 15rb, kopi 12k"...'
-            : 'Ketik: "gaji 5jt, freelance web 1.5jt"...'
+            ? t('finance.quickInputPlaceholderExpense', 'Ketik: "makan 25k, bensin 15rb, kopi 12k"...')
+            : t('finance.quickInputPlaceholderIncome', 'Ketik: "gaji 5jt, freelance web 1.5jt"...')
         }
         value={inputText}
         onChangeText={setInputText}
-        onFocus={onFocusInput}
+        onFocus={onFocus}
         multiline
         numberOfLines={2}
         style={styles.inputWrapper}
       />
 
-      {/* Live Parsing Preview */}
+      {/* Real-time Parser Chips Preview */}
       {parsedPreview.length > 0 && (
         <View
           style={[
@@ -110,130 +128,138 @@ export const QuickInputBar = ({
           ]}
         >
           <View style={styles.previewHeader}>
-            <View style={styles.previewTitleRow}>
-              <Ionicons name="checkmark-circle" size={14} color={colors.incomeDark} />
-              <Text style={[styles.previewLabel, { color: colors.textSecondary }]}>
-                Terbaca {parsedPreview.length} transaksi:
-              </Text>
-            </View>
+            <Text style={[styles.previewLabel, { color: colors.textSecondary }]}>
+              {t('finance.detectedTransactions', 'Terbaca transaksi:')}
+            </Text>
             <Text style={[styles.previewTotal, { color: colors.text }]}>
-              {formatRupiah(totalPreviewAmount)}
+              {t('finance.totalLabel', 'TOTAL')}: {formatRupiah(totalPreviewAmount)}
             </Text>
           </View>
-
-          <View style={styles.previewBadges}>
+          <View style={styles.chipsRow}>
             {parsedPreview.map((item, idx) => (
-              <View key={`${item.name}_${item.amount}_${idx}`} style={styles.previewItem}>
-                <NeoTag
-                  iconName={item.iconName || 'cube'}
-                  label={`${item.name}: ${formatRupiah(item.amount)}`}
-                  color={item.categoryColor}
-                  bgColor={item.categoryBgColor || colors.surfaceLight}
-                  textColor={colors.text}
-                  size="sm"
-                />
-              </View>
+              <NeoTag
+                key={`${item.name}-${idx}`}
+                label={`${item.categoryEmoji || '🏷️'} ${item.name}: ${formatRupiah(
+                  item.amount
+                )}`}
+                color={type === 'expense' ? colors.expense : colors.income}
+                bgColor={
+                  type === 'expense' ? colors.expenseLight : colors.incomeLight
+                }
+                textColor={
+                  type === 'expense' ? colors.expenseDark : colors.incomeDark
+                }
+                size="sm"
+              />
             ))}
           </View>
         </View>
       )}
 
-      {/* Actions */}
+      {/* Action Buttons */}
       <View style={styles.actionRow}>
         <NeoButton
           title={
-            parsedPreview.length > 0
-              ? `Simpan ${parsedPreview.length} Transaksi`
-              : 'Simpan Catatan'
+            parsedPreview.length > 1
+              ? `${t('finance.saveTransactions', 'Simpan')} (${parsedPreview.length})`
+              : t('finance.saveRecord', 'Simpan Catatan')
           }
-          iconName="checkmark-circle-outline"
-          variant="primary"
+          iconName="checkmark-circle"
+          variant={type === 'expense' ? 'expense' : 'income'}
           size="md"
           loading={loading}
+          disabled={!inputText.trim() || parsedPreview.length === 0}
           onPress={handleSubmit}
           style={styles.submitBtn}
         />
-
         <NeoButton
-          title="Manual"
-          iconName="add-circle-outline"
+          title={t('finance.manualBtn', 'Manual')}
+          iconName="create-outline"
           variant="secondary"
           size="md"
-          onPress={onOpenManualModal}
+          onPress={onOpenManual}
           style={styles.manualBtn}
         />
       </View>
+
+      {/* Modern Alert / Confirmation Dialog */}
+      {alertConfig && (
+        <ConfirmModal
+          visible={Boolean(alertConfig)}
+          onClose={() => setAlertConfig(null)}
+          onConfirm={() => setAlertConfig(null)}
+          title={alertConfig.title}
+          message={alertConfig.message}
+          type={alertConfig.type}
+          confirmText={isIndonesian ? 'Mengerti' : 'Got it'}
+          cancelText={isIndonesian ? 'Tutup' : 'Close'}
+        />
+      )}
     </NeoCard>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 6,
-  },
-  header: {
-    marginBottom: 10,
+    marginVertical: 4,
   },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 8,
+  },
+  titleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
+    flex: 1,
   },
   title: {
-    fontSize: TYPOGRAPHY.size.xs,
+    fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
-  segmented: {
-    marginBottom: 2,
+  segmentedWrapper: {
+    marginBottom: 10,
   },
   inputWrapper: {
-    marginVertical: 4,
+    marginBottom: 8,
   },
   previewContainer: {
+    marginBottom: 10,
     padding: 10,
     borderRadius: 12,
     borderWidth: 1,
-    marginVertical: 6,
   },
   previewHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 6,
   },
-  previewTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
   previewLabel: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   previewTotal: {
-    fontSize: 12,
-    fontWeight: '900',
+    fontSize: 11,
+    fontWeight: '800',
   },
-  previewBadges: {
+  chipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-  },
-  previewItem: {
-    marginRight: 4,
-    marginBottom: 4,
+    gap: 6,
   },
   actionRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
-    marginTop: 6,
   },
   submitBtn: {
-    flex: 2.2,
+    flex: 1,
   },
   manualBtn: {
-    flex: 1.1,
+    width: 95,
   },
 });
 

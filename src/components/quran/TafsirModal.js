@@ -6,19 +6,20 @@ import {
   ActivityIndicator,
   Share,
   Platform,
-  Pressable,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../../theme/colors';
 import { TYPOGRAPHY } from '../../theme/typography';
 import { NeoModal } from '../neo/NeoModal';
 import { NeoButton } from '../neo/NeoButton';
 import { useTheme } from '../../stores/themeStore';
+import { useLanguage } from '../../stores/languageStore';
 import { fetchTafsir } from '../../services/quranApi';
 import { SURAH_DATA } from '../../utils/surahData';
 
 export const TafsirModal = ({ visible, onClose, ayah }) => {
   const { colors } = useTheme();
+  const { currentLanguage, isIndonesian, t } = useLanguage();
   const [tafsirData, setTafsirData] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -26,13 +27,13 @@ export const TafsirModal = ({ visible, onClose, ayah }) => {
     if (visible && ayah) {
       loadTafsir();
     }
-  }, [visible, ayah?.surah, ayah?.ayah]);
+  }, [visible, ayah?.surah, ayah?.ayah, currentLanguage]);
 
   const loadTafsir = async () => {
     if (!ayah) return;
     setLoading(true);
     try {
-      const data = await fetchTafsir(ayah.surah, ayah.ayah);
+      const data = await fetchTafsir(ayah.surah, ayah.ayah, currentLanguage);
       setTafsirData(data);
     } catch (e) {
       console.log('Error in TafsirModal:', e);
@@ -47,13 +48,14 @@ export const TafsirModal = ({ visible, onClose, ayah }) => {
     ayah?.surah_name ||
     surahMeta.name_latin ||
     tafsirData?.surahName ||
-    (ayah?.surah ? `Surah ke-${ayah.surah}` : 'Al-Quran');
+    (ayah?.surah ? `Surah ke-${ayah.surah}` : t('quran.surahDefault', 'Al-Quran'));
   const ayahNum = ayah?.ayah || 1;
+  const tafsirSourceShort = isIndonesian ? 'Kemenag RI' : 'Ibn Kathir';
 
   const handleShareTafsir = async () => {
     if (!ayah || !tafsirData) return;
 
-    const message = `📖 *Tafsir QS. ${surahName} (${ayah.surah}:${ayahNum})*\n\n"${ayah.translation}"\n\n*Tafsir (Kemenag RI):*\n${tafsirData.text}\n\n_Dibagikan dari aplikasi DalAy (Daily Ayah)_`;
+    const message = `📖 *Tafsir QS. ${surahName} (${ayah.surah}:${ayahNum})*\n\n"${ayah.translation}"\n\n*Tafsir (${tafsirData.source}):*\n${tafsirData.text}\n\n_${t('quran.sharedFrom', 'Dibagikan dari aplikasi DalAy (Daily Ayah)')}_`;
 
     try {
       if (Platform.OS === 'web' && navigator.share) {
@@ -76,153 +78,217 @@ export const TafsirModal = ({ visible, onClose, ayah }) => {
     <NeoModal
       visible={visible}
       onClose={onClose}
-      title={`Tafsir QS. ${surahName}`}
-      subtitle={`Ayat ke-${ayahNum} • Kemenag RI`}
-      maxHeight="88%"
+      title={`${t('modal.tafsirTitle', 'Tafsir QS.')} ${surahName}`}
+      subtitle={`${t('quran.ayahSingular', 'Ayat')} ${ayahNum} • ${tafsirSourceShort}`}
+      footer={
+        <View style={styles.footerRow}>
+          <NeoButton
+            title={t('quran.shareAyah', 'Bagikan')}
+            iconName="share-social-outline"
+            variant="secondary"
+            onPress={handleShareTafsir}
+            style={styles.shareBtn}
+          />
+          <NeoButton
+            title={t('modal.close', 'Tutup')}
+            variant="primary"
+            onPress={onClose}
+            style={styles.closeBtn}
+          />
+        </View>
+      }
     >
-      {/* Ayah Brief Card */}
+      {/* Ayah Snippet Banner */}
       <View
         style={[
-          styles.verseBox,
+          styles.snippetBox,
           {
             backgroundColor: colors.surfaceLight,
             borderColor: colors.border,
           },
         ]}
       >
-        <Text style={[styles.arabicVerse, { color: colors.text }]}>{ayah.arab}</Text>
-        <Text style={[styles.translationText, { color: colors.textSecondary }]}>
+        <View style={styles.snippetHeader}>
+          <View style={styles.snippetTitleRow}>
+            <Ionicons name="book" size={13} color={colors.primary} />
+            <Text style={[styles.snippetLabel, { color: colors.primaryDark }]}>
+              QS. {surahName} : {ayahNum}
+            </Text>
+          </View>
+          <Text style={[styles.snippetArabName, { color: colors.primary }]}>
+            {ayah.surahNameArab || surahMeta.name || ''}
+          </Text>
+        </View>
+
+        {ayah.arab && (
+          <Text style={[styles.snippetArabText, { color: colors.text }]}>
+            {ayah.arab}
+          </Text>
+        )}
+
+        <Text style={[styles.snippetTranslation, { color: colors.textSecondary }]}>
           "{ayah.translation}"
         </Text>
       </View>
 
-      {/* Tafsir Content */}
-      <View style={styles.tafsirContainer}>
-        <View style={styles.tafsirHeader}>
-          <View style={styles.tafsirHeaderLeft}>
-            <Ionicons name="book" size={16} color={colors.primary} />
-            <Text style={[styles.tafsirSourceTitle, { color: colors.primaryDark }]}>
-              Tafsir Lengkap (Kemenag RI)
-            </Text>
-          </View>
-          <Pressable
-            onPress={handleShareTafsir}
-            style={({ pressed }) => [
-              styles.shareIconBtn,
-              { borderColor: colors.border },
-              pressed && styles.pressed,
-            ]}
+      {/* Tafsir Commentary Section Header */}
+      <View style={styles.tafsirHeaderRow}>
+        <View style={styles.tafsirTitleLeft}>
+          <Ionicons name="newspaper-outline" size={15} color={colors.primary} />
+          <Text
+            style={[styles.tafsirSectionTitle, { color: colors.text }]}
+            numberOfLines={1}
           >
-            <Ionicons name="share-social-outline" size={15} color={colors.text} />
-          </Pressable>
+            {isIndonesian ? 'Penjelasan Tafsir' : 'Tafsir Commentary'}
+          </Text>
         </View>
 
-        {loading ? (
-          <View style={styles.loadingBox}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-              Memuat penjelasan tafsir...
-            </Text>
-          </View>
-        ) : (
-          <View style={styles.textBox}>
-            <Text style={[styles.tafsirText, { color: colors.text }]}>
-              {tafsirData?.text || 'Tafsir belum tersedia.'}
-            </Text>
-          </View>
-        )}
+        <View
+          style={[
+            styles.sourceBadge,
+            {
+              backgroundColor: colors.primaryLight,
+              borderColor: colors.primary,
+            },
+          ]}
+        >
+          <Text style={[styles.sourceText, { color: colors.primaryDark }]}>
+            {tafsirSourceShort}
+          </Text>
+        </View>
       </View>
 
-      {/* Footer Close Button */}
-      <View style={styles.footerAction}>
-        <NeoButton
-          title="Tutup Tafsir"
-          variant="primary"
-          size="md"
-          onPress={onClose}
-          style={styles.closeFullBtn}
-        />
-      </View>
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+            {t('modal.tafsirLoading', 'Memuat penjelasan tafsir...')}
+          </Text>
+        </View>
+      ) : (
+        <View
+          style={[
+            styles.contentContainer,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.tafsirBody,
+              { color: colors.text },
+            ]}
+          >
+            {tafsirData?.text}
+          </Text>
+        </View>
+      )}
     </NeoModal>
   );
 };
 
 const styles = StyleSheet.create({
-  verseBox: {
-    padding: 14,
+  snippetBox: {
+    padding: 12,
     borderRadius: 14,
     borderWidth: 1,
     marginBottom: 14,
   },
-  arabicVerse: {
-    fontSize: 20,
-    lineHeight: 38,
-    textAlign: 'right',
-    fontWeight: '600',
-    fontFamily: Platform.OS === 'ios' ? 'Geeza Pro' : 'serif',
-    marginBottom: 8,
-  },
-  translationText: {
-    fontSize: 12,
-    lineHeight: 19,
-    fontStyle: 'italic',
-  },
-  tafsirContainer: {
-    marginBottom: 10,
-  },
-  tafsirHeader: {
+  snippetHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 6,
   },
-  tafsirHeaderLeft: {
+  snippetTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  snippetLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  snippetArabName: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  snippetArabText: {
+    fontSize: 18,
+    lineHeight: 34,
+    textAlign: 'right',
+    fontWeight: '600',
+    marginVertical: 4,
+  },
+  snippetTranslation: {
+    fontSize: 12,
+    lineHeight: 19,
+    fontStyle: 'italic',
+    marginTop: 4,
+  },
+  tafsirHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+    gap: 8,
+  },
+  tafsirTitleLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    flex: 1,
   },
-  tafsirSourceTitle: {
-    fontSize: TYPOGRAPHY.size.xs,
+  tafsirSectionTitle: {
+    fontSize: 12,
     fontWeight: '800',
-    letterSpacing: 0.2,
+    letterSpacing: 0.3,
   },
-  shareIconBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
+  sourceBadge: {
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 7,
     borderWidth: 1,
-    backgroundColor: '#FFFFFF',
+    flexShrink: 0,
   },
-  pressed: {
-    opacity: 0.7,
+  sourceText: {
+    fontSize: 10,
+    fontWeight: '800',
   },
-  loadingBox: {
-    paddingVertical: 36,
+  loadingContainer: {
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 40,
+    gap: 12,
   },
   loadingText: {
     fontSize: TYPOGRAPHY.size.xs,
-    marginTop: 10,
     fontWeight: '600',
   },
-  textBox: {
-    paddingVertical: 4,
+  contentContainer: {
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 6,
   },
-  tafsirText: {
-    fontSize: TYPOGRAPHY.size.sm,
-    lineHeight: 25,
-    fontWeight: '400',
+  tafsirBody: {
+    fontSize: 13.5,
+    lineHeight: 23,
+    letterSpacing: 0.1,
   },
-  footerAction: {
-    marginTop: 12,
-    paddingTop: 8,
-  },
-  closeFullBtn: {
+  footerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
     width: '100%',
-    marginVertical: 0,
+  },
+  shareBtn: {
+    flex: 1,
+  },
+  closeBtn: {
+    flex: 1,
   },
 });
 

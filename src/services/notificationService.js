@@ -12,7 +12,8 @@ import { AndroidImportance } from 'expo-notifications/build/NotificationChannelM
 import { getRandomSurahAyah } from '../utils/surahData';
 import { fetchAyah } from './quranApi';
 
-const SETTINGS_KEY = '@quranku_reminder_settings';
+const SETTINGS_KEY = '@dalay_reminder_settings';
+const CHANNEL_ID = 'dalay-reminder';
 
 // Configure notification behavior safely
 try {
@@ -40,7 +41,7 @@ export const REMINDER_INTERVALS = [
 ];
 
 /**
- * Request notification permissions
+ * Request notification permissions and register notification channel
  */
 export const requestNotificationPermission = async () => {
   if (Platform.OS === 'web') return false;
@@ -56,7 +57,7 @@ export const requestNotificationPermission = async () => {
 
     if (Platform.OS === 'android') {
       try {
-        await setNotificationChannelAsync('quranku-reminder', {
+        await setNotificationChannelAsync(CHANNEL_ID, {
           name: 'DalAy Reminders',
           importance: AndroidImportance.HIGH,
           vibrationPattern: [0, 250, 250, 250],
@@ -76,13 +77,13 @@ export const requestNotificationPermission = async () => {
 };
 
 /**
- * Schedule recurring Quran Reminder
+ * Schedule recurring Quran Reminder (compatible with Expo SDK 57)
  */
 export const scheduleQuranReminder = async (intervalId = '4h') => {
   try {
     const hasPermission = await requestNotificationPermission();
     if (!hasPermission) {
-      return { success: false, message: 'Izin notifikasi belum diberikan.' };
+      return { success: false, message: 'Izin notifikasi belum diaktifkan di HP Anda.' };
     }
 
     // Cancel all previous scheduled notifications first
@@ -94,18 +95,20 @@ export const scheduleQuranReminder = async (intervalId = '4h') => {
       REMINDER_INTERVALS.find((i) => i.id === intervalId) || REMINDER_INTERVALS[2];
     const { surah, ayah, surahInfo } = getRandomSurahAyah();
 
-    // Schedule next notification with timer trigger
+    // Schedule next notification with SDK 57 compatible trigger
     const notificationId = await scheduleNotificationAsync({
       content: {
         title: `📖 Ayat Hari Ini: ${surahInfo.name_latin} : ${ayah}`,
         body: `Ketuk untuk membaca & merenungkan ayat Al-Quran.`,
         data: { surah, ayah },
         sound: true,
-        channelId: 'quranku-reminder',
+        channelId: CHANNEL_ID,
       },
       trigger: {
+        type: 'timeInterval',
         seconds: selectedInterval.seconds,
         repeats: true,
+        channelId: CHANNEL_ID,
       },
     });
 
@@ -148,13 +151,13 @@ export const cancelAllReminders = async () => {
 };
 
 /**
- * Trigger immediate test notification
+ * Trigger immediate test notification (compatible with Expo SDK 57)
  */
 export const triggerTestNotification = async () => {
   try {
     const hasPermission = await requestNotificationPermission();
     if (!hasPermission) {
-      return { success: false, message: 'Izin notifikasi diperlukan.' };
+      return { success: false, message: 'Izin notifikasi diperlukan. Silakan aktifkan izin notifikasi di Pengaturan HP.' };
     }
 
     const { surah, ayah, surahInfo } = getRandomSurahAyah();
@@ -168,9 +171,14 @@ export const triggerTestNotification = async () => {
           : 'Ketuk untuk membaca ayat selengkapnya.',
         data: { surah, ayah },
         sound: true,
-        channelId: 'quranku-reminder',
+        channelId: CHANNEL_ID,
       },
-      trigger: null, // trigger immediately
+      trigger: {
+        type: 'timeInterval',
+        seconds: 1,
+        repeats: false,
+        channelId: CHANNEL_ID,
+      },
     });
 
     return { success: true, surahInfo, ayah };

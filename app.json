@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "DalAy - Daily Ayah",
+    "name": "DalAy",
     "slug": "dalay",
     "version": "1.0.0",
     "orientation": "default",
@@ -12,14 +12,18 @@
     "android": {
       "package": "com.kallkun.dalay",
       "adaptiveIcon": {
-        "backgroundColor": "#F8FAFC",
+        "backgroundColor": "#042F2E",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png"
       },
       "permissions": [
         "RECEIVE_BOOT_COMPLETED",
         "SCHEDULE_EXACT_ALARM",
-        "POST_NOTIFICATIONS"
+        "POST_NOTIFICATIONS",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
       ]
     },
     "web": {
@@ -37,6 +41,11 @@
       "expo-audio",
       "expo-font",
       "expo-asset"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "e758e0c2-5e79-4028-9047-f04492a5d4cc"
+      }
+    }
   }
 }

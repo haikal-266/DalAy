@@ -3,13 +3,15 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import { fetchAyah, fetchRandomAyah, getLastOrInitialAyah } from '../services/quranApi';
+import { useLanguage } from './languageStore';
 
-const STORAGE_KEY_FAVORITES = '@quranku_favorites';
-const STORAGE_KEY_HISTORY = '@quranku_ayat_history';
+const STORAGE_KEY_FAVORITES = '@dalay_favorites';
+const STORAGE_KEY_HISTORY = '@dalay_ayat_history';
 
 const QuranContext = createContext(null);
 
 export const QuranProvider = ({ children }) => {
+  const { currentLanguage } = useLanguage();
   const [currentAyah, setCurrentAyah] = useState(null);
   const [favorites, setFavorites] = useState([]);
   const [history, setHistory] = useState([]);
@@ -46,6 +48,15 @@ export const QuranProvider = ({ children }) => {
     };
   }, []);
 
+  // Update current ayah translation when language changes
+  useEffect(() => {
+    if (currentAyah?.surah && currentAyah?.ayah) {
+      fetchAyah(currentAyah.surah, currentAyah.ayah, currentLanguage).then((updated) => {
+        if (updated) setCurrentAyah(updated);
+      });
+    }
+  }, [currentLanguage]);
+
   const loadInitialData = async () => {
     setLoading(true);
     try {
@@ -58,8 +69,8 @@ export const QuranProvider = ({ children }) => {
       if (rawFavs) setFavorites(JSON.parse(rawFavs));
       if (rawHist) setHistory(JSON.parse(rawHist));
 
-      // Load initial ayah (last viewed or sample)
-      const initial = await getLastOrInitialAyah();
+      // Load initial ayah in current language
+      const initial = await getLastOrInitialAyah(currentLanguage);
       setCurrentAyah(initial);
     } catch (e) {
       console.log('Error loading initial quran data:', e);
@@ -75,7 +86,7 @@ export const QuranProvider = ({ children }) => {
     setLoading(true);
     await stopAudio();
     try {
-      const ayah = await fetchRandomAyah();
+      const ayah = await fetchRandomAyah(currentLanguage);
       setCurrentAyah(ayah);
       await addToHistory(ayah);
       return ayah;
@@ -93,7 +104,7 @@ export const QuranProvider = ({ children }) => {
     setLoading(true);
     await stopAudio();
     try {
-      const ayah = await fetchAyah(surahNumber, ayahNumber);
+      const ayah = await fetchAyah(surahNumber, ayahNumber, currentLanguage);
       setCurrentAyah(ayah);
       await addToHistory(ayah);
       return ayah;
@@ -144,24 +155,16 @@ export const QuranProvider = ({ children }) => {
   const addToHistory = async (ayah) => {
     if (!ayah) return;
     try {
-      // Remove duplicate if exists and put at beginning
       const filtered = history.filter(
         (h) => !(h.surah === ayah.surah && h.ayah === ayah.ayah)
       );
-
       const updated = [
-        {
-          ...ayah,
-          readAt: new Date().toISOString(),
-        },
-        ...filtered.slice(0, 49), // Keep maximum 50 history entries
+        { ...ayah, readAt: new Date().toISOString() },
+        ...filtered.slice(0, 49), // Keep max 50 recent items
       ];
-
       setHistory(updated);
       await AsyncStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(updated));
-    } catch (e) {
-      // ignore
-    }
+    } catch (e) {}
   };
 
   const clearHistory = async () => {
@@ -169,7 +172,9 @@ export const QuranProvider = ({ children }) => {
     await AsyncStorage.removeItem(STORAGE_KEY_HISTORY);
   };
 
-  // Audio Playback
+  /**
+   * Audio Playback Controls
+   */
   const togglePlayAudio = async () => {
     if (isPlayingAudio) {
       await stopAudio();
@@ -185,7 +190,7 @@ export const QuranProvider = ({ children }) => {
       setAudioLoading(true);
       await stopAudio();
 
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      if (Platform.OS === 'web') {
         const audio = new window.Audio(currentAyah.audio);
         webAudioRef.current = audio;
 
@@ -193,12 +198,10 @@ export const QuranProvider = ({ children }) => {
           setIsPlayingAudio(true);
           setAudioLoading(false);
         };
-
         audio.onended = () => {
           setIsPlayingAudio(false);
           webAudioRef.current = null;
         };
-
         audio.onerror = (e) => {
           console.log('Web Audio error:', e);
           setIsPlayingAudio(false);
@@ -211,14 +214,12 @@ export const QuranProvider = ({ children }) => {
         return;
       }
 
-      // Native Mobile via expo-audio (SDK 57)
+      // Native mobile audio playback (Expo Audio SDK 57)
       try {
         await setAudioModeAsync({
           playsInSilentMode: true,
         });
-      } catch (modeErr) {
-        // ignore mode configuration errors
-      }
+      } catch (err) {}
 
       const player = createAudioPlayer(currentAyah.audio);
       soundRef.current = player;
@@ -240,10 +241,11 @@ export const QuranProvider = ({ children }) => {
       if (typeof player.play === 'function') {
         player.play();
       }
+
       setIsPlayingAudio(true);
       setAudioLoading(false);
-    } catch (e) {
-      console.log('Audio playback error:', e);
+    } catch (error) {
+      console.log('Audio playback error:', error);
       setAudioLoading(false);
       setIsPlayingAudio(false);
     }
@@ -266,14 +268,13 @@ export const QuranProvider = ({ children }) => {
         soundRef.current = null;
       }
     } catch (e) {
-      // ignore
     } finally {
       setIsPlayingAudio(false);
       setAudioLoading(false);
     }
   };
 
-  const contextValue = useMemo(
+  const value = useMemo(
     () => ({
       currentAyah,
       favorites,
@@ -288,21 +289,10 @@ export const QuranProvider = ({ children }) => {
       clearHistory,
       togglePlayAudio,
     }),
-    [
-      currentAyah,
-      favorites,
-      history,
-      loading,
-      isPlayingAudio,
-      audioLoading,
-    ]
+    [currentAyah, favorites, history, loading, isPlayingAudio, audioLoading]
   );
 
-  return (
-    <QuranContext.Provider value={contextValue}>
-      {children}
-    </QuranContext.Provider>
-  );
+  return <QuranContext.Provider value={value}>{children}</QuranContext.Provider>;
 };
 
 export const useQuran = () => {

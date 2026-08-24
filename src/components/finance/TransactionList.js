@@ -6,18 +6,20 @@ import { TransactionCard } from './TransactionCard';
 import { NeoInput } from '../neo/NeoInput';
 import { NeoSegmented } from '../neo/NeoSegmented';
 import { useTheme } from '../../stores/themeStore';
-import { getRelativeDateLabel } from '../../utils/formatters';
+import { useLanguage } from '../../stores/languageStore';
+import { getRelativeDateLabel, formatRupiah } from '../../utils/formatters';
 
 export const TransactionList = ({
   transactions = [],
   searchQuery = '',
-  onSearchChange,
+  setSearchQuery,
   typeFilter = 'all',
-  onTypeFilterChange,
-  onEditTransaction,
-  onDeleteTransaction,
+  setTypeFilter,
+  onEdit,
+  onDelete,
 }) => {
   const { colors } = useTheme();
+  const { t } = useLanguage();
 
   // Group transactions by date
   const groupedTransactions = useMemo(() => {
@@ -50,31 +52,31 @@ export const TransactionList = ({
       {/* Search & Filter Header */}
       <View style={styles.filterSection}>
         <NeoInput
-          placeholder="Cari transaksi (nama, kategori, nominal)..."
+          placeholder={t('finance.searchPlaceholder', 'Cari transaksi (nama, kategori, nominal)...')}
           value={searchQuery}
-          onChangeText={onSearchChange}
+          onChangeText={setSearchQuery}
           leftIconName="search-outline"
           style={styles.searchInput}
         />
 
         <NeoSegmented
           options={[
-            { label: 'Semua', value: 'all' },
+            { label: t('finance.allTypes', 'Semua'), value: 'all' },
             {
-              label: 'Pengeluaran',
+              label: t('finance.expense', 'Pengeluaran'),
               value: 'expense',
               iconName: 'arrow-up',
               activeColor: colors.expense,
             },
             {
-              label: 'Pemasukan',
+              label: t('finance.income', 'Pemasukan'),
               value: 'income',
               iconName: 'arrow-down',
               activeColor: colors.income,
             },
           ]}
           selectedValue={typeFilter}
-          onSelect={onTypeFilterChange}
+          onSelect={setTypeFilter}
           style={styles.typeSegmented}
         />
       </View>
@@ -99,12 +101,14 @@ export const TransactionList = ({
             <Ionicons name="receipt-outline" size={32} color={colors.textSubtle} />
           </View>
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
-            {searchQuery ? 'Tidak Ada Hasil' : 'Belum Ada Riwayat Transaksi'}
+            {searchQuery
+              ? t('finance.noResults', 'Tidak Ada Hasil')
+              : t('finance.noTransactions', 'Belum Ada Transaksi')}
           </Text>
           <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
             {searchQuery
-              ? `Tidak ada transaksi yang cocok dengan "${searchQuery}"`
-              : 'Catat pengeluaran atau pemasukan pertama Anda melalui kolom input cepat di atas.'}
+              ? `${t('finance.noResultsDesc', 'Tidak ada transaksi yang cocok dengan')} "${searchQuery}"`
+              : t('finance.noHistoryDesc', 'Catat pengeluaran atau pemasukan pertama Anda melalui kolom input cepat di atas.')}
           </Text>
         </View>
       ) : (
@@ -118,29 +122,25 @@ export const TransactionList = ({
                 </Text>
                 <View style={styles.dateTotals}>
                   {group.totalIncome > 0 && (
-                    <Text
-                      style={[styles.dateIncomeText, { color: colors.incomeDark }]}
-                    >
-                      +{group.totalIncome.toLocaleString('id-ID')}
+                    <Text style={[styles.groupIncome, { color: colors.incomeDark }]}>
+                      +{formatRupiah(group.totalIncome)}
                     </Text>
                   )}
                   {group.totalExpense > 0 && (
-                    <Text
-                      style={[styles.dateExpenseText, { color: colors.expenseDark }]}
-                    >
-                      -{group.totalExpense.toLocaleString('id-ID')}
+                    <Text style={[styles.groupExpense, { color: colors.expenseDark }]}>
+                      -{formatRupiah(group.totalExpense)}
                     </Text>
                   )}
                 </View>
               </View>
 
-              {/* Transactions in Date */}
+              {/* Transactions in Group */}
               {group.items.map((tx) => (
                 <TransactionCard
                   key={tx.id}
                   transaction={tx}
-                  onEdit={onEditTransaction}
-                  onDelete={onDeleteTransaction}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
                 />
               ))}
             </View>
@@ -157,70 +157,73 @@ const styles = StyleSheet.create({
   },
   filterSection: {
     marginBottom: 8,
+    gap: 8,
   },
   searchInput: {
-    marginVertical: 4,
+    marginBottom: 0,
   },
   typeSegmented: {
-    marginVertical: 4,
-  },
-  emptyState: {
-    paddingVertical: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 16,
-    borderWidth: 1,
-    marginTop: 6,
-  },
-  emptyIconCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  emptyTitle: {
-    fontSize: TYPOGRAPHY.size.md,
-    fontWeight: '800',
-    marginBottom: 4,
-  },
-  emptySubtitle: {
-    fontSize: TYPOGRAPHY.size.xs,
-    textAlign: 'center',
-    paddingHorizontal: 28,
-    lineHeight: 18,
+    alignSelf: 'stretch',
   },
   groupsContainer: {
-    marginTop: 4,
+    gap: 12,
   },
   groupWrapper: {
-    marginBottom: 14,
+    marginBottom: 4,
   },
   dateHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 4,
-    paddingVertical: 6,
-    marginBottom: 2,
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+    marginBottom: 4,
   },
   dateLabel: {
-    fontSize: TYPOGRAPHY.size.xs,
+    fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.3,
   },
   dateTotals: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
-  dateIncomeText: {
+  groupIncome: {
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '700',
   },
-  dateExpenseText: {
+  groupExpense: {
     fontSize: 11,
+    fontWeight: '700',
+  },
+  emptyState: {
+    padding: 32,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 12,
+  },
+  emptyIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  emptyTitle: {
+    fontSize: TYPOGRAPHY.size.md,
     fontWeight: '800',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
+    maxWidth: 280,
   },
 });
 

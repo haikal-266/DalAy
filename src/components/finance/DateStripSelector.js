@@ -2,22 +2,32 @@ import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../stores/themeStore';
+import { useLanguage } from '../../stores/languageStore';
 import { CalendarDatePickerModal } from './CalendarDatePickerModal';
 
-const DAYS_SHORT = ['MIN', 'SEN', 'SEL', 'RAB', 'KAM', 'JUM', 'SAB'];
-const MONTHS_SHORT = [
+const DAYS_SHORT_ID = ['MIN', 'SEN', 'SEL', 'RAB', 'KAM', 'JUM', 'SAB'];
+const DAYS_SHORT_EN = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+
+const MONTHS_SHORT_ID = [
   'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
   'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'
 ];
-const DAYS_FULL = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-const MONTHS_FULL = [
-  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+const MONTHS_SHORT_EN = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
 ];
+
+const DAYS_FULL_ID = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+const DAYS_FULL_EN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 export const DateStripSelector = ({ selectedDate, onSelectDate }) => {
   const { colors } = useTheme();
+  const { isIndonesian, t } = useLanguage();
   const [calendarModalVisible, setCalendarModalVisible] = useState(false);
+
+  const daysShort = isIndonesian ? DAYS_SHORT_ID : DAYS_SHORT_EN;
+  const monthsShort = isIndonesian ? MONTHS_SHORT_ID : MONTHS_SHORT_EN;
+  const daysFull = isIndonesian ? DAYS_FULL_ID : DAYS_FULL_EN;
 
   // Generate -4 to +3 days around selected date for smooth sliding
   const dateList = useMemo(() => {
@@ -54,15 +64,15 @@ export const DateStripSelector = ({ selectedDate, onSelectDate }) => {
     target.setHours(0, 0, 0, 0);
 
     const diffDays = Math.round((target - today) / (1000 * 60 * 60 * 24));
-    const dayName = DAYS_FULL[d.getDay()];
+    const dayName = daysFull[d.getDay()];
     const dateNum = d.getDate();
-    const monthName = MONTHS_SHORT[d.getMonth()];
+    const monthName = monthsShort[d.getMonth()];
 
-    if (diffDays === 0) return `Hari Ini • ${dayName}, ${dateNum} ${monthName}`;
-    if (diffDays === -1) return `Kemarin • ${dayName}, ${dateNum} ${monthName}`;
-    if (diffDays === 1) return `Besok • ${dayName}, ${dateNum} ${monthName}`;
-    if (diffDays < 0) return `${Math.abs(diffDays)} hari lalu • ${dateNum} ${monthName}`;
-    return `${diffDays} hari lagi • ${dateNum} ${monthName}`;
+    if (diffDays === 0) return `${t('finance.today', 'Hari Ini')} • ${dayName}, ${dateNum} ${monthName}`;
+    if (diffDays === -1) return `${t('finance.yesterday', 'Kemarin')} • ${dayName}, ${dateNum} ${monthName}`;
+    if (diffDays === 1) return `${t('finance.tomorrow', 'Besok')} • ${dayName}, ${dateNum} ${monthName}`;
+    if (diffDays < 0) return `${Math.abs(diffDays)} ${t('finance.daysAgo', 'hari lalu')} • ${dateNum} ${monthName}`;
+    return `${diffDays} ${t('finance.daysLater', 'hari lagi')} • ${dateNum} ${monthName}`;
   };
 
   return (
@@ -86,7 +96,7 @@ export const DateStripSelector = ({ selectedDate, onSelectDate }) => {
             ]}
           >
             <Text style={[styles.resetTodayText, { color: colors.primaryDark }]}>
-              Hari Ini
+              {t('finance.backToToday', 'Hari Ini')}
             </Text>
           </Pressable>
         )}
@@ -99,67 +109,69 @@ export const DateStripSelector = ({ selectedDate, onSelectDate }) => {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.scrollStrip}
         >
-          {dateList.map((d, index) => {
-            const isSelected = isSameDay(d, selectedDate);
-            const isCurrentDay = isToday(d);
+          {dateList.map((itemDate) => {
+            const isSelected = isSameDay(itemDate, selectedDate);
+            const isCurrentToday = isToday(itemDate);
+            const dayName = daysShort[itemDate.getDay()];
+            const dayNum = itemDate.getDate();
 
             return (
               <Pressable
-                key={`${d.toISOString()}_${index}`}
-                onPress={() => onSelectDate(d)}
+                key={itemDate.toISOString()}
+                onPress={() => onSelectDate(itemDate)}
                 style={({ pressed }) => [
-                  styles.datePill,
+                  styles.pill,
                   {
                     backgroundColor: isSelected
                       ? colors.primary
-                      : isCurrentDay
-                      ? colors.primarySurface
                       : colors.surface,
                     borderColor: isSelected
+                      ? colors.primaryDark
+                      : isCurrentToday
                       ? colors.primary
-                      : isCurrentDay
-                      ? colors.primaryLight
                       : colors.border,
                   },
-                  isSelected && styles.datePillSelected,
-                  pressed && styles.pressed,
+                  isSelected && styles.pillSelected,
+                  isCurrentToday && !isSelected && styles.pillToday,
+                  pressed && styles.pillPressed,
                 ]}
               >
                 <Text
                   style={[
-                    styles.dayText,
+                    styles.pillDayName,
                     {
                       color: isSelected
                         ? '#FFFFFF'
-                        : isCurrentDay
-                        ? colors.primaryDark
+                        : isCurrentToday
+                        ? colors.primary
                         : colors.textMuted,
+                      fontWeight: isSelected || isCurrentToday ? '800' : '600',
                     },
                   ]}
                 >
-                  {DAYS_SHORT[d.getDay()]}
+                  {dayName}
                 </Text>
-
                 <Text
                   style={[
-                    styles.numText,
+                    styles.pillDayNum,
                     {
                       color: isSelected
                         ? '#FFFFFF'
-                        : isCurrentDay
+                        : isCurrentToday
                         ? colors.primaryDark
                         : colors.text,
+                      fontWeight: isSelected ? '900' : '700',
                     },
                   ]}
                 >
-                  {d.getDate()}
+                  {dayNum}
                 </Text>
               </Pressable>
             );
           })}
         </ScrollView>
 
-        {/* Calendar Picker Modal Trigger Button */}
+        {/* Compact Calendar Modal Launcher */}
         <Pressable
           onPress={() => setCalendarModalVisible(true)}
           style={({ pressed }) => [
@@ -168,20 +180,20 @@ export const DateStripSelector = ({ selectedDate, onSelectDate }) => {
               backgroundColor: colors.surface,
               borderColor: colors.border,
             },
-            pressed && styles.pressed,
+            pressed && styles.calendarBtnPressed,
           ]}
-          accessibilityLabel="Buka Kalender Pemilih Tanggal"
+          accessibilityLabel={t('modal.selectDate', 'Pilih Tanggal')}
         >
           <Ionicons name="calendar" size={17} color={colors.primary} />
         </Pressable>
       </View>
 
-      {/* Interactive Month Grid Calendar Modal */}
+      {/* Monthly Interactive Calendar Modal */}
       <CalendarDatePickerModal
         visible={calendarModalVisible}
         onClose={() => setCalendarModalVisible(false)}
         selectedDate={selectedDate}
-        onSelectDate={onSelectDate}
+        onSelectDate={(d) => onSelectDate(d)}
       />
     </View>
   );
@@ -190,13 +202,12 @@ export const DateStripSelector = ({ selectedDate, onSelectDate }) => {
 const styles = StyleSheet.create({
   container: {
     marginVertical: 4,
-    marginBottom: 6,
   },
   topInfoBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 6,
+    marginBottom: 4,
     paddingHorizontal: 2,
   },
   dateLabelRow: {
@@ -207,11 +218,11 @@ const styles = StyleSheet.create({
   },
   dateText: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   resetTodayBtn: {
     paddingVertical: 2,
-    paddingHorizontal: 7,
+    paddingHorizontal: 8,
     borderRadius: 6,
     borderWidth: 1,
   },
@@ -225,46 +236,55 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   scrollStrip: {
-    gap: 6,
+    gap: 5,
     paddingVertical: 2,
   },
-  datePill: {
+  pill: {
     width: 44,
     height: 48,
-    borderRadius: 11,
+    borderRadius: 10,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 2,
   },
-  datePillSelected: {
-    borderWidth: 1.5,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
+  pillSelected: {
     elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
   },
-  pressed: {
-    opacity: 0.8,
-    transform: [{ scale: 0.96 }],
+  pillToday: {
+    borderWidth: 1.5,
   },
-  dayText: {
+  pillPressed: {
+    opacity: 0.7,
+    transform: [{ scale: 0.94 }],
+  },
+  pillDayName: {
     fontSize: 9,
-    fontWeight: '800',
+    marginBottom: 1,
     letterSpacing: 0.2,
   },
-  numText: {
-    fontSize: 15,
-    fontWeight: '900',
-    marginTop: 1,
+  pillDayNum: {
+    fontSize: 13,
   },
   calendarBtn: {
     width: 44,
     height: 48,
-    borderRadius: 11,
+    borderRadius: 10,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  calendarBtnPressed: {
+    opacity: 0.7,
+    transform: [{ scale: 0.94 }],
+  },
+  pressed: {
+    opacity: 0.7,
+    transform: [{ scale: 0.95 }],
   },
 });
 

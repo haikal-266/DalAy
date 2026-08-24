@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { TYPOGRAPHY } from '../theme/typography';
 import { useFinance } from '../stores/financeStore';
 import { useTheme } from '../stores/themeStore';
+import { useLanguage } from '../stores/languageStore';
 import { SummaryCards } from '../components/finance/SummaryCards';
 import { DateStripSelector } from '../components/finance/DateStripSelector';
 import { QuickInputBar } from '../components/finance/QuickInputBar';
@@ -28,6 +29,7 @@ export const FinanceScreen = () => {
   const isTablet = width >= 768;
   const scrollViewRef = useRef(null);
   const { colors } = useTheme();
+  const { t } = useLanguage();
 
   const {
     filteredTransactions,
@@ -80,14 +82,14 @@ export const FinanceScreen = () => {
   const getPeriodLabel = () => {
     switch (periodFilter) {
       case 'today':
-        return 'Hari Ini';
+        return t('finance.today', 'Hari Ini');
       case 'week':
-        return 'Minggu Ini';
+        return t('finance.thisWeek', 'Minggu Ini');
       case 'month':
-        return 'Bulan Ini';
+        return t('finance.thisMonth', 'Bulan Ini');
       case 'all':
       default:
-        return 'Semua Periode';
+        return t('finance.allPeriods', 'Semua Periode');
     }
   };
 
@@ -130,11 +132,11 @@ export const FinanceScreen = () => {
                 />
               </View>
               <Text style={[styles.headerLogo, { color: colors.text }]}>
-                Catatan Keuangan
+                {t('finance.headerTitle', 'Catatan Keuangan')}
               </Text>
             </View>
             <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
-              Pencatatan Cepat & Rekap Otomatis
+              {t('finance.headerSubtitle', 'Pencatatan Cepat & Rekap Otomatis')}
             </Text>
           </View>
 
@@ -144,129 +146,135 @@ export const FinanceScreen = () => {
               style={({ pressed }) => [
                 styles.exportIconBtn,
                 {
-                  backgroundColor: colors.incomeLight,
-                  borderColor: colors.incomeBorder,
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
                 },
                 pressed && styles.exportIconBtnPressed,
               ]}
-              accessibilityLabel="Ekspor Excel"
+              accessibilityLabel={t('finance.exportBtn', 'Ekspor ke Excel')}
             >
               <Ionicons
-                name="download-outline"
-                size={20}
-                color={colors.incomeDark}
+                name="document-text-outline"
+                size={18}
+                color={colors.incomeDark || '#16A34A'}
               />
             </Pressable>
           </View>
         </View>
 
-        {/* Unified Hero Balance Card */}
-        <SummaryCards summary={summary} periodLabel={getPeriodLabel()} />
-
-        {/* Date Strip & Quick Input */}
-        <DateStripSelector
-          selectedDate={selectedInputDate}
-          onSelectDate={setSelectedInputDate}
+        {/* Executive Hero Balance Card */}
+        <SummaryCards
+          summary={summary}
+          periodLabel={getPeriodLabel()}
         />
 
-        <QuickInputBar
-          onAddFromNLP={addFromNaturalLanguage}
-          onFocusInput={handleFocusInput}
+        {/* Date Selector for Logging */}
+        <DateStripSelector
           selectedDate={selectedInputDate}
-          onOpenManualModal={() => {
+          onSelectDate={(d) => setSelectedInputDate(d)}
+        />
+
+        {/* Quick Input Bar */}
+        <QuickInputBar
+          onAdd={addFromNaturalLanguage}
+          onOpenManual={() => {
             setEditingTransaction(null);
             setManualModalVisible(true);
           }}
+          onFocus={handleFocusInput}
+          selectedDate={selectedInputDate}
         />
 
-        {/* For Tablet: 2-column layout; For Mobile: Clean Tab Switcher */}
-        {isTablet ? (
-          <View style={styles.mainLayoutTablet}>
-            <View style={styles.columnTablet}>
-              <PieChartSection
-                categoryStats={categoryStats}
-                periodFilter={periodFilter}
-                onSelectPeriod={setPeriodFilter}
-                typeFilter={typeFilter === 'income' ? 'income' : 'expense'}
-                onSelectType={(newType) => setTypeFilter(newType)}
-              />
-            </View>
-            <View style={styles.columnTablet}>
-              <TransactionList
-                transactions={filteredTransactions}
-                searchQuery={searchQuery}
-                onSearchChange={setSearchQuery}
-                typeFilter={typeFilter}
-                onTypeFilterChange={setTypeFilter}
-                onEditTransaction={handleOpenEdit}
-                onDeleteTransaction={deleteTransaction}
-              />
-            </View>
-          </View>
-        ) : (
-          <View style={styles.mobileSection}>
-            {/* Clean Segmented Toggle */}
+        {/* Clean Segmented View Toggle on Mobile Screen */}
+        {!isTablet && (
+          <View style={styles.viewToggleContainer}>
             <NeoSegmented
               options={[
                 {
-                  label: `Daftar Transaksi (${filteredTransactions.length})`,
                   value: 'list',
-                  iconName: 'receipt-outline',
-                  activeColor: colors.primary,
+                  label: `${t('finance.transactionsListTab', 'Daftar Transaksi')} (${filteredTransactions.length})`,
                 },
                 {
-                  label: 'Statistik & Grafik',
                   value: 'chart',
-                  iconName: 'pie-chart-outline',
-                  activeColor: colors.brandGold || '#D97706',
+                  label: t('finance.statsTab', 'Statistik & Grafik'),
                 },
               ]}
               selectedValue={activeViewTab}
-              onSelect={setActiveViewTab}
-              style={styles.viewToggleSegmented}
+              onValueChange={(val) => setActiveViewTab(val)}
             />
+          </View>
+        )}
 
-            {activeViewTab === 'list' ? (
+        {/* Adaptive Layout (Tablet: Side by Side, Mobile: Tabbed Switcher) */}
+        {isTablet ? (
+          <View style={styles.tabletRow}>
+            <View style={styles.tabletColLeft}>
               <TransactionList
                 transactions={filteredTransactions}
-                searchQuery={searchQuery}
-                onSearchChange={setSearchQuery}
+                periodFilter={periodFilter}
+                setPeriodFilter={setPeriodFilter}
                 typeFilter={typeFilter}
-                onTypeFilterChange={setTypeFilter}
-                onEditTransaction={handleOpenEdit}
-                onDeleteTransaction={deleteTransaction}
+                setTypeFilter={setTypeFilter}
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                onEdit={handleOpenEdit}
+                onDelete={deleteTransaction}
+                onOpenManual={() => {
+                  setEditingTransaction(null);
+                  setManualModalVisible(true);
+                }}
               />
-            ) : (
+            </View>
+            <View style={styles.tabletColRight}>
               <PieChartSection
                 categoryStats={categoryStats}
-                periodFilter={periodFilter}
-                onSelectPeriod={setPeriodFilter}
-                typeFilter={typeFilter === 'income' ? 'income' : 'expense'}
-                onSelectType={(newType) => setTypeFilter(newType)}
+                summary={summary}
               />
-            )}
+            </View>
           </View>
+        ) : activeViewTab === 'list' ? (
+          <TransactionList
+            transactions={filteredTransactions}
+            periodFilter={periodFilter}
+            setPeriodFilter={setPeriodFilter}
+            typeFilter={typeFilter}
+            setTypeFilter={setTypeFilter}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            onEdit={handleOpenEdit}
+            onDelete={deleteTransaction}
+            onOpenManual={() => {
+              setEditingTransaction(null);
+              setManualModalVisible(true);
+            }}
+          />
+        ) : (
+          <PieChartSection
+            categoryStats={categoryStats}
+            summary={summary}
+          />
         )}
       </ScrollView>
 
-      {/* Modals */}
+      {/* Manual Input / Edit Modal */}
       <ManualTransactionModal
         visible={manualModalVisible}
         onClose={() => {
           setManualModalVisible(false);
           setEditingTransaction(null);
         }}
-        initialTransaction={editingTransaction}
         onSave={handleSaveManual}
+        initialData={editingTransaction}
         defaultDate={selectedInputDate}
       />
 
+      {/* Export to Excel Modal */}
       <ExportModal
         visible={exportModalVisible}
         onClose={() => setExportModalVisible(false)}
         transactions={filteredTransactions}
         summary={summary}
-        periodName={getPeriodLabel()}
+        periodLabel={getPeriodLabel()}
       />
     </KeyboardAvoidingView>
   );
@@ -290,7 +298,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
     paddingBottom: 10,
-    paddingTop: 2,
+    paddingTop: 4,
     borderBottomWidth: 1,
   },
   headerLeft: {
@@ -302,25 +310,26 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   logoBadge: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerLogo: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '900',
     letterSpacing: -0.3,
   },
   headerSubtitle: {
     fontSize: TYPOGRAPHY.size.xs,
-    marginTop: 2,
+    marginTop: 3,
     fontWeight: '500',
   },
   headerButtons: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
   },
   exportIconBtn: {
     width: 36,
@@ -329,30 +338,26 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#64748B',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 3,
-    elevation: 1,
   },
   exportIconBtnPressed: {
     opacity: 0.7,
-    transform: [{ scale: 0.95 }],
+    transform: [{ scale: 0.94 }],
   },
-  mainLayoutTablet: {
+  viewToggleContainer: {
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  tabletRow: {
     flexDirection: 'row',
     gap: 16,
+    marginTop: 12,
     alignItems: 'flex-start',
-    marginTop: 8,
   },
-  columnTablet: {
-    flex: 1,
+  tabletColLeft: {
+    flex: 3,
   },
-  mobileSection: {
-    marginTop: 8,
-  },
-  viewToggleSegmented: {
-    marginBottom: 6,
+  tabletColRight: {
+    flex: 2,
   },
 });
 

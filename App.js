@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import { LanguageProvider } from './src/stores/languageStore';
 import { ThemeProvider, useTheme } from './src/stores/themeStore';
 import { QuranProvider } from './src/stores/quranStore';
 import { FinanceProvider } from './src/stores/financeStore';
@@ -51,13 +52,15 @@ const AppContent = () => {
 export default function App() {
   return (
     <SafeAreaProvider>
-      <ThemeProvider>
-        <QuranProvider>
-          <FinanceProvider>
-            <AppContent />
-          </FinanceProvider>
-        </QuranProvider>
-      </ThemeProvider>
+      <LanguageProvider>
+        <ThemeProvider>
+          <QuranProvider>
+            <FinanceProvider>
+              <AppContent />
+            </FinanceProvider>
+          </QuranProvider>
+        </ThemeProvider>
+      </LanguageProvider>
     </SafeAreaProvider>
   );
 }

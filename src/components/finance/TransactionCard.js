@@ -1,116 +1,134 @@
-import React from 'react';
-import { View, Text, StyleSheet, Alert, Pressable } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { TYPOGRAPHY } from '../../theme/typography';
 import { NeoCard } from '../neo/NeoCard';
 import { CategoryIcon } from '../common/CategoryIcon';
+import { ConfirmModal } from '../neo/ConfirmModal';
 import { useTheme } from '../../stores/themeStore';
+import { useLanguage } from '../../stores/languageStore';
 import { formatRupiah, formatTimeIndo } from '../../utils/formatters';
 
 export const TransactionCard = ({ transaction, onEdit, onDelete }) => {
   const { colors } = useTheme();
+  const { isIndonesian, t } = useLanguage();
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+
   const isIncome = transaction.type === 'income';
 
-  const handleDeletePrompt = () => {
-    Alert.alert(
-      'Hapus Transaksi',
-      `Yakin ingin menghapus catatan "${transaction.name}" (${formatRupiah(transaction.amount)})?`,
-      [
-        { text: 'Batal', style: 'cancel' },
-        {
-          text: 'Hapus',
-          style: 'destructive',
-          onPress: () => onDelete(transaction.id),
-        },
-      ]
-    );
-  };
-
   return (
-    <NeoCard
-      variant="white"
-      padding={12}
-      style={styles.card}
-    >
-      <View style={styles.row}>
-        {/* Category Icon Badge */}
-        <CategoryIcon
-          iconName={transaction.iconName || (isIncome ? 'wallet' : 'cube')}
-          iconFamily={transaction.iconFamily || 'Ionicons'}
-          color={transaction.categoryColor || (isIncome ? colors.incomeDark : colors.expenseDark)}
-          bgColor={transaction.categoryBgColor || (isIncome ? colors.incomeLight : colors.expenseLight)}
-          size={18}
-          containerSize={42}
-          borderRadius={12}
-          style={styles.iconBadge}
-        />
+    <>
+      <NeoCard
+        variant="white"
+        padding={12}
+        style={styles.card}
+      >
+        <View style={styles.row}>
+          {/* Category Icon Badge */}
+          <CategoryIcon
+            iconName={transaction.iconName || (isIncome ? 'wallet' : 'cube')}
+            iconFamily={transaction.iconFamily || 'Ionicons'}
+            color={transaction.categoryColor || (isIncome ? colors.incomeDark : colors.expenseDark)}
+            bgColor={transaction.categoryBgColor || (isIncome ? colors.incomeLight : colors.expenseLight)}
+            size={18}
+            containerSize={42}
+            borderRadius={12}
+            style={styles.iconBadge}
+          />
 
-        {/* Info */}
-        <View style={styles.infoCol}>
-          <Text style={[styles.titleText, { color: colors.text }]} numberOfLines={1}>
-            {transaction.name}
-          </Text>
+          {/* Info */}
+          <View style={styles.infoCol}>
+            <Text style={[styles.titleText, { color: colors.text }]} numberOfLines={1}>
+              {transaction.name}
+            </Text>
 
-          <View style={styles.metaRow}>
-            <Text style={[styles.categoryNameText, { color: colors.textSecondary }]}>
-              {transaction.categoryName || 'Lain-lain'}
-            </Text>
-            <Text style={[styles.dotSeparator, { color: colors.textSubtle }]}>•</Text>
-            <Text style={[styles.timeText, { color: colors.textMuted }]}>
-              {formatTimeIndo(transaction.date)}
-            </Text>
+            <View style={styles.metaRow}>
+              <Text style={[styles.categoryNameText, { color: colors.textSecondary }]}>
+                {transaction.categoryName || (isIndonesian ? 'Lain-lain' : 'Other')}
+              </Text>
+              <Text style={[styles.dotSeparator, { color: colors.textSubtle }]}>•</Text>
+              <Text style={[styles.timeText, { color: colors.textMuted }]}>
+                {formatTimeIndo(transaction.date)}
+              </Text>
+            </View>
           </View>
-        </View>
 
-        {/* Amount & Actions */}
-        <View style={styles.amountCol}>
-          <Text
-            style={[
-              styles.amountText,
-              { color: isIncome ? colors.incomeDark : colors.expenseDark },
-            ]}
-          >
-            {isIncome ? '+' : '-'}
-            {formatRupiah(transaction.amount)}
-          </Text>
-
-          <View style={styles.btnRow}>
-            {onEdit && (
-              <Pressable
-                onPress={() => onEdit(transaction)}
-                style={[
-                  styles.actionIconButton,
-                  {
-                    backgroundColor: colors.surfaceLight,
-                    borderColor: colors.border,
-                  },
-                ]}
-              >
-                <Ionicons name="create-outline" size={14} color={colors.textSecondary} />
-              </Pressable>
-            )}
-            <Pressable
-              onPress={handleDeletePrompt}
+          {/* Amount & Actions */}
+          <View style={styles.amountCol}>
+            <Text
               style={[
-                styles.actionIconButton,
-                {
-                  backgroundColor: colors.expenseLight,
-                  borderColor: colors.expenseBorder,
-                },
+                styles.amountText,
+                { color: isIncome ? colors.incomeDark : colors.expenseDark },
               ]}
             >
-              <Ionicons name="trash-outline" size={13} color={colors.expense} />
-            </Pressable>
+              {isIncome ? '+' : '-'}
+              {formatRupiah(transaction.amount)}
+            </Text>
+
+            <View style={styles.btnRow}>
+              {onEdit && (
+                <Pressable
+                  onPress={() => onEdit(transaction)}
+                  style={({ pressed }) => [
+                    styles.actionIconButton,
+                    {
+                      backgroundColor: colors.surfaceLight,
+                      borderColor: colors.border,
+                    },
+                    pressed && styles.btnPressed,
+                  ]}
+                  accessibilityLabel="Edit"
+                >
+                  <Ionicons name="create-outline" size={14} color={colors.textSecondary} />
+                </Pressable>
+              )}
+
+              {onDelete && (
+                <Pressable
+                  onPress={() => setDeleteConfirmVisible(true)}
+                  style={({ pressed }) => [
+                    styles.actionIconButton,
+                    {
+                      backgroundColor: colors.surfaceLight,
+                      borderColor: colors.border,
+                    },
+                    pressed && styles.btnPressed,
+                  ]}
+                  accessibilityLabel="Hapus"
+                >
+                  <Ionicons name="trash-outline" size={14} color={colors.expense} />
+                </Pressable>
+              )}
+            </View>
           </View>
         </View>
-      </View>
-    </NeoCard>
+      </NeoCard>
+
+      {/* Modern Custom Delete Confirmation Dialog */}
+      <ConfirmModal
+        visible={deleteConfirmVisible}
+        onClose={() => setDeleteConfirmVisible(false)}
+        onConfirm={() => {
+          setDeleteConfirmVisible(false);
+          onDelete(transaction.id);
+        }}
+        title={isIndonesian ? 'Hapus Transaksi' : 'Delete Transaction'}
+        message={
+          isIndonesian
+            ? `Yakin ingin menghapus catatan "${transaction.name}" (${formatRupiah(transaction.amount)})?`
+            : `Are you sure you want to delete "${transaction.name}" (${formatRupiah(transaction.amount)})?`
+        }
+        type="danger"
+        confirmText={t('modal.delete', 'Hapus')}
+        cancelText={t('modal.cancel', 'Batal')}
+      />
+    </>
   );
 };
 
 const styles = StyleSheet.create({
   card: {
-    marginVertical: 4,
+    marginVertical: 3,
   },
   row: {
     flexDirection: 'row',
@@ -126,22 +144,23 @@ const styles = StyleSheet.create({
   titleText: {
     fontSize: TYPOGRAPHY.size.sm,
     fontWeight: '800',
+    marginBottom: 2,
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 2,
+    gap: 4,
   },
   categoryNameText: {
     fontSize: 11,
     fontWeight: '600',
   },
   dotSeparator: {
-    marginHorizontal: 4,
     fontSize: 10,
   },
   timeText: {
     fontSize: 11,
+    fontWeight: '500',
   },
   amountCol: {
     alignItems: 'flex-end',
@@ -149,19 +168,24 @@ const styles = StyleSheet.create({
   amountText: {
     fontSize: TYPOGRAPHY.size.sm,
     fontWeight: '900',
+    marginBottom: 4,
   },
   btnRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
-    marginTop: 4,
   },
   actionIconButton: {
-    width: 26,
-    height: 26,
-    borderRadius: 7,
+    width: 28,
+    height: 28,
+    borderRadius: 8,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  btnPressed: {
+    opacity: 0.7,
+    transform: [{ scale: 0.92 }],
   },
 });
 

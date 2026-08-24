@@ -9,12 +9,12 @@ import {
   Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../../theme/colors';
 import { TYPOGRAPHY } from '../../theme/typography';
 import { NeoCard } from '../neo/NeoCard';
 import { NeoButton } from '../neo/NeoButton';
 import { NeoTag } from '../neo/NeoTag';
 import { useTheme } from '../../stores/themeStore';
+import { useLanguage } from '../../stores/languageStore';
 import { SURAH_DATA } from '../../utils/surahData';
 
 export const AyatCard = ({
@@ -30,13 +30,14 @@ export const AyatCard = ({
   onOpenTafsir,
 }) => {
   const { colors } = useTheme();
+  const { t } = useLanguage();
 
   const surahMeta = SURAH_DATA.find((s) => s.number === ayah?.surah) || {};
   const surahName =
     ayah?.surahName ||
     ayah?.surah_name ||
     surahMeta.name_latin ||
-    (ayah?.surah ? `Surah ke-${ayah.surah}` : 'Al-Quran');
+    (ayah?.surah ? `Surah ke-${ayah.surah}` : t('quran.surahDefault', 'Al-Quran'));
   const surahArabName =
     ayah?.surahNameArab || ayah?.surah_name_ar || surahMeta.name || '';
   const ayahNum = ayah?.ayah || 1;
@@ -44,7 +45,7 @@ export const AyatCard = ({
   const handleShare = async () => {
     if (!ayah) return;
 
-    const shareMessage = `📖 *${surahName} (${ayah.surah}:${ayahNum})*\n\n${ayah.arab}\n\n"${ayah.translation}"\n\n_Dibagikan dari aplikasi DalAy (Daily Ayah)_`;
+    const shareMessage = `📖 *${surahName} (${ayah.surah}:${ayahNum})*\n\n${ayah.arab}\n\n"${ayah.translation}"\n\n_${t('quran.sharedFrom', 'Dibagikan dari aplikasi DalAy (Daily Ayah)')}_`;
 
     try {
       if (Platform.OS === 'web' && navigator.share) {
@@ -69,7 +70,7 @@ export const AyatCard = ({
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-            Memuat Ayat Suci Al-Quran...
+            {t('quran.loadingAyah', 'Memuat Ayat Suci Al-Quran...')}
           </Text>
         </View>
       </NeoCard>
@@ -112,7 +113,7 @@ export const AyatCard = ({
                 QS. {surahName}
               </Text>
               <NeoTag
-                label={`Ayat ${ayahNum}`}
+                label={`${t('quran.ayahSingular', 'Ayat')} ${ayahNum}`}
                 color={colors.primary}
                 bgColor={colors.primaryLight}
                 textColor={colors.primaryDark}
@@ -141,7 +142,7 @@ export const AyatCard = ({
         </Text>
       </View>
 
-      {/* Indonesian Translation with Tafsir Trigger Button */}
+      {/* Translation with Tafsir Trigger Button */}
       <View
         style={[
           styles.translationContainer,
@@ -155,7 +156,7 @@ export const AyatCard = ({
           <View style={styles.translationHeaderLeft}>
             <Ionicons name="book-outline" size={13} color={colors.primaryDark} />
             <Text style={[styles.translationLabel, { color: colors.primaryDark }]}>
-              Terjemahan :
+              {t('quran.translationLabel', 'Terjemahan :')}
             </Text>
           </View>
 
@@ -174,7 +175,7 @@ export const AyatCard = ({
           >
             <Ionicons name="newspaper-outline" size={12} color={colors.primaryDark} />
             <Text style={[styles.tafsirBadgeText, { color: colors.primaryDark }]}>
-              Tafsir Ayat
+              {t('quran.tafsirBtn', 'Tafsir Ayat')}
             </Text>
           </Pressable>
         </View>
@@ -189,7 +190,7 @@ export const AyatCard = ({
         {/* Left: Play/Pause Audio Button */}
         <View style={styles.audioBtnWrapper}>
           <NeoButton
-            title={isPlayingAudio ? 'Jeda Audio' : 'Putar Audio'}
+            title={isPlayingAudio ? t('quran.pauseAudio', 'Jeda') : t('quran.playAudio', 'Putar Audio')}
             iconName={isPlayingAudio ? 'pause' : 'volume-high'}
             variant={isPlayingAudio ? 'income' : 'primary'}
             size="sm"
@@ -212,7 +213,7 @@ export const AyatCard = ({
               },
               pressed && styles.iconBtnPressed,
             ]}
-            accessibilityLabel="Lihat Tafsir Ayat"
+            accessibilityLabel={t('quran.tafsirBtn', 'Tafsir')}
           >
             <Ionicons name="newspaper-outline" size={17} color={colors.primaryDark} />
           </Pressable>
@@ -228,7 +229,7 @@ export const AyatCard = ({
               },
               pressed && styles.iconBtnPressed,
             ]}
-            accessibilityLabel="Acak Ayat"
+            accessibilityLabel={t('quran.randomAyah', 'Acak')}
           >
             <Ionicons name="shuffle" size={17} color={colors.text} />
           </Pressable>
@@ -246,7 +247,7 @@ export const AyatCard = ({
                   },
               pressed && styles.iconBtnPressed,
             ]}
-            accessibilityLabel={isFavorite ? 'Hapus dari Tersimpan' : 'Simpan Ayat'}
+            accessibilityLabel={isFavorite ? t('quran.savedAyah', 'Tersimpan') : t('quran.saveAyah', 'Simpan')}
           >
             <Ionicons
               name={isFavorite ? 'heart' : 'heart-outline'}
@@ -266,7 +267,7 @@ export const AyatCard = ({
               },
               pressed && styles.iconBtnPressed,
             ]}
-            accessibilityLabel="Bagikan Ayat"
+            accessibilityLabel={t('quran.shareAyah', 'Bagikan')}
           >
             <Ionicons name="share-social-outline" size={17} color={colors.text} />
           </Pressable>
@@ -278,38 +279,39 @@ export const AyatCard = ({
 
 const styles = StyleSheet.create({
   card: {
-    marginVertical: 8,
-    borderWidth: 1,
+    marginBottom: 8,
   },
   loadingContainer: {
-    paddingVertical: 50,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 36,
+    gap: 12,
   },
   loadingText: {
     fontSize: TYPOGRAPHY.size.sm,
-    fontWeight: '700',
-    marginTop: 12,
+    fontWeight: '600',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: 12,
   },
   surahBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    flex: 1,
   },
   surahNumberCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 11,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   surahNumberText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '900',
   },
   surahNameRow: {
@@ -322,37 +324,35 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   surahMetaText: {
-    fontSize: TYPOGRAPHY.size.xs,
+    fontSize: 11,
     marginTop: 2,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   surahArabName: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '700',
-    fontFamily: Platform.OS === 'ios' ? 'Geeza Pro' : 'serif',
   },
   divider: {
     height: 1,
-    marginVertical: 14,
+    marginBottom: 16,
   },
   arabicContainer: {
-    paddingVertical: 8,
+    paddingVertical: 12,
     paddingHorizontal: 6,
     alignItems: 'flex-end',
+    marginBottom: 14,
   },
   arabicText: {
     fontSize: 24,
     lineHeight: 46,
     textAlign: 'right',
     fontWeight: '600',
-    fontFamily: Platform.OS === 'ios' ? 'Geeza Pro' : 'serif',
-    letterSpacing: 0.5,
   },
   translationContainer: {
-    padding: 13,
-    borderRadius: 12,
+    padding: 12,
+    borderRadius: 14,
     borderWidth: 1,
-    marginVertical: 12,
+    marginBottom: 14,
   },
   translationHeader: {
     flexDirection: 'row',
@@ -363,7 +363,7 @@ const styles = StyleSheet.create({
   translationHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 4,
   },
   translationLabel: {
     fontSize: 11,
@@ -383,23 +383,23 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   translationText: {
-    fontSize: TYPOGRAPHY.size.sm,
-    lineHeight: 22,
+    fontSize: 13,
+    lineHeight: 20,
+    fontStyle: 'italic',
     fontWeight: '500',
   },
   toolbar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 4,
+    paddingTop: 6,
     gap: 8,
   },
   audioBtnWrapper: {
     flex: 1,
   },
   audioBtn: {
-    marginVertical: 0,
-    width: '100%',
+    paddingVertical: 8,
   },
   iconActionsRow: {
     flexDirection: 'row',
@@ -410,9 +410,9 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
   },
   iconBtnFavActive: {
     backgroundColor: '#FFE4E6',
@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
   },
   iconBtnPressed: {
     opacity: 0.7,
-    transform: [{ scale: 0.95 }],
+    transform: [{ scale: 0.92 }],
   },
 });
 

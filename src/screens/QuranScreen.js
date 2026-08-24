@@ -8,26 +8,26 @@ import {
   RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../theme/colors';
 import { TYPOGRAPHY } from '../theme/typography';
 import { useQuran } from '../stores/quranStore';
 import { useTheme } from '../stores/themeStore';
+import { useLanguage } from '../stores/languageStore';
 import { AyatCard } from '../components/quran/AyatCard';
 import { ReminderModal } from '../components/quran/ReminderModal';
 import { SurahPickerModal } from '../components/quran/SurahPickerModal';
 import { AyatHistoryModal } from '../components/quran/AyatHistoryModal';
 import { TafsirModal } from '../components/quran/TafsirModal';
-import { NeoButton } from '../components/neo/NeoButton';
 import { NeoCard } from '../components/neo/NeoCard';
+import { NeoButton } from '../components/neo/NeoButton';
 import { SURAH_DATA } from '../utils/surahData';
 
-const POPULAR_SURAHS = [1, 18, 36, 55, 56, 67, 112];
+const POPULAR_SURAHS = [1, 18, 36, 55, 56, 67, 112]; // Al-Fatihah, Al-Kahf, Yasin, Ar-Rahman, Al-Waqi'ah, Al-Mulk, Al-Ikhlas
 
 export const QuranScreen = () => {
   const { width } = useWindowDimensions();
   const isTablet = width >= 768;
   const { colors } = useTheme();
-
+  const { t } = useLanguage();
   const {
     currentAyah,
     favorites,
@@ -55,7 +55,7 @@ export const QuranScreen = () => {
     setRefreshing(false);
   };
 
-  const handleSelectPopularSurah = (surahNum) => {
+  const handleSelectQuickSurah = (surahNum) => {
     selectSpecificAyah(surahNum, 1);
   };
 
@@ -80,16 +80,18 @@ export const QuranScreen = () => {
               <View style={[styles.logoBadge, { backgroundColor: colors.primaryLight }]}>
                 <Ionicons name="book" size={20} color={colors.primary} />
               </View>
-              <Text style={[styles.headerLogo, { color: colors.text }]}>DalAy</Text>
+              <Text style={[styles.headerLogo, { color: colors.text }]}>
+                {t('quran.appName', 'DalAy')}
+              </Text>
             </View>
             <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
-              Daily Ayah & Inspirasi Harian
+              {t('quran.subtitle', 'Daily Ayah & Inspirasi Harian')}
             </Text>
           </View>
 
           <View style={styles.headerButtons}>
             <NeoButton
-              title="Pengingat"
+              title={t('quran.reminderBtn', 'Pengingat')}
               iconName="notifications-outline"
               variant="accent"
               size="sm"
@@ -113,13 +115,17 @@ export const QuranScreen = () => {
           <View style={[styles.columnLeft, isTablet && styles.columnTablet]}>
             <View style={styles.sectionHeaderRow}>
               <View style={styles.sectionTitleRow}>
-                <Ionicons name="sparkles" size={16} color={colors.primary} />
-                <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-                  AYAT INSPIRASI HARI INI
+                <Ionicons name="sparkles" size={15} color={colors.primary} />
+                <Text
+                  style={[styles.sectionTitle, { color: colors.textSecondary }]}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {t('quran.dailyAyahTitle', 'AYAT INSPIRASI HARI INI')}
                 </Text>
               </View>
               <NeoButton
-                title="Pilih Surah (114)"
+                title={t('quran.surahPickerBtn', 'Pilih Surah (114)')}
                 iconName="list"
                 variant="light"
                 size="sm"
@@ -147,7 +153,7 @@ export const QuranScreen = () => {
             <View style={styles.sectionTitleRow}>
               <Ionicons name="flash-outline" size={16} color={colors.primary} />
               <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-                AKSES CEPAT SURAH UTAMA
+                {t('quran.quickAccessTitle', 'AKSES CEPAT SURAH UTAMA')}
               </Text>
             </View>
 
@@ -168,13 +174,17 @@ export const QuranScreen = () => {
                       { borderColor: isCurrent ? colors.primary : colors.border },
                       isCurrent && { backgroundColor: colors.primarySurface },
                     ]}
-                    onPress={() => handleSelectPopularSurah(surahNum)}
+                    onPress={() => handleSelectQuickSurah(surahNum)}
                   >
                     <View style={styles.surahCardLeft}>
                       <View
                         style={[
                           styles.surahCardBadge,
-                          { backgroundColor: isCurrent ? colors.primary : colors.surfaceLight },
+                          {
+                            backgroundColor: isCurrent
+                              ? colors.primary
+                              : colors.surfaceLight,
+                          },
                         ]}
                       >
                         <Text
@@ -186,17 +196,25 @@ export const QuranScreen = () => {
                           {surahNum}
                         </Text>
                       </View>
-                      <View>
-                        <Text style={[styles.surahCardName, { color: colors.text }]}>
+                      <View style={styles.surahTextInfo}>
+                        <Text
+                          style={[styles.surahCardName, { color: colors.text }]}
+                          numberOfLines={1}
+                        >
                           {sData.name_latin}
                         </Text>
-                        <Text style={[styles.surahCardTrans, { color: colors.textMuted }]}>
-                          {sData.translation} • {sData.number_of_ayah} Ayat
+                        <Text
+                          style={[styles.surahCardTrans, { color: colors.textMuted }]}
+                          numberOfLines={1}
+                        >
+                          {sData.translation} • {sData.number_of_ayahs} {t('quran.surahCount', 'Ayat')}
                         </Text>
                       </View>
                     </View>
-
-                    <Text style={[styles.surahCardArab, { color: colors.primary }]}>
+                    <Text
+                      style={[styles.surahCardArab, { color: colors.primary }]}
+                      numberOfLines={1}
+                    >
                       {sData.name}
                     </Text>
                   </NeoCard>
@@ -216,7 +234,7 @@ export const QuranScreen = () => {
       <SurahPickerModal
         visible={surahPickerVisible}
         onClose={() => setSurahPickerVisible(false)}
-        onSelectAyah={(surah, ayah) => selectSpecificAyah(surah, ayah)}
+        onSelectAyah={(s, a) => selectSpecificAyah(s, a)}
         currentSurah={currentAyah?.surah || 1}
         currentAyah={currentAyah?.ayah || 1}
       />
@@ -226,7 +244,7 @@ export const QuranScreen = () => {
         onClose={() => setHistoryModalVisible(false)}
         favorites={favorites}
         history={history}
-        onSelectAyah={(ayah) => selectSpecificAyah(ayah.surah, ayah.ayah)}
+        onSelectAyah={(s, a) => selectSpecificAyah(s, a)}
         onClearHistory={clearHistory}
       />
 
@@ -262,6 +280,7 @@ const styles = StyleSheet.create({
   },
   headerLeft: {
     flex: 1,
+    marginRight: 8,
   },
   logoRow: {
     flexDirection: 'row',
@@ -287,11 +306,12 @@ const styles = StyleSheet.create({
   },
   headerButtons: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
   },
   topBtn: {
     paddingVertical: 7,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
   },
   mainLayout: {
     flexDirection: 'column',
@@ -317,21 +337,24 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginVertical: 8,
+    gap: 8,
   },
   sectionTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginVertical: 8,
+    flex: 1,
   },
   sectionTitle: {
     fontSize: 11,
     fontWeight: '800',
-    letterSpacing: 0.8,
+    letterSpacing: 0.5,
+    flexShrink: 1,
   },
   surahPickerBtn: {
     paddingVertical: 5,
     paddingHorizontal: 10,
+    flexShrink: 0,
   },
   popularSurahList: {
     gap: 6,
@@ -347,6 +370,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    flex: 1,
+    marginRight: 8,
+  },
+  surahTextInfo: {
     flex: 1,
   },
   surahCardBadge: {
@@ -372,6 +399,7 @@ const styles = StyleSheet.create({
   surahCardArab: {
     fontSize: 16,
     fontWeight: '700',
+    marginLeft: 6,
   },
 });
 

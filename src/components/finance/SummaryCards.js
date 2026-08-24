@@ -4,13 +4,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { TYPOGRAPHY } from '../../theme/typography';
 import { NeoCard } from '../neo/NeoCard';
 import { useTheme } from '../../stores/themeStore';
+import { useLanguage } from '../../stores/languageStore';
 import { formatRupiah } from '../../utils/formatters';
 
 export const SummaryCards = ({
   summary = { totalIncome: 0, totalExpense: 0, balance: 0, transactionCount: 0 },
-  periodLabel = 'Semua Periode',
+  periodLabel,
 }) => {
   const { colors } = useTheme();
+  const { t } = useLanguage();
+
+  const resolvedPeriodLabel = periodLabel || t('finance.allPeriods', 'Semua Periode');
 
   return (
     <NeoCard variant="white" padding={16} style={styles.card}>
@@ -19,7 +23,7 @@ export const SummaryCards = ({
         <View style={styles.saldoTitleRow}>
           <Ionicons name="wallet-outline" size={15} color={colors.primary} />
           <Text style={[styles.saldoLabel, { color: colors.textSecondary }]}>
-            TOTAL SALDO BERSIH
+            {t('finance.totalBalance', 'TOTAL SALDO BERSIH')}
           </Text>
         </View>
         <View
@@ -32,7 +36,7 @@ export const SummaryCards = ({
           ]}
         >
           <Text style={[styles.periodText, { color: colors.text }]}>
-            {periodLabel}
+            {resolvedPeriodLabel}
           </Text>
         </View>
       </View>
@@ -59,7 +63,7 @@ export const SummaryCards = ({
           <View style={styles.statHeader}>
             <Ionicons name="arrow-down-circle" size={14} color={colors.incomeDark} />
             <Text style={[styles.statLabel, { color: colors.textMuted }]}>
-              Pemasukan
+              {t('finance.income', 'Pemasukan')}
             </Text>
           </View>
           <Text
@@ -76,7 +80,7 @@ export const SummaryCards = ({
           <View style={styles.statHeader}>
             <Ionicons name="arrow-up-circle" size={14} color={colors.expenseDark} />
             <Text style={[styles.statLabel, { color: colors.textMuted }]}>
-              Pengeluaran
+              {t('finance.expense', 'Pengeluaran')}
             </Text>
           </View>
           <Text
@@ -107,14 +111,14 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   saldoLabel: {
-    fontSize: TYPOGRAPHY.size.xs,
+    fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
   periodBadge: {
-    paddingVertical: 2,
+    paddingVertical: 3,
     paddingHorizontal: 8,
-    borderRadius: 7,
+    borderRadius: 8,
     borderWidth: 1,
   },
   periodText: {
@@ -124,17 +128,18 @@ const styles = StyleSheet.create({
   balanceAmount: {
     fontSize: 26,
     fontWeight: '900',
-    marginVertical: 2,
     letterSpacing: -0.5,
+    marginVertical: 4,
   },
   divider: {
     height: 1,
-    marginVertical: 10,
+    marginVertical: 8,
   },
   bottomStatsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingTop: 2,
   },
   statCol: {
     flex: 1,
@@ -142,20 +147,20 @@ const styles = StyleSheet.create({
   statHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 5,
     marginBottom: 2,
   },
   statLabel: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   statValue: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
   },
   verticalDivider: {
     width: 1,
-    height: 30,
+    height: 28,
     marginHorizontal: 12,
   },
 });

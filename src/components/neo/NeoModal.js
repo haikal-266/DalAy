@@ -8,11 +8,15 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { TYPOGRAPHY } from '../../theme/typography';
 import { useTheme } from '../../stores/themeStore';
 
+/**
+ * Unified Shared Modal Component for all DalAy feature modals
+ */
 export const NeoModal = ({
   visible,
   onClose,
@@ -21,16 +25,20 @@ export const NeoModal = ({
   children,
   headerRight,
   footer,
-  maxHeight = '85%',
+  maxHeight = '88%',
   width = '92%',
 }) => {
   const { colors, isDark } = useTheme();
+  const { width: windowWidth } = useWindowDimensions();
+
+  const isTablet = windowWidth >= 768;
 
   return (
     <Modal
       visible={visible}
       transparent
       animationType="fade"
+      statusBarTranslucent
       onRequestClose={onClose}
     >
       <KeyboardAvoidingView
@@ -43,14 +51,15 @@ export const NeoModal = ({
           style={[
             styles.modalBox,
             {
-              width,
+              width: isTablet ? '70%' : width,
+              maxWidth: 520,
               maxHeight,
               backgroundColor: colors.surface,
               borderColor: colors.border,
             },
           ]}
         >
-          {/* Header */}
+          {/* Standardized Header */}
           <View
             style={[
               styles.header,
@@ -61,25 +70,42 @@ export const NeoModal = ({
             ]}
           >
             <View style={styles.headerTitles}>
-              <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
-              {subtitle && (
-                <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+              <Text
+                style={[styles.title, { color: colors.text }]}
+                numberOfLines={1}
+              >
+                {title}
+              </Text>
+              {subtitle ? (
+                <Text
+                  style={[styles.subtitle, { color: colors.textSecondary }]}
+                  numberOfLines={1}
+                >
                   {subtitle}
                 </Text>
-              )}
+              ) : null}
             </View>
+
             <View style={styles.headerActions}>
               {headerRight}
               <Pressable
                 onPress={onClose}
-                style={[styles.closeBtn, { backgroundColor: colors.surfaceLight }]}
+                style={({ pressed }) => [
+                  styles.closeBtn,
+                  {
+                    backgroundColor: colors.surfaceLight,
+                    borderColor: colors.border,
+                  },
+                  pressed && styles.closeBtnPressed,
+                ]}
+                accessibilityLabel="Tutup"
               >
-                <Ionicons name="close" size={20} color={colors.textMuted} />
+                <Ionicons name="close" size={18} color={colors.textSecondary} />
               </Pressable>
             </View>
           </View>
 
-          {/* Content */}
+          {/* Scrollable Modal Body */}
           <ScrollView
             style={styles.body}
             contentContainerStyle={styles.bodyContent}
@@ -89,7 +115,7 @@ export const NeoModal = ({
             {children}
           </ScrollView>
 
-          {/* Footer if provided */}
+          {/* Standardized Footer */}
           {footer && (
             <View
               style={[
@@ -112,23 +138,27 @@ export const NeoModal = ({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    backgroundColor: 'rgba(5, 15, 25, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
+    ...Platform.select({
+      web: {
+        backdropFilter: 'blur(8px)',
+      },
+    }),
   },
   outsideOverlay: {
     ...StyleSheet.absoluteFillObject,
   },
   modalBox: {
-    borderWidth: 1,
-    borderRadius: 20,
-    maxWidth: 520,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.15,
+    borderWidth: 1.5,
+    borderRadius: 24,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.25,
     shadowRadius: 24,
-    elevation: 10,
+    elevation: 16,
     overflow: 'hidden',
   },
   header: {
@@ -141,16 +171,17 @@ const styles = StyleSheet.create({
   },
   headerTitles: {
     flex: 1,
-    marginRight: 10,
+    marginRight: 8,
   },
   title: {
     fontSize: TYPOGRAPHY.size.md,
     fontWeight: '800',
-    letterSpacing: 0.2,
+    letterSpacing: -0.2,
   },
   subtitle: {
-    fontSize: TYPOGRAPHY.size.xs,
+    fontSize: 11,
     marginTop: 2,
+    fontWeight: '500',
   },
   headerActions: {
     flexDirection: 'row',
@@ -159,10 +190,15 @@ const styles = StyleSheet.create({
   closeBtn: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: 10,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 6,
+  },
+  closeBtnPressed: {
+    opacity: 0.7,
+    transform: [{ scale: 0.92 }],
   },
   body: {
     flexGrow: 0,

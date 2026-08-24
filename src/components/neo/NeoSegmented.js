@@ -8,9 +8,22 @@ export const NeoSegmented = ({
   options = [],
   selectedValue,
   onSelect,
+  onValueChange,
+  onChange,
   style,
 }) => {
   const { colors, isDark } = useTheme();
+
+  // Safely support onSelect, onValueChange, or onChange
+  const handleSelect = (val) => {
+    if (typeof onSelect === 'function') {
+      onSelect(val);
+    } else if (typeof onValueChange === 'function') {
+      onValueChange(val);
+    } else if (typeof onChange === 'function') {
+      onChange(val);
+    }
+  };
 
   return (
     <View
@@ -30,7 +43,7 @@ export const NeoSegmented = ({
         return (
           <Pressable
             key={opt.value}
-            onPress={() => onSelect(opt.value)}
+            onPress={() => handleSelect(opt.value)}
             style={[
               styles.option,
               isSelected && [
@@ -58,8 +71,9 @@ export const NeoSegmented = ({
                   styles.label,
                   isSelected
                     ? [styles.selectedLabel, { color: activeBg }]
-                    : [styles.unselectedLabel, { color: colors.textMuted }],
+                    : [styles.unselectedLabel, { color: colors.textSecondary }],
                 ]}
+                numberOfLines={1}
               >
                 {opt.label}
               </Text>
@@ -74,19 +88,20 @@ export const NeoSegmented = ({
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    borderWidth: 1,
     borderRadius: 12,
+    borderWidth: 1,
     padding: 3,
   },
   option: {
     flex: 1,
     paddingVertical: 7,
+    paddingHorizontal: 8,
+    borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 10,
   },
   selectedOption: {
-    shadowColor: '#64748B',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 4,
     elevation: 2,
@@ -101,13 +116,14 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: TYPOGRAPHY.size.xs,
-    fontWeight: '700',
-    letterSpacing: 0.2,
+    letterSpacing: 0.1,
   },
   selectedLabel: {
     fontWeight: '800',
   },
-  unselectedLabel: {},
+  unselectedLabel: {
+    fontWeight: '600',
+  },
 });
 
 export default NeoSegmented;

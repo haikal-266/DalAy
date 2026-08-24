@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Switch, Alert } from 'react-native';
+import { View, Text, StyleSheet, Switch, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { TYPOGRAPHY } from '../../theme/typography';
 import { NeoModal } from '../neo/NeoModal';
@@ -19,10 +19,12 @@ export const ReminderModal = ({ visible, onClose }) => {
   const [isEnabled, setIsEnabled] = useState(false);
   const [selectedInterval, setSelectedInterval] = useState('4h');
   const [testing, setTesting] = useState(false);
+  const [feedback, setFeedback] = useState(null); // { type: 'success' | 'error', title, message }
 
   useEffect(() => {
     if (visible) {
       loadSettings();
+      setFeedback(null);
     }
   }, [visible]);
 
@@ -32,23 +34,44 @@ export const ReminderModal = ({ visible, onClose }) => {
     setSelectedInterval(settings.intervalId || '4h');
   };
 
+  const showFeedback = (type, title, message) => {
+    setFeedback({ type, title, message });
+    setTimeout(() => {
+      setFeedback(null);
+    }, 4500);
+  };
+
   const handleToggleReminder = async (val) => {
     setIsEnabled(val);
     if (val) {
       const res = await scheduleQuranReminder(selectedInterval);
-      if (!res.success) {
-        Alert.alert('Perhatian', res.message || 'Gagal mengaktifkan pengingat.');
+      if (res.success) {
+        showFeedback(
+          'success',
+          'Pengingat Aktif',
+          `Notifikasi ayat akan dikirim secara berkala (${res.interval?.label || selectedInterval}).`
+        );
+      } else {
         setIsEnabled(false);
+        showFeedback('error', 'Gagal Mengaktifkan', res.message || 'Izin notifikasi belum diaktifkan di HP.');
       }
     } else {
       await cancelAllReminders();
+      showFeedback('success', 'Pengingat Dinonaktifkan', 'Notifikasi terjadwal telah dihentikan.');
     }
   };
 
   const handleSelectInterval = async (intervalId) => {
     setSelectedInterval(intervalId);
     if (isEnabled) {
-      await scheduleQuranReminder(intervalId);
+      const res = await scheduleQuranReminder(intervalId);
+      if (res.success) {
+        showFeedback(
+          'success',
+          'Jadwal Diperbarui',
+          `Frekuensi pengingat diubah ke ${res.interval?.label || intervalId}.`
+        );
+      }
     }
   };
 
@@ -57,12 +80,13 @@ export const ReminderModal = ({ visible, onClose }) => {
     const res = await triggerTestNotification();
     setTesting(false);
     if (res.success) {
-      Alert.alert(
-        'Notifikasi Terkirim!',
-        `Notifikasi contoh ayat QS. ${res.surahInfo.name_latin} : ${res.ayah} telah dikirim ke perangkat Anda.`
+      showFeedback(
+        'success',
+        'Notifikasi Contoh Terkirim!',
+        `Ayat QS. ${res.surahInfo.name_latin} : ${res.ayah} telah dikirim ke status bar HP Anda.`
       );
     } else {
-      Alert.alert('Gagal Mengirim', res.message || 'Izin notifikasi belum diaktifkan.');
+      showFeedback('error', 'Gagal Mengirim', res.message || 'Izin notifikasi belum aktif.');
     }
   };
 
@@ -81,6 +105,73 @@ export const ReminderModal = ({ visible, onClose }) => {
         />
       }
     >
+      {/* Custom In-App Notification / Feedback Banner */}
+      {feedback && (
+        <View
+          style={[
+            styles.feedbackBanner,
+            {
+              backgroundColor:
+                feedback.type === 'success' ? colors.incomeLight : colors.expenseLight,
+              borderColor:
+                feedback.type === 'success' ? colors.incomeBorder : colors.expenseBorder,
+            },
+          ]}
+        >
+          <Ionicons
+            name={
+              feedback.type === 'success'
+                ? 'checkmark-circle'
+                : 'alert-circle'
+            }
+            size={20}
+            color={
+              feedback.type === 'success' ? colors.incomeDark : colors.expenseDark
+            }
+            style={styles.feedbackIcon}
+          />
+          <View style={styles.feedbackTextContainer}>
+            <Text
+              style={[
+                styles.feedbackTitle,
+                {
+                  color:
+                    feedback.type === 'success'
+                      ? colors.incomeDark
+                      : colors.expenseDark,
+                },
+              ]}
+            >
+              {feedback.title}
+            </Text>
+            <Text
+              style={[
+                styles.feedbackMessage,
+                {
+                  color:
+                    feedback.type === 'success'
+                      ? colors.incomeDark
+                      : colors.expenseDark,
+                },
+              ]}
+            >
+              {feedback.message}
+            </Text>
+          </View>
+          <Pressable onPress={() => setFeedback(null)}>
+            <Ionicons
+              name="close"
+              size={16}
+              color={
+                feedback.type === 'success'
+                  ? colors.incomeDark
+                  : colors.expenseDark
+              }
+            />
+          </Pressable>
+        </View>
+      )}
+
       {/* Switch Card */}
       <NeoCard variant="accent" padding={14} style={styles.switchCard}>
         <View style={styles.switchRow}>
@@ -173,6 +264,29 @@ export const ReminderModal = ({ visible, onClose }) => {
 };
 
 const styles = StyleSheet.create({
+  feedbackBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 10,
+  },
+  feedbackIcon: {
+    marginRight: 8,
+  },
+  feedbackTextContainer: {
+    flex: 1,
+    marginRight: 6,
+  },
+  feedbackTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  feedbackMessage: {
+    fontSize: 11,
+    marginTop: 1,
+  },
   switchCard: {
     marginBottom: 14,
   },
