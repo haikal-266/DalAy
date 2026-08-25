@@ -7,8 +7,6 @@ import {
   Switch,
   Alert,
   TouchableOpacity,
-  Modal,
-  TextInput,
 } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
@@ -381,7 +379,7 @@ export const GoogleSyncCard = ({ onToast }) => {
             </NeoButton>
           </View>
 
-          {/* Optional Direct Account Link & Token Paste Option */}
+          {/* Direct Google Account Link */}
           <View style={[styles.altSection, { borderTopColor: colors.border + '40' }]}>
             <TouchableOpacity
               activeOpacity={0.7}
@@ -394,6 +392,7 @@ export const GoogleSyncCard = ({ onToast }) => {
               </Text>
             </TouchableOpacity>
 
+            {/* Development-only Token Paste Fallback (Commented out for production APK)
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={() => setTokenModalVisible(true)}
@@ -404,11 +403,12 @@ export const GoogleSyncCard = ({ onToast }) => {
                 {isIndonesian ? 'Selesaikan Login (Tempel URL / Token)' : 'Complete Login (Paste URL / Token)'}
               </Text>
             </TouchableOpacity>
+            */}
           </View>
         </View>
       )}
 
-      {/* Manual Token Paste Modal */}
+      {/* Development-only Manual Token Modal (Commented out for production APK)
       <Modal
         visible={tokenModalVisible}
         transparent={true}
@@ -458,6 +458,7 @@ export const GoogleSyncCard = ({ onToast }) => {
           </View>
         </View>
       </Modal>
+      */}
 
       {/* Confirmation Modal */}
       {confirmDialog && (
