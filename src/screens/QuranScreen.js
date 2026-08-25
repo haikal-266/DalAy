@@ -17,17 +17,16 @@ import { ReminderModal } from '../components/quran/ReminderModal';
 import { SurahPickerModal } from '../components/quran/SurahPickerModal';
 import { AyatHistoryModal } from '../components/quran/AyatHistoryModal';
 import { TafsirModal } from '../components/quran/TafsirModal';
-import { NeoCard } from '../components/neo/NeoCard';
+import { RandomHadithCard } from '../components/quran/RandomHadithCard';
 import { NeoButton } from '../components/neo/NeoButton';
-import { SURAH_DATA } from '../utils/surahData';
-
-const POPULAR_SURAHS = [1, 18, 36, 55, 56, 67, 112]; // Al-Fatihah, Al-Kahf, Yasin, Ar-Rahman, Al-Waqi'ah, Al-Mulk, Al-Ikhlas
+import { NeoSegmented } from '../components/neo/NeoSegmented';
 
 export const QuranScreen = () => {
   const { width } = useWindowDimensions();
   const isTablet = width >= 768;
   const { colors } = useTheme();
   const { t } = useLanguage();
+  const [activeTab, setActiveTab] = useState('ayat'); // 'ayat' | 'hadits'
   const {
     currentAyah,
     favorites,
@@ -53,10 +52,6 @@ export const QuranScreen = () => {
     setRefreshing(true);
     await getNewRandomAyah();
     setRefreshing(false);
-  };
-
-  const handleSelectQuickSurah = (surahNum) => {
-    selectSpecificAyah(surahNum, 1);
   };
 
   return (
@@ -85,7 +80,7 @@ export const QuranScreen = () => {
               </Text>
             </View>
             <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
-              {t('quran.subtitle', 'Daily Ayah & Inspirasi Harian')}
+              {t('quran.subtitle', 'Daily Ayah & Hadith')}
             </Text>
           </View>
 
@@ -109,119 +104,75 @@ export const QuranScreen = () => {
           </View>
         </View>
 
-        {/* Main Content Layout (Adaptive for Tablet) */}
-        <View style={[styles.mainLayout, isTablet && styles.mainLayoutTablet]}>
-          {/* Left Column: Featured Ayat Card */}
-          <View style={[styles.columnLeft, isTablet && styles.columnTablet]}>
-            <View style={styles.sectionHeaderRow}>
-              <View style={styles.sectionTitleRow}>
-                <Ionicons name="sparkles" size={15} color={colors.primary} />
-                <Text
-                  style={[styles.sectionTitle, { color: colors.textSecondary }]}
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                >
-                  {t('quran.dailyAyahTitle', 'AYAT INSPIRASI HARI INI')}
-                </Text>
-              </View>
-              <NeoButton
-                title={t('quran.surahPickerBtn', 'Pilih Surah (114)')}
-                iconName="list"
-                variant="light"
-                size="sm"
-                onPress={() => setSurahPickerVisible(true)}
-                style={styles.surahPickerBtn}
-              />
-            </View>
-
-            <AyatCard
-              ayah={currentAyah}
-              loading={loading}
-              isPlayingAudio={isPlayingAudio}
-              audioLoading={audioLoading}
-              isFavorite={isFavorite(currentAyah)}
-              onRandomPress={getNewRandomAyah}
-              onTogglePlayAudio={togglePlayAudio}
-              onToggleFavorite={() => toggleFavorite(currentAyah)}
-              onOpenSurahPicker={() => setSurahPickerVisible(true)}
-              onOpenTafsir={() => setTafsirModalVisible(true)}
+        {/* Top Tab Switcher: Ayat vs Hadits (Mobile) */}
+        {!isTablet && (
+          <View style={styles.viewToggleContainer}>
+            <NeoSegmented
+              options={[
+                {
+                  label: t('quran.tabAyat', 'Ayat Al-Quran'),
+                  value: 'ayat',
+                  iconName: 'book-outline',
+                },
+                {
+                  label: t('quran.tabHadis', 'Hadits Pilihan'),
+                  value: 'hadits',
+                  iconName: 'sparkles-outline',
+                },
+              ]}
+              selectedValue={activeTab}
+              onSelect={setActiveTab}
             />
           </View>
+        )}
 
-          {/* Right Column: Quick Surah Shortcuts & Info */}
-          <View style={[styles.columnRight, isTablet && styles.columnTablet]}>
-            <View style={styles.sectionTitleRow}>
-              <Ionicons name="flash-outline" size={16} color={colors.primary} />
-              <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-                {t('quran.quickAccessTitle', 'AKSES CEPAT SURAH UTAMA')}
-              </Text>
-            </View>
-
-            <View style={styles.popularSurahList}>
-              {POPULAR_SURAHS.map((surahNum) => {
-                const sData = SURAH_DATA.find((s) => s.number === surahNum);
-                if (!sData) return null;
-
-                const isCurrent = currentAyah?.surah === surahNum;
-
-                return (
-                  <NeoCard
-                    key={surahNum}
-                    variant="white"
-                    padding={12}
-                    style={[
-                      styles.surahCard,
-                      { borderColor: isCurrent ? colors.primary : colors.border },
-                      isCurrent && { backgroundColor: colors.primarySurface },
-                    ]}
-                    onPress={() => handleSelectQuickSurah(surahNum)}
+        {/* Main Content Layout (Adaptive for Tablet & Tab Switching) */}
+        <View style={[styles.mainLayout, isTablet && styles.mainLayoutTablet]}>
+          {/* Left Column: Featured Ayat Card */}
+          {(isTablet || activeTab === 'ayat') && (
+            <View style={[styles.columnLeft, isTablet && styles.columnTablet]}>
+              <View style={styles.sectionHeaderRow}>
+                <View style={styles.sectionTitleRow}>
+                  <Ionicons name="sparkles" size={15} color={colors.primary} />
+                  <Text
+                    style={[styles.sectionTitle, { color: colors.textSecondary }]}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
                   >
-                    <View style={styles.surahCardLeft}>
-                      <View
-                        style={[
-                          styles.surahCardBadge,
-                          {
-                            backgroundColor: isCurrent
-                              ? colors.primary
-                              : colors.surfaceLight,
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.surahCardBadgeText,
-                            { color: isCurrent ? '#FFFFFF' : colors.text },
-                          ]}
-                        >
-                          {surahNum}
-                        </Text>
-                      </View>
-                      <View style={styles.surahTextInfo}>
-                        <Text
-                          style={[styles.surahCardName, { color: colors.text }]}
-                          numberOfLines={1}
-                        >
-                          {sData.name_latin}
-                        </Text>
-                        <Text
-                          style={[styles.surahCardTrans, { color: colors.textMuted }]}
-                          numberOfLines={1}
-                        >
-                          {sData.translation} • {sData.number_of_ayahs} {t('quran.surahCount', 'Ayat')}
-                        </Text>
-                      </View>
-                    </View>
-                    <Text
-                      style={[styles.surahCardArab, { color: colors.primary }]}
-                      numberOfLines={1}
-                    >
-                      {sData.name}
-                    </Text>
-                  </NeoCard>
-                );
-              })}
+                    {t('quran.dailyAyahTitle', 'AYAT INSPIRASI HARI INI')}
+                  </Text>
+                </View>
+                <NeoButton
+                  title={t('quran.surahPickerBtn', 'Pilih Surah (114)')}
+                  iconName="list"
+                  variant="light"
+                  size="sm"
+                  onPress={() => setSurahPickerVisible(true)}
+                  style={styles.surahPickerBtn}
+                />
+              </View>
+
+              <AyatCard
+                ayah={currentAyah}
+                loading={loading}
+                isPlayingAudio={isPlayingAudio}
+                audioLoading={audioLoading}
+                isFavorite={isFavorite(currentAyah)}
+                onRandomPress={getNewRandomAyah}
+                onTogglePlayAudio={togglePlayAudio}
+                onToggleFavorite={() => toggleFavorite(currentAyah)}
+                onOpenSurahPicker={() => setSurahPickerVisible(true)}
+                onOpenTafsir={() => setTafsirModalVisible(true)}
+              />
             </View>
-          </View>
+          )}
+
+          {/* Right Column: Daily Hadith & Wisdom (Directly at top when selected on Mobile) */}
+          {(isTablet || activeTab === 'hadits') && (
+            <View style={[styles.columnRight, isTablet && styles.columnTablet]}>
+              <RandomHadithCard />
+            </View>
+          )}
         </View>
       </ScrollView>
 
@@ -332,6 +283,9 @@ const styles = StyleSheet.create({
     flex: 1,
     marginTop: 0,
   },
+  viewToggleContainer: {
+    marginBottom: 8,
+  },
   sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -355,51 +309,6 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     paddingHorizontal: 10,
     flexShrink: 0,
-  },
-  popularSurahList: {
-    gap: 6,
-  },
-  surahCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginVertical: 3,
-    borderWidth: 1,
-  },
-  surahCardLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-    marginRight: 8,
-  },
-  surahTextInfo: {
-    flex: 1,
-  },
-  surahCardBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  surahCardBadgeText: {
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  surahCardName: {
-    fontSize: TYPOGRAPHY.size.sm,
-    fontWeight: '700',
-  },
-  surahCardTrans: {
-    fontSize: 11,
-    marginTop: 2,
-    fontWeight: '500',
-  },
-  surahCardArab: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginLeft: 6,
   },
 });
 
