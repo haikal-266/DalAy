@@ -69,6 +69,8 @@ export const SummaryCards = ({
           <Text
             style={[styles.statValue, { color: colors.incomeDark }]}
             numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
           >
             +{formatRupiah(summary.totalIncome)}
           </Text>
@@ -79,13 +81,15 @@ export const SummaryCards = ({
         <View style={styles.statCol}>
           <View style={styles.statHeader}>
             <Ionicons name="arrow-up-circle" size={14} color={colors.expenseDark} />
-            <Text style={[styles.statLabel, { color: colors.textMuted }]}>
+            <Text style={[styles.statLabel, { color: colors.textMuted }]} numberOfLines={1}>
               {t('finance.expense', 'Pengeluaran')}
             </Text>
           </View>
           <Text
             style={[styles.statValue, { color: colors.expenseDark }]}
             numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
           >
             -{formatRupiah(summary.totalExpense)}
           </Text>

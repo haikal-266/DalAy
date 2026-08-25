@@ -122,6 +122,15 @@ export const FinanceProvider = ({ children }) => {
     await saveTransactions([]);
   };
 
+  /**
+   * Replace whole transaction list (used by Cloud Sync)
+   */
+  const replaceTransactions = async (newTxList) => {
+    if (Array.isArray(newTxList)) {
+      await saveTransactions(newTxList);
+    }
+  };
+
   // Filtered transactions based on active period, type, and search query
   const filteredTransactions = useMemo(() => {
     return transactions.filter((tx) => {
@@ -239,6 +248,7 @@ export const FinanceProvider = ({ children }) => {
       updateTransaction,
       deleteTransaction,
       clearAllTransactions,
+      replaceTransactions,
     }),
     [
       transactions,

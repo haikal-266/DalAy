@@ -18,6 +18,24 @@ export const TYPOGRAPHY = {
     default: 'serif',
   }),
 
+  families: {
+    regular: Platform.select({
+      ios: 'System',
+      android: 'sans-serif',
+      default: 'sans-serif',
+    }),
+    medium: Platform.select({
+      ios: 'System',
+      android: 'sans-serif-medium',
+      default: 'sans-serif',
+    }),
+    bold: Platform.select({
+      ios: 'System',
+      android: 'sans-serif',
+      default: 'sans-serif',
+    }),
+  },
+
   // Font Sizes
   size: {
     xs: 11,
@@ -38,7 +56,7 @@ export const TYPOGRAPHY = {
     semibold: '600',
     bold: '700',
     black: '900',
-  }
+  },
 };
 
 export default TYPOGRAPHY;

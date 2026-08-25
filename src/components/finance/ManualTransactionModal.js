@@ -10,6 +10,7 @@ import { ConfirmModal } from '../neo/ConfirmModal';
 import { useTheme } from '../../stores/themeStore';
 import { useLanguage } from '../../stores/languageStore';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, detectCategory } from '../../utils/categories';
+import { formatRupiah } from '../../utils/formatters';
 
 export const ManualTransactionModal = ({
   visible,
@@ -33,7 +34,7 @@ export const ManualTransactionModal = ({
     if (visible && activeTx) {
       setType(activeTx.type || 'expense');
       setName(activeTx.name || '');
-      setAmount(activeTx.amount ? String(activeTx.amount) : '');
+      setAmount(activeTx.amount ? formatRupiah(activeTx.amount, true) : '');
       const categories =
         activeTx.type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
       const found = categories.find(
@@ -64,6 +65,16 @@ export const ManualTransactionModal = ({
     if (detected) {
       setSelectedCategory(detected);
     }
+  };
+
+  const handleAmountChange = (text) => {
+    const digits = text.replace(/\D/g, '');
+    if (!digits) {
+      setAmount('');
+      return;
+    }
+    const num = Number.parseInt(digits, 10);
+    setAmount(formatRupiah(num, true));
   };
 
   const handleSubmit = () => {
@@ -189,9 +200,9 @@ export const ManualTransactionModal = ({
             {t('modal.amountLabel', 'Nominal (Rupiah)')}
           </Text>
           <NeoInput
-            placeholder={t('modal.amountPlaceholder', 'misal: 25000')}
+            placeholder={isIndonesian ? 'misal: Rp 25.000' : 'e.g. Rp 25,000'}
             value={amount}
-            onChangeText={setAmount}
+            onChangeText={handleAmountChange}
             keyboardType="numeric"
             leftIconName="cash-outline"
           />

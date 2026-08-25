@@ -173,6 +173,20 @@ export const QuranProvider = ({ children }) => {
   };
 
   /**
+   * Replace favorites & history (used by Cloud Sync)
+   */
+  const replaceFavoritesAndHistory = async (newFavs, newHist) => {
+    if (Array.isArray(newFavs)) {
+      setFavorites(newFavs);
+      await AsyncStorage.setItem(STORAGE_KEY_FAVORITES, JSON.stringify(newFavs));
+    }
+    if (Array.isArray(newHist)) {
+      setHistory(newHist);
+      await AsyncStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(newHist));
+    }
+  };
+
+  /**
    * Audio Playback Controls
    */
   const togglePlayAudio = async () => {
@@ -202,66 +216,49 @@ export const QuranProvider = ({ children }) => {
           setIsPlayingAudio(false);
           webAudioRef.current = null;
         };
-        audio.onerror = (e) => {
-          console.log('Web Audio error:', e);
+        audio.onerror = () => {
           setIsPlayingAudio(false);
           setAudioLoading(false);
         };
 
         await audio.play();
-        setIsPlayingAudio(true);
-        setAudioLoading(false);
-        return;
-      }
-
-      // Native mobile audio playback (Expo Audio SDK 57)
-      try {
-        await setAudioModeAsync({
-          playsInSilentMode: true,
+      } else {
+        // Native (Android/iOS)
+        const player = createAudioPlayer({
+          uri: currentAyah.audio,
         });
-      } catch (err) {}
 
-      const player = createAudioPlayer(currentAyah.audio);
-      soundRef.current = player;
+        soundRef.current = player;
 
-      if (typeof player.addListener === 'function') {
         player.addListener('playbackStatusUpdate', (status) => {
-          if (status && status.didJustFinish) {
-            setIsPlayingAudio(false);
-            try {
-              if (typeof player.remove === 'function') {
-                player.remove();
-              }
-            } catch (e) {}
-            soundRef.current = null;
+          if (status.isLoaded) {
+            if (status.didJustFinish) {
+              setIsPlayingAudio(false);
+              player.remove();
+              soundRef.current = null;
+            }
           }
         });
-      }
 
-      if (typeof player.play === 'function') {
         player.play();
+        setIsPlayingAudio(true);
+        setAudioLoading(false);
       }
-
-      setIsPlayingAudio(true);
-      setAudioLoading(false);
-    } catch (error) {
-      console.log('Audio playback error:', error);
-      setAudioLoading(false);
+    } catch (e) {
+      console.log('Audio playback error:', e);
       setIsPlayingAudio(false);
+      setAudioLoading(false);
     }
   };
 
   const stopAudio = async () => {
     try {
-      if (webAudioRef.current) {
+      if (Platform.OS === 'web' && webAudioRef.current) {
         webAudioRef.current.pause();
         webAudioRef.current.currentTime = 0;
         webAudioRef.current = null;
-      }
-      if (soundRef.current) {
-        if (typeof soundRef.current.pause === 'function') {
-          soundRef.current.pause();
-        }
+      } else if (soundRef.current) {
+        soundRef.current.pause();
         if (typeof soundRef.current.remove === 'function') {
           soundRef.current.remove();
         }
@@ -287,6 +284,7 @@ export const QuranProvider = ({ children }) => {
       toggleFavorite,
       isFavorite,
       clearHistory,
+      replaceFavoritesAndHistory,
       togglePlayAudio,
     }),
     [currentAyah, favorites, history, loading, isPlayingAudio, audioLoading]

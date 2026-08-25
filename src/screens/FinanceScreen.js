@@ -9,10 +9,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { TYPOGRAPHY } from '../theme/typography';
 import { useFinance } from '../stores/financeStore';
+import { useQuran } from '../stores/quranStore';
+import { useSync } from '../stores/syncStore';
 import { useTheme } from '../stores/themeStore';
 import { useLanguage } from '../stores/languageStore';
 import { SummaryCards } from '../components/finance/SummaryCards';
@@ -31,8 +34,12 @@ export const FinanceScreen = () => {
   const scrollViewRef = useRef(null);
   const { colors } = useTheme();
   const { t, isIndonesian } = useLanguage();
+  const { isConnected, isSyncing, performSync, backupToGoogleDriveFile } = useSync();
+  const { favorites, history, replaceFavoritesAndHistory } = useQuran();
 
   const {
+    transactions,
+    replaceTransactions,
     filteredTransactions,
     periodFilter,
     setPeriodFilter,
@@ -55,6 +62,44 @@ export const FinanceScreen = () => {
   const [exportModalVisible, setExportModalVisible] = useState(false);
   const [importModalVisible, setImportModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [syncFeedback, setSyncFeedback] = useState(null);
+
+  const showSyncToast = (msg) => {
+    setSyncFeedback(msg);
+    setTimeout(() => setSyncFeedback(null), 3000);
+  };
+
+  const getLocalSnapshot = () => ({
+    transactions: transactions || [],
+    quranFavorites: favorites || [],
+    quranHistory: history || [],
+  });
+
+  const applyMerged = async (mergeResult) => {
+    if (mergeResult.transactions) {
+      await replaceTransactions(mergeResult.transactions);
+    }
+    if (mergeResult.quranFavorites || mergeResult.quranHistory) {
+      await replaceFavoritesAndHistory(
+        mergeResult.quranFavorites || [],
+        mergeResult.quranHistory || []
+      );
+    }
+  };
+
+  const handleQuickSync = async () => {
+    if (!isConnected) {
+      const res = await backupToGoogleDriveFile(getLocalSnapshot);
+      if (res.success) {
+        showSyncToast(isIndonesian ? 'Pilih Drive untuk menyimpan data!' : 'Select Drive to save backup!');
+      }
+    } else {
+      const res = await performSync(getLocalSnapshot, applyMerged);
+      if (res.success) {
+        showSyncToast(res.message);
+      }
+    }
+  };
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -129,20 +174,53 @@ export const FinanceScreen = () => {
               >
                 <Ionicons
                   name="wallet"
-                  size={20}
+                  size={18}
                   color={colors.brandGold || '#D97706'}
                 />
               </View>
-              <Text style={[styles.headerLogo, { color: colors.text }]}>
+              <Text
+                style={[styles.headerLogo, { color: colors.text }]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.75}
+              >
                 {t('finance.headerTitle', 'Catatan Keuangan')}
               </Text>
             </View>
-            <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
+            <Text
+              style={[styles.headerSubtitle, { color: colors.textSecondary }]}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
               {t('finance.headerSubtitle', 'Pencatatan Cepat & Rekap Otomatis')}
             </Text>
           </View>
 
           <View style={styles.headerButtons}>
+            {/* Google Drive Cloud Sync Quick Button */}
+            <Pressable
+              onPress={handleQuickSync}
+              style={({ pressed }) => [
+                styles.actionIconBtn,
+                {
+                  backgroundColor: isConnected ? colors.accentLight || '#DBEAFE' : colors.surface,
+                  borderColor: isConnected ? colors.accent : colors.border,
+                },
+                pressed ? styles.actionIconBtnPressed : null,
+              ]}
+              accessibilityLabel="Sync Google Drive"
+            >
+              {isSyncing ? (
+                <ActivityIndicator size="small" color={colors.accent} />
+              ) : (
+                <Ionicons
+                  name={isConnected ? 'cloud-done' : 'cloud-upload-outline'}
+                  size={17}
+                  color={isConnected ? colors.accent : colors.textSecondary}
+                />
+              )}
+            </Pressable>
+
             {/* Import Button */}
             <Pressable
               onPress={() => setImportModalVisible(true)}
@@ -152,13 +230,13 @@ export const FinanceScreen = () => {
                   backgroundColor: colors.surface,
                   borderColor: colors.border,
                 },
-                pressed && styles.actionIconBtnPressed,
+                pressed ? styles.actionIconBtnPressed : null,
               ]}
               accessibilityLabel={isIndonesian ? 'Impor Excel' : 'Import Excel'}
             >
               <Ionicons
-                name="cloud-upload-outline"
-                size={18}
+                name="download-outline"
+                size={17}
                 color={colors.primary}
               />
             </Pressable>
@@ -172,18 +250,31 @@ export const FinanceScreen = () => {
                   backgroundColor: colors.surface,
                   borderColor: colors.border,
                 },
-                pressed && styles.actionIconBtnPressed,
+                pressed ? styles.actionIconBtnPressed : null,
               ]}
               accessibilityLabel={t('finance.exportBtn', 'Ekspor ke Excel')}
             >
               <Ionicons
                 name="document-text-outline"
-                size={18}
+                size={17}
                 color={colors.incomeDark || '#16A34A'}
               />
             </Pressable>
           </View>
         </View>
+
+        {/* Floating Sync Toast Feedback */}
+        {syncFeedback && (
+          <View
+            style={[
+              styles.syncToastBox,
+              { backgroundColor: colors.accent, borderColor: colors.border },
+            ]}
+          >
+            <Ionicons name="checkmark-circle" size={16} color="#FFFFFF" />
+            <Text style={styles.syncToastText}>{syncFeedback}</Text>
+          </View>
+        )}
 
         {/* Financial Summary KPI Cards */}
         <SummaryCards
@@ -307,41 +398,48 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     paddingTop: 4,
     borderBottomWidth: 1,
+    gap: 8,
   },
   headerLeft: {
     flex: 1,
+    minWidth: 0,
+    marginRight: 6,
   },
   logoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
+    flexShrink: 1,
   },
   logoBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 11,
+    width: 32,
+    height: 32,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   headerLogo: {
-    fontSize: 22,
+    fontSize: 19,
     fontWeight: '900',
     letterSpacing: -0.3,
+    flexShrink: 1,
   },
   headerSubtitle: {
     fontSize: TYPOGRAPHY.size.xs,
-    marginTop: 3,
+    marginTop: 2,
     fontWeight: '500',
   },
   headerButtons: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
+    flexShrink: 0,
   },
   actionIconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 11,
+    width: 34,
+    height: 34,
+    borderRadius: 10,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -353,6 +451,23 @@ const styles = StyleSheet.create({
   viewToggleContainer: {
     marginTop: 10,
     marginBottom: 6,
+  },
+  syncToastBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 2,
+    marginBottom: 10,
+    gap: 8,
+  },
+  syncToastText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontFamily: TYPOGRAPHY.families.bold,
+    fontWeight: '700',
+    flex: 1,
   },
 });
 

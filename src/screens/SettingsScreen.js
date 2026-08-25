@@ -18,6 +18,8 @@ import { useFinance } from '../stores/financeStore';
 import { exportTransactionsToExcel } from '../services/excelExport';
 import { ReminderModal } from '../components/quran/ReminderModal';
 import { ImportModal } from '../components/finance/ImportModal';
+import { GoogleSyncCard } from '../components/sync/GoogleSyncCard';
+import { APP_INFO } from '../constants/appInfo';
 
 export const SettingsScreen = () => {
   const { colors, currentThemeId, setTheme, availableThemes } = useTheme();
@@ -206,7 +208,7 @@ export const SettingsScreen = () => {
                 <Text
                   style={[styles.versionText, { color: colors.incomeDark }]}
                 >
-                  {t('settings.versionText', 'Versi 1.0.0 • Offline First')}
+                  {APP_INFO.getVersionBadgeText(isIndonesian)}
                 </Text>
               </View>
             </View>
@@ -473,6 +475,25 @@ export const SettingsScreen = () => {
           </View>
         </NeoCard>
 
+        {/* Cloud Sync & Recovery (Google Drive) */}
+        <View style={styles.sectionTitleRow}>
+          <Ionicons
+            name="cloud-done-outline"
+            size={16}
+            color={colors.primary}
+          />
+          <Text style={[styles.sectionHeader, { color: colors.text }]}>
+            {isIndonesian ? 'SINKRONISASI CLOUD (GOOGLE DRIVE)' : 'CLOUD SYNC (GOOGLE DRIVE)'}
+          </Text>
+        </View>
+        <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
+          {isIndonesian
+            ? 'Cadangkan & pulihkan otomatis seluruh data dengan akun Google'
+            : 'Auto-backup & recover all data with your Google account'}
+        </Text>
+
+        <GoogleSyncCard onToast={showToast} />
+
         {/* Data & Storage Management */}
         <View style={styles.sectionTitleRow}>
           <Ionicons name="server-outline" size={16} color={colors.primary} />
@@ -588,7 +609,7 @@ export const SettingsScreen = () => {
           <Text style={[styles.aboutText, { color: colors.textSecondary }]}>
             {t(
               'settings.aboutText',
-              'Aplikasi islami dan pencatat keuangan harian dengan arsitektur offline-first, cepat, dan terorganisir.'
+              'Aplikasi islami dan pencatat keuangan cerdas dengan sinkronisasi otomatis Google Drive.'
             )}
           </Text>
         </NeoCard>

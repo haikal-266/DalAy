@@ -1,23 +1,36 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { setNotificationHandler } from 'expo-notifications/build/NotificationsHandler';
-import {
-  getPermissionsAsync,
-  requestPermissionsAsync,
-} from 'expo-notifications/build/NotificationPermissions';
-import { setNotificationChannelAsync } from 'expo-notifications/build/setNotificationChannelAsync';
-import { scheduleNotificationAsync } from 'expo-notifications/build/scheduleNotificationAsync';
-import { cancelAllScheduledNotificationsAsync } from 'expo-notifications/build/cancelAllScheduledNotificationsAsync';
-import { AndroidImportance } from 'expo-notifications/build/NotificationChannelManager.types';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { getRandomSurahAyah } from '../utils/surahData';
 
 const SETTINGS_KEY = '@dalay_reminder_settings';
 const CHANNEL_ID = 'dalay-reminder';
 
-// Configure notification behavior safely
+// Detect if running inside Expo Go client on Android/iOS
+const isExpoGo =
+  Constants.executionEnvironment === ExecutionEnvironment?.StoreClient ||
+  Constants?.appOwnership === 'expo';
+
+/**
+ * Safe dynamic module getter
+ * Prevents Expo Go SDK 53+ Android crash by only loading native module in standalone builds
+ */
+const getNotificationModule = () => {
+  if (Platform.OS === 'web' || isExpoGo) {
+    return null;
+  }
+  try {
+    return require('expo-notifications');
+  } catch (e) {
+    return null;
+  }
+};
+
+// Safe top-level configuration in standalone builds
 try {
-  if (Platform.OS !== 'web') {
-    setNotificationHandler({
+  const Notifications = getNotificationModule();
+  if (Notifications && typeof Notifications.setNotificationHandler === 'function') {
+    Notifications.setNotificationHandler({
       handleNotification: async () => ({
         shouldShowBanner: true,
         shouldShowList: true,
@@ -26,9 +39,7 @@ try {
       }),
     });
   }
-} catch (e) {
-  console.log('setNotificationHandler error:', e);
-}
+} catch (e) {}
 
 export const REMINDER_INTERVALS = [
   { id: '1h', label: 'Setiap 1 Jam', labelEn: 'Every 1 Hour', seconds: 3600, minutes: 60 },
@@ -123,29 +134,30 @@ export const getRandomNotificationMessage = (lang = 'en') => {
  * Request notification permissions and register notification channel
  */
 export const requestNotificationPermission = async () => {
-  if (Platform.OS === 'web') return false;
+  const Notifications = getNotificationModule();
+  if (!Notifications) {
+    return true; // Graceful simulation in Expo Go & Web
+  }
 
   try {
-    const { status: existingStatus } = await getPermissionsAsync();
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
 
     if (existingStatus !== 'granted') {
-      const { status } = await requestPermissionsAsync();
+      const { status } = await Notifications.requestPermissionsAsync();
       finalStatus = status;
     }
 
     if (Platform.OS === 'android') {
       try {
-        await setNotificationChannelAsync(CHANNEL_ID, {
+        await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
           name: 'DalAy Reminders',
-          importance: AndroidImportance.HIGH,
+          importance: Notifications.AndroidImportance.HIGH,
           vibrationPattern: [0, 250, 250, 250],
           lightColor: '#0D9488',
           sound: 'default',
         });
-      } catch (err) {
-        // ignore channel creation errors
-      }
+      } catch (err) {}
     }
 
     return finalStatus === 'granted';
@@ -159,47 +171,52 @@ export const requestNotificationPermission = async () => {
  * Schedule recurring Quran Reminder with randomized inspiring call-to-action
  */
 export const scheduleQuranReminder = async (intervalId = '4h', lang = 'en') => {
+  const Notifications = getNotificationModule();
+  const selectedInterval =
+    REMINDER_INTERVALS.find((i) => i.id === intervalId) || REMINDER_INTERVALS[2];
+
   try {
-    const hasPermission = await requestNotificationPermission();
-    if (!hasPermission) {
-      return {
-        success: false,
-        message: lang === 'id'
-          ? 'Izin notifikasi belum diaktifkan di HP Anda.'
-          : 'Notification permission is not enabled on your device.',
-      };
-    }
+    let notificationId = `remind_${Date.now()}`;
 
-    // Cancel all previous scheduled notifications first
-    try {
-      await cancelAllScheduledNotificationsAsync();
-    } catch (e) {}
+    if (Notifications) {
+      const hasPermission = await requestNotificationPermission();
+      if (!hasPermission) {
+        return {
+          success: false,
+          message: lang === 'id'
+            ? 'Izin notifikasi belum diaktifkan di HP Anda.'
+            : 'Notification permission is not enabled on your device.',
+        };
+      }
 
-    const selectedInterval =
-      REMINDER_INTERVALS.find((i) => i.id === intervalId) || REMINDER_INTERVALS[2];
-    const { surah, ayah } = getRandomSurahAyah();
-    const msg = getRandomNotificationMessage(lang);
+      // Cancel all previous scheduled notifications first
+      try {
+        await Notifications.cancelAllScheduledNotificationsAsync();
+      } catch (e) {}
 
-    // Schedule next notification with SDK 57 compatible trigger and target ayah data
-    const notificationId = await scheduleNotificationAsync({
-      content: {
-        title: msg.title,
-        body: msg.body,
-        data: {
-          type: 'daily_ayah',
-          surah,
-          ayah,
+      const { surah, ayah } = getRandomSurahAyah();
+      const msg = getRandomNotificationMessage(lang);
+
+      notificationId = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: msg.title,
+          body: msg.body,
+          data: {
+            type: 'daily_ayah',
+            surah,
+            ayah,
+          },
+          sound: true,
+          channelId: CHANNEL_ID,
         },
-        sound: true,
-        channelId: CHANNEL_ID,
-      },
-      trigger: {
-        type: 'timeInterval',
-        seconds: selectedInterval.seconds,
-        repeats: true,
-        channelId: CHANNEL_ID,
-      },
-    });
+        trigger: {
+          type: 'timeInterval',
+          seconds: selectedInterval.seconds,
+          repeats: true,
+          channelId: CHANNEL_ID,
+        },
+      });
+    }
 
     // Save settings
     const settings = {
@@ -210,7 +227,12 @@ export const scheduleQuranReminder = async (intervalId = '4h', lang = 'en') => {
     };
     await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 
-    return { success: true, notificationId, interval: selectedInterval };
+    return {
+      success: true,
+      notificationId,
+      interval: selectedInterval,
+      isExpoGo,
+    };
   } catch (error) {
     console.log('Error scheduling notification:', error);
     return { success: false, message: error.message };
@@ -222,9 +244,12 @@ export const scheduleQuranReminder = async (intervalId = '4h', lang = 'en') => {
  */
 export const cancelAllReminders = async () => {
   try {
-    try {
-      await cancelAllScheduledNotificationsAsync();
-    } catch (e) {}
+    const Notifications = getNotificationModule();
+    if (Notifications) {
+      try {
+        await Notifications.cancelAllScheduledNotificationsAsync();
+      } catch (e) {}
+    }
 
     const settings = {
       enabled: false,
@@ -243,41 +268,51 @@ export const cancelAllReminders = async () => {
  * Trigger immediate test notification with inspiring invitation
  */
 export const triggerTestNotification = async (lang = 'en') => {
+  const Notifications = getNotificationModule();
+  const { surah, ayah, surahInfo } = getRandomSurahAyah();
+  const msg = getRandomNotificationMessage(lang);
+
   try {
-    const hasPermission = await requestNotificationPermission();
-    if (!hasPermission) {
-      return {
-        success: false,
-        message: lang === 'id'
-          ? 'Izin notifikasi diperlukan. Silakan aktifkan izin notifikasi di Pengaturan HP.'
-          : 'Notification permission required. Please enable it in device settings.',
-      };
+    if (Notifications) {
+      const hasPermission = await requestNotificationPermission();
+      if (!hasPermission) {
+        return {
+          success: false,
+          message: lang === 'id'
+            ? 'Izin notifikasi diperlukan. Silakan aktifkan izin notifikasi di Pengaturan HP.'
+            : 'Notification permission required. Please enable it in device settings.',
+        };
+      }
+
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: msg.title,
+          body: msg.body,
+          data: {
+            type: 'daily_ayah',
+            surah,
+            ayah,
+          },
+          sound: true,
+          channelId: CHANNEL_ID,
+        },
+        trigger: {
+          type: 'timeInterval',
+          seconds: 1,
+          repeats: false,
+          channelId: CHANNEL_ID,
+        },
+      });
     }
 
-    const { surah, ayah, surahInfo } = getRandomSurahAyah();
-    const msg = getRandomNotificationMessage(lang);
-
-    await scheduleNotificationAsync({
-      content: {
-        title: msg.title,
-        body: msg.body,
-        data: {
-          type: 'daily_ayah',
-          surah,
-          ayah,
-        },
-        sound: true,
-        channelId: CHANNEL_ID,
-      },
-      trigger: {
-        type: 'timeInterval',
-        seconds: 1,
-        repeats: false,
-        channelId: CHANNEL_ID,
-      },
-    });
-
-    return { success: true, surahInfo, ayah };
+    return {
+      success: true,
+      surahInfo,
+      ayah,
+      messageTitle: msg.title,
+      messageBody: msg.body,
+      isExpoGo,
+    };
   } catch (error) {
     console.log('Test notification error:', error);
     return { success: false, message: error.message };
@@ -293,9 +328,7 @@ export const getReminderSettings = async () => {
     if (raw) {
       return JSON.parse(raw);
     }
-  } catch (e) {
-    // ignore
-  }
+  } catch (e) {}
   return {
     enabled: false,
     intervalId: '4h',
