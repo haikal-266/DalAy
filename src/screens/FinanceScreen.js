@@ -414,8 +414,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
-    paddingBottom: 10,
+    marginBottom: 14,
+    paddingBottom: 12,
     paddingTop: 4,
     borderBottomWidth: 1,
     gap: 8,
@@ -469,8 +469,8 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.93 }],
   },
   viewToggleContainer: {
-    marginTop: 10,
-    marginBottom: 6,
+    marginTop: 18,
+    marginBottom: 14,
   },
   syncToastBox: {
     flexDirection: 'row',

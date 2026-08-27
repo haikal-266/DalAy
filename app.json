@@ -42,17 +42,7 @@
       "expo-audio",
       "expo-font",
       "expo-asset",
-      "expo-web-browser",
-      [
-        "expo-build-properties",
-        {
-          "android": {
-            "enableProguardInReleaseBuilds": true,
-            "enableShrinkResourcesInReleaseBuilds": true
-          }
-        }
-      ],
-      "@react-native-google-signin/google-signin"
+      "expo-web-browser"
     ],
     "extra": {
       "eas": {

@@ -180,7 +180,7 @@ export const WalletCarousel = ({ onOpenManageWallets, onAddNewWallet }) => {
                 {formatRupiah(stats.balance)}
               </Text>
               <Text style={[styles.walletSub, { color: colors.textMuted }]}>
-                {stats.txCount} {isIndonesian ? 'transaksi' : 'txs'}
+                {stats.txCount} {isIndonesian ? 'transaksi' : (stats.txCount === 1 ? 'transaction' : 'transactions')}
               </Text>
             </Pressable>
           );

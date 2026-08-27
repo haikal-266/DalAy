@@ -201,29 +201,30 @@ export const DateStripSelector = ({ selectedDate, onSelectDate }) => {
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 4,
+    marginTop: 4,
+    marginBottom: 16,
   },
   topInfoBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    marginBottom: 8,
     paddingHorizontal: 2,
   },
   dateLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 6,
     flex: 1,
   },
   dateText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '800',
   },
   resetTodayBtn: {
-    paddingVertical: 2,
-    paddingHorizontal: 8,
-    borderRadius: 6,
+    paddingVertical: 3,
+    paddingHorizontal: 10,
+    borderRadius: 8,
     borderWidth: 1,
   },
   resetTodayText: {
@@ -233,20 +234,20 @@ const styles = StyleSheet.create({
   stripRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
   scrollStrip: {
-    gap: 5,
-    paddingVertical: 2,
+    gap: 8,
+    paddingVertical: 4,
   },
   pill: {
-    width: 44,
-    height: 48,
-    borderRadius: 10,
+    width: 48,
+    height: 52,
+    borderRadius: 12,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 2,
+    paddingVertical: 4,
   },
   pillSelected: {
     elevation: 2,

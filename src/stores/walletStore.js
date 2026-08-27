@@ -216,6 +216,12 @@ export const WalletProvider = ({ children }) => {
     }, 0);
   };
 
+  const replaceWallets = async (newWallets) => {
+    if (Array.isArray(newWallets) && newWallets.length > 0) {
+      await saveWallets(newWallets);
+    }
+  };
+
   const value = useMemo(
     () => ({
       wallets,
@@ -228,6 +234,7 @@ export const WalletProvider = ({ children }) => {
       getWalletById,
       getWalletBalance,
       getTotalNetWorth,
+      replaceWallets,
     }),
     [wallets, selectedWalletId, loading]
   );

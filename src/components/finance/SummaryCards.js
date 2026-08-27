@@ -101,13 +101,14 @@ export const SummaryCards = ({
 
 const styles = StyleSheet.create({
   card: {
-    marginVertical: 4,
+    marginTop: 6,
+    marginBottom: 16,
   },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   saldoTitleRow: {
     flexDirection: 'row',
@@ -130,14 +131,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   balanceAmount: {
-    fontSize: 26,
+    fontSize: 27,
     fontWeight: '900',
     letterSpacing: -0.5,
-    marginVertical: 4,
+    marginVertical: 8,
   },
   divider: {
     height: 1,
-    marginVertical: 8,
+    marginVertical: 12,
   },
   bottomStatsRow: {
     flexDirection: 'row',

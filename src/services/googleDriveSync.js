@@ -5,19 +5,10 @@ import * as DocumentPicker from 'expo-document-picker';
 import { Platform } from 'react-native';
 import { APP_INFO } from '../constants/appInfo';
 
-// Safely load native GoogleSignin module (available in standalone APK / dev builds)
-let GoogleSignin = null;
-let statusCodes = null;
-try {
-  const gModule = require('@react-native-google-signin/google-signin');
-  GoogleSignin = gModule.GoogleSignin;
-  statusCodes = gModule.statusCodes;
-} catch (e) {
-  // Not available in standard Expo Go client
-}
-
 // Complete auth session if redirected back to web
-WebBrowser.maybeCompleteAuthSession();
+if (Platform.OS === 'web') {
+  WebBrowser.maybeCompleteAuthSession();
+}
 
 // Standard OAuth Google Endpoints
 const GOOGLE_AUTH_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth';
@@ -50,46 +41,7 @@ const discovery = {
 export const signInWithGoogle = async (customClientId = null) => {
   const clientId = customClientId || GOOGLE_WEB_CLIENT_ID;
 
-  // 1. Native Google Play Services Authentication (0-Browser, native bottom sheet)
-  if (GoogleSignin && typeof GoogleSignin.configure === 'function') {
-    try {
-      GoogleSignin.configure({
-        scopes: SCOPES,
-        webClientId: clientId,
-        offlineAccess: true,
-      });
-
-      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-      const signInResult = await GoogleSignin.signIn();
-      const tokens = await GoogleSignin.getTokens();
-
-      const user = signInResult.data?.user || signInResult.user;
-      const accessToken = tokens?.accessToken;
-
-      if (accessToken) {
-        return {
-          success: true,
-          accessToken,
-          user: {
-            name: user?.name || 'Pengguna Google',
-            email: user?.email || '',
-            picture: user?.photo || null,
-          },
-        };
-      }
-    } catch (nativeErr) {
-      if (nativeErr.code === statusCodes?.SIGN_IN_CANCELLED) {
-        return { success: false, canceled: true, error: 'Login dibatalkan oleh pengguna.' };
-      } else if (nativeErr.code === statusCodes?.IN_PROGRESS) {
-        return { success: false, error: 'Proses login sedang berjalan.' };
-      } else if (nativeErr.code === statusCodes?.PLAY_SERVICES_NOT_AVAILABLE) {
-        return { success: false, error: 'Google Play Services tidak tersedia di perangkat ini.' };
-      }
-      console.log('Native GoogleSignin error, falling back to browser flow:', nativeErr);
-    }
-  }
-
-  // 2. Fallback to Browser OAuth for Web or testing
+  // Browser OAuth via Postman / custom client
   try {
     const redirectUri = 'https://oauth.pstmn.io/v1/callback';
 
@@ -440,8 +392,21 @@ export const mergeDatasets = (localData, cloudData) => {
   });
   const mergedHistory = Array.from(histMap.values()).slice(0, 50);
 
+  // Merge Wallets
+  const localWallets = localData?.wallets || [];
+  const cloudWallets = cloudData?.wallets || [];
+  const walletMap = new Map();
+
+  [...cloudWallets, ...localWallets].forEach((w) => {
+    if (w && w.id) {
+      walletMap.set(w.id, w);
+    }
+  });
+  const mergedWallets = Array.from(walletMap.values());
+
   return {
     transactions: mergedTransactions,
+    wallets: mergedWallets,
     quranFavorites: mergedFavorites,
     quranHistory: mergedHistory,
     totalTransactions: mergedTransactions.length,
@@ -452,7 +417,7 @@ export const mergeDatasets = (localData, cloudData) => {
 /**
  * 1-Click Save / Backup File to Google Drive (via Native Storage Sharing)
  * Works directly on all Android & iOS devices without requiring Google Console setup
- * @param {object} payload - { transactions, quranFavorites, quranHistory }
+ * @param {object} payload - { transactions, wallets, quranFavorites, quranHistory }
  * @returns {Promise<{success: boolean, uri?: string, error?: string}>}
  */
 export const exportBackupToFile = async (payload) => {
@@ -462,6 +427,7 @@ export const exportBackupToFile = async (payload) => {
       version: APP_INFO.version,
       exportedAt: new Date().toISOString(),
       transactions: payload?.transactions || [],
+      wallets: payload?.wallets || [],
       quranFavorites: payload?.quranFavorites || [],
       quranHistory: payload?.quranHistory || [],
     };
@@ -550,13 +516,8 @@ export const importBackupFromFile = async () => {
 };
 
 export const signOutGoogle = async () => {
-  try {
-    if (GoogleSignin && typeof GoogleSignin.signOut === 'function') {
-      await GoogleSignin.signOut();
-    }
-  } catch (e) {
-    console.log('Error during Google signOut:', e);
-  }
+  // Clear any active session
+  return { success: true };
 };
 
 export default {

@@ -153,11 +153,12 @@ export const TransactionList = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 4,
+    marginTop: 4,
+    marginBottom: 16,
   },
   filterSection: {
-    marginBottom: 8,
-    gap: 8,
+    marginBottom: 16,
+    gap: 12,
   },
   searchInput: {
     marginBottom: 0,
@@ -166,18 +167,18 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
   },
   groupsContainer: {
-    gap: 12,
+    gap: 16,
   },
   groupWrapper: {
-    marginBottom: 4,
+    marginBottom: 12,
   },
   dateHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 4,
+    paddingVertical: 6,
     paddingHorizontal: 2,
-    marginBottom: 4,
+    marginBottom: 8,
   },
   dateLabel: {
     fontSize: 11,

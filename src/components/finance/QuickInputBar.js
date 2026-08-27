@@ -201,13 +201,14 @@ export const QuickInputBar = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 4,
+    marginTop: 4,
+    marginBottom: 16,
   },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   titleLeft: {
     flexDirection: 'row',
@@ -221,13 +222,13 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   segmentedWrapper: {
-    marginBottom: 10,
+    marginBottom: 12,
   },
   inputWrapper: {
-    marginBottom: 8,
+    marginBottom: 10,
   },
   previewContainer: {
-    marginBottom: 10,
+    marginBottom: 12,
     padding: 10,
     borderRadius: 12,
     borderWidth: 1,
@@ -253,7 +254,8 @@ const styles = StyleSheet.create({
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
+    marginTop: 2,
   },
   submitBtn: {
     flex: 1,
