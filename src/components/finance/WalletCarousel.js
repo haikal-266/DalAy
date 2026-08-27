@@ -97,13 +97,30 @@ export const WalletCarousel = ({ onOpenManageWallets, onAddNewWallet }) => {
             >
               <Ionicons name="layers-outline" size={16} color={colors.primary} />
             </View>
-            {isAllSelected && (
-              <View style={[styles.activePill, { backgroundColor: colors.primary }]}>
-                <Text style={styles.activePillText}>
-                  {isIndonesian ? 'AKTIF' : 'ACTIVE'}
-                </Text>
-              </View>
-            )}
+            <View style={styles.headerRightBadges}>
+              {totalNetWorth < 0 && (
+                <View
+                  style={[
+                    styles.debtBadge,
+                    {
+                      backgroundColor: colors.expenseLight || '#FEF2F2',
+                      borderColor: colors.expense || '#EF4444',
+                    },
+                  ]}
+                >
+                  <Text style={[styles.debtBadgeText, { color: colors.expense || '#EF4444' }]}>
+                    {isIndonesian ? 'Hutang' : 'Debt'}
+                  </Text>
+                </View>
+              )}
+              {isAllSelected && (
+                <View style={[styles.activePill, { backgroundColor: colors.primary }]}>
+                  <Text style={styles.activePillText}>
+                    {isIndonesian ? 'AKTIF' : 'ACTIVE'}
+                  </Text>
+                </View>
+              )}
+            </View>
           </View>
 
           <Text style={[styles.walletName, { color: colors.textSecondary }]} numberOfLines={1}>
@@ -115,6 +132,8 @@ export const WalletCarousel = ({ onOpenManageWallets, onAddNewWallet }) => {
               { color: totalNetWorth >= 0 ? colors.income : colors.expense },
             ]}
             numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
           >
             {formatRupiah(totalNetWorth)}
           </Text>
@@ -158,13 +177,30 @@ export const WalletCarousel = ({ onOpenManageWallets, onAddNewWallet }) => {
                 >
                   <Ionicons name={wallet.icon || 'wallet-outline'} size={16} color={cardColor} />
                 </View>
-                {isSelected && (
-                  <View style={[styles.activePill, { backgroundColor: cardColor }]}>
-                    <Text style={styles.activePillText}>
-                      {isIndonesian ? 'AKTIF' : 'ACTIVE'}
-                    </Text>
-                  </View>
-                )}
+                <View style={styles.headerRightBadges}>
+                  {stats.balance < 0 && (
+                    <View
+                      style={[
+                        styles.debtBadge,
+                        {
+                          backgroundColor: colors.expenseLight || '#FEF2F2',
+                          borderColor: colors.expense || '#EF4444',
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.debtBadgeText, { color: colors.expense || '#EF4444' }]}>
+                        {isIndonesian ? 'Hutang' : 'Debt'}
+                      </Text>
+                    </View>
+                  )}
+                  {isSelected && (
+                    <View style={[styles.activePill, { backgroundColor: cardColor }]}>
+                      <Text style={styles.activePillText}>
+                        {isIndonesian ? 'AKTIF' : 'ACTIVE'}
+                      </Text>
+                    </View>
+                  )}
+                </View>
               </View>
 
               <Text style={[styles.walletName, { color: colors.text }]} numberOfLines={1}>
@@ -176,6 +212,8 @@ export const WalletCarousel = ({ onOpenManageWallets, onAddNewWallet }) => {
                   { color: stats.balance >= 0 ? colors.text : colors.expense },
                 ]}
                 numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.8}
               >
                 {formatRupiah(stats.balance)}
               </Text>
@@ -260,11 +298,11 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   walletCard: {
-    width: 155,
+    width: 190,
     borderRadius: 18,
     padding: 14,
     justifyContent: 'space-between',
-    minHeight: 125,
+    minHeight: 128,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -279,6 +317,22 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  headerRightBadges: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  debtBadge: {
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  debtBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.2,
   },
   activePill: {
     paddingHorizontal: 6,

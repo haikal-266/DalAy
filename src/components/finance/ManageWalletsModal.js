@@ -309,8 +309,30 @@ export const ManageWalletsModal = ({ visible, onClose, onToast, initialAddMode =
                             </Text>
                           </View>
                         )}
+                        {stats.balance < 0 && (
+                          <View
+                            style={[
+                              styles.debtBadge,
+                              {
+                                backgroundColor: colors.expenseLight || '#FEF2F2',
+                                borderColor: colors.expense || '#EF4444',
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[styles.debtBadgeText, { color: colors.expense || '#EF4444' }]}
+                            >
+                              {isIndonesian ? 'Hutang' : 'Debt'}
+                            </Text>
+                          </View>
+                        )}
                       </View>
-                      <Text style={[styles.walletItemBalance, { color: colors.textSecondary }]}>
+                      <Text
+                        style={[
+                          styles.walletItemBalance,
+                          { color: stats.balance >= 0 ? colors.textSecondary : (colors.expense || '#EF4444') },
+                        ]}
+                      >
                         {formatRupiah(stats.balance)}
                       </Text>
                     </View>
@@ -571,6 +593,17 @@ const styles = StyleSheet.create({
   defaultBadgeText: {
     fontSize: 9,
     fontWeight: '900',
+  },
+  debtBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  debtBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.2,
   },
   walletItemBalance: {
     fontSize: 12,
