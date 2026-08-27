@@ -55,7 +55,7 @@ export const TafsirModal = ({ visible, onClose, ayah }) => {
   const handleShareTafsir = async () => {
     if (!ayah || !tafsirData) return;
 
-    const message = `📖 *Tafsir QS. ${surahName} (${ayah.surah}:${ayahNum})*\n\n"${ayah.translation}"\n\n*Tafsir (${tafsirData.source}):*\n${tafsirData.text}\n\n_${t('quran.sharedFrom', 'Dibagikan dari aplikasi DalAy (Daily Ayah)')}_`;
+    const message = `*Tafsir QS. ${surahName} (${ayah.surah}:${ayahNum})*\n\n"${ayah.translation}"\n\n*Tafsir (${tafsirData.source}):*\n${tafsirData.text}\n\n_${t('quran.sharedFrom', 'Dibagikan dari aplikasi DalAy (Daily Ayah)')}_`;
 
     try {
       if (Platform.OS === 'web' && navigator.share) {

@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { LanguageProvider } from './src/stores/languageStore';
+import { LanguageProvider, useLanguage } from './src/stores/languageStore';
 import { ThemeProvider, useTheme } from './src/stores/themeStore';
-import { QuranProvider } from './src/stores/quranStore';
+import { QuranProvider, useQuran } from './src/stores/quranStore';
 import { WalletProvider } from './src/stores/walletStore';
 import { FinanceProvider } from './src/stores/financeStore';
 import { SyncProvider } from './src/stores/syncStore';
@@ -12,29 +12,40 @@ import { QuranScreen } from './src/screens/QuranScreen';
 import { FinanceScreen } from './src/screens/FinanceScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { BottomTabBar } from './src/navigation/BottomTabBar';
-import { getNotificationModule } from './src/services/notificationService';
+import { getNotificationModule, initNotificationSync } from './src/services/notificationService';
 
 const AppContent = () => {
   const [activeTab, setActiveTab] = useState('quran');
   const { colors, isDark } = useTheme();
+  const { currentLanguage } = useLanguage();
+  const { selectSpecificAyah } = useQuran();
 
   useEffect(() => {
+    // Purge any stale repeating alarms and top up fresh distinct reminders
+    initNotificationSync(currentLanguage);
+
     let subscription = null;
     try {
       const Notifications = getNotificationModule();
       if (Notifications && typeof Notifications.addNotificationResponseReceivedListener === 'function') {
-        subscription = Notifications.addNotificationResponseReceivedListener(() => {
+        subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+          const data = response?.notification?.request?.content?.data;
+          if (data?.surah && data?.ayah && typeof selectSpecificAyah === 'function') {
+            selectSpecificAyah(data.surah, data.ayah);
+          }
           setActiveTab('quran');
         });
       }
-    } catch (e) {}
+    } catch (e) {
+      console.log('Notification listener setup error:', e);
+    }
 
     return () => {
       if (subscription && typeof subscription.remove === 'function') {
         subscription.remove();
       }
     };
-  }, []);
+  }, [currentLanguage]);
 
   const renderActiveScreen = () => {
     switch (activeTab) {

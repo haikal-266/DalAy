@@ -4,7 +4,8 @@ import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { getRandomSurahAyah } from '../utils/surahData';
 
 const SETTINGS_KEY = '@dalay_reminder_settings';
-const CHANNEL_ID = 'dalay-reminder';
+const CHANNEL_ID = 'dalay-quran-reminders-v3';
+const LEGACY_CHANNELS = ['quranku-reminder', 'dalay-reminder', 'dalay-reminder-v2'];
 
 // Detect if running inside Expo Go client on Android/iOS
 const isExpoGo =
@@ -42,101 +43,288 @@ try {
 } catch (e) {}
 
 export const REMINDER_INTERVALS = [
-  { id: '1h', label: 'Setiap 1 Jam', labelEn: 'Every 1 Hour', seconds: 3600, minutes: 60 },
-  { id: '2h', label: 'Setiap 2 Jam', labelEn: 'Every 2 Hours', seconds: 7200, minutes: 120 },
-  { id: '4h', label: 'Setiap 4 Jam', labelEn: 'Every 4 Hours', seconds: 14400, minutes: 240 },
-  { id: '6h', label: 'Setiap 6 Jam', labelEn: 'Every 6 Hours', seconds: 21600, minutes: 360 },
-  { id: '12h', label: 'Setiap 12 Jam', labelEn: 'Every 12 Hours', seconds: 43200, minutes: 720 },
-  { id: '24h', label: '1x Sehari (Harian)', labelEn: 'Once a Day (Daily)', seconds: 86400, minutes: 1440 },
+  { id: '1h', label: 'Setiap 1 Jam', labelEn: 'Every 1 Hour', seconds: 3600, minutes: 60, slots: 24 },
+  { id: '2h', label: 'Setiap 2 Jam', labelEn: 'Every 2 Hours', seconds: 7200, minutes: 120, slots: 24 },
+  { id: '4h', label: 'Setiap 4 Jam', labelEn: 'Every 4 Hours', seconds: 14400, minutes: 240, slots: 24 },
+  { id: '6h', label: 'Setiap 6 Jam', labelEn: 'Every 6 Hours', seconds: 21600, minutes: 360, slots: 20 },
+  { id: '12h', label: 'Setiap 12 Jam', labelEn: 'Every 12 Hours', seconds: 43200, minutes: 720, slots: 20 },
+  { id: '24h', label: '1x Sehari (Harian)', labelEn: 'Once a Day (Daily)', seconds: 86400, minutes: 1440, slots: 30 },
 ];
 
 /**
- * Rich randomized pool of warm, inspiring Quran invitation messages
+ * Curated pool of inspiring, comforting, and beloved Quranic verses
+ * Each verse has its surah number, Latin name, ayah number, and short reflection
  */
-export const INSPIRING_MESSAGES = {
-  id: [
-    {
-      title: '🌟 Waktunya Sejenak Bersama Al-Quran',
-      body: 'Ada pesan penuh hikmah untuk harimu. Yuk luangkan 1 menit untuk membaca ayat pilihan hari ini ✨',
-    },
-    {
-      title: '📖 Penenang Hati & Jiwa',
-      body: 'Rehat sejenak dari kesibukan. Simak ayat pilihan dan renungkan maknanya hari ini 🌿',
-    },
-    {
-      title: '✨ Cahaya Petunjuk Hari Ini',
-      body: 'Awali dan isi harimu dengan petunjuk Al-Quran. Ketuk untuk membuka ayat dan tafsirnya 🤲',
-    },
-    {
-      title: '🌿 Oase Spiritual Untukmu',
-      body: 'Segarkan hati dan pikiran dengan firman-Nya. Mari lihat ayat inspiratif hari ini 💫',
-    },
-    {
-      title: '🤲 Renungan Harian Menunggumu',
-      body: 'Jangan lewatkan pesan kebaikan hari ini. Buka DalAy untuk menyimak ayat pilihanmu 📖',
-    },
-    {
-      title: '🌸 Rehat Sejenak & Renungkan',
-      body: 'Satu ayat bisa mengubah sudut pandang harimu. Ketuk untuk membaca ayat dan terjemahannya ✨',
-    },
-    {
-      title: '🤍 Luangkan Waktu untuk Al-Quran',
-      body: 'Mari mendekat kepada firman Allah. Ayat penuh inspirasi telah siap untukmu hari ini 🌙',
-    },
-    {
-      title: '💡 Inspirasi Harian DalAy',
-      body: 'Temukan ketenangan dan petunjuk hidup dari Al-Quran hari ini. Ketuk untuk menyimak 🌟',
-    },
-  ],
-  en: [
-    {
-      title: '🌟 A Moment of Peace with Quran',
-      body: 'A heartfelt message is waiting for you today. Take a minute to read and reflect ✨',
-    },
-    {
-      title: '📖 Your Daily Quran Reflection',
-      body: 'Pause your busy day and nourish your soul with today’s inspiring verse 🌿',
-    },
-    {
-      title: '✨ Daily Light & Guidance',
-      body: 'Enrich your day with timeless wisdom. Tap to read today’s ayah and commentary 🤲',
-    },
-    {
-      title: '🌿 Spiritual Oasis for You',
-      body: 'Refresh your mind and heart with Allah’s words. Check out today’s inspiring verse 💫',
-    },
-    {
-      title: '🤲 Daily Wisdom Awaits You',
-      body: 'Don’t miss today’s reminder of goodness. Open DalAy to reflect on the verse 📖',
-    },
-    {
-      title: '🌸 Pause & Reflect',
-      body: 'A single verse can bring tranquility to your entire day. Tap to read now ✨',
-    },
-    {
-      title: '🤍 A Timeless Reminder',
-      body: 'Find peace and clarity in the Quran today. Tap to discover your daily ayah 🌙',
-    },
-    {
-      title: '💡 DalAy Daily Inspiration',
-      body: 'Discover solace and guidance from the Holy Quran today. Tap to explore 🌟',
-    },
-  ],
-};
+export const INSPIRING_AYAT_POOL = [
+  {
+    surahNumber: 2,
+    surahName: 'Al-Baqarah',
+    ayah: 286,
+    quoteId: 'Allah tidak membebani seseorang melainkan sesuai dengan kesanggupannya.',
+    quoteEn: 'Allah does not burden a soul beyond that it can bear.',
+  },
+  {
+    surahNumber: 2,
+    surahName: 'Al-Baqarah',
+    ayah: 186,
+    quoteId: 'Aku dekat. Aku mengabulkan doa orang yang memohon apabila dia berdoa kepada-Ku.',
+    quoteEn: 'Indeed I am near. I respond to the invocations of the supplicant.',
+  },
+  {
+    surahNumber: 2,
+    surahName: 'Al-Baqarah',
+    ayah: 152,
+    quoteId: 'Maka ingatlah kepada-Ku, niscaya Aku ingat kepadamu.',
+    quoteEn: 'So remember Me; I will remember you.',
+  },
+  {
+    surahNumber: 3,
+    surahName: "Ali 'Imran",
+    ayah: 139,
+    quoteId: 'Janganlah kamu bersedih hati, sungguh kamulah orang yang unggul jika kamu beriman.',
+    quoteEn: 'Do not grieve, for you will overcome if you are truly believers.',
+  },
+  {
+    surahNumber: 3,
+    surahName: "Ali 'Imran",
+    ayah: 159,
+    quoteId: 'Apabila engkau telah membulatkan tekad, bertawakallah kepada Allah.',
+    quoteEn: 'When you have decided, then put your trust in Allah.',
+  },
+  {
+    surahNumber: 13,
+    surahName: "Ar-Ra'd",
+    ayah: 28,
+    quoteId: 'Ingatlah, hanya dengan mengingat Allah hati menjadi tenteram.',
+    quoteEn: 'Unquestionably, by the remembrance of Allah hearts are assured.',
+  },
+  {
+    surahNumber: 14,
+    surahName: 'Ibrahim',
+    ayah: 7,
+    quoteId: 'Jika kamu bersyukur, pasti Kami akan menambah nikmat kepadamu.',
+    quoteEn: 'If you are grateful, I will surely increase you in favor.',
+  },
+  {
+    surahNumber: 20,
+    surahName: 'Taha',
+    ayah: 46,
+    quoteId: 'Janganlah khawatir, sesungguhnya Aku bersamamu, Aku mendengar dan melihat.',
+    quoteEn: 'Fear not. Indeed, I am with you; I hear and I see.',
+  },
+  {
+    surahNumber: 21,
+    surahName: "Al-Anbiya'",
+    ayah: 87,
+    quoteId: 'Tidak ada tuhan selain Engkau, Mahasuci Engkau, sungguh aku termasuk orang zalim.',
+    quoteEn: 'There is no deity except You; exalted are You. Indeed, I was of the wrongdoers.',
+  },
+  {
+    surahNumber: 25,
+    surahName: 'Al-Furqan',
+    ayah: 74,
+    quoteId: 'Ya Tuhan kami, jadikanlah pasangan & keturunan kami sebagai penyejuk hati.',
+    quoteEn: 'Our Lord, grant us comfort to our eyes from our wives and offspring.',
+  },
+  {
+    surahNumber: 39,
+    surahName: 'Az-Zumar',
+    ayah: 53,
+    quoteId: 'Janganlah berputus asa dari rahmat Allah. Sungguh Allah mengampuni segala dosa.',
+    quoteEn: 'Do not despair of the mercy of Allah. Indeed, Allah forgives all sins.',
+  },
+  {
+    surahNumber: 65,
+    surahName: 'At-Talaq',
+    ayah: 3,
+    quoteId: 'Barangsiapa bertawakal kepada Allah, niscaya Allah akan mencukupkan keperluannya.',
+    quoteEn: 'Whoever relies upon Allah - then He is sufficient for him.',
+  },
+  {
+    surahNumber: 94,
+    surahName: 'Asy-Syarh',
+    ayah: 5,
+    quoteId: 'Maka sesungguhnya bersama kesulitan ada kemudahan.',
+    quoteEn: 'For indeed, with hardship [will be] ease.',
+  },
+  {
+    surahNumber: 94,
+    surahName: 'Asy-Syarh',
+    ayah: 6,
+    quoteId: 'Sesungguhnya bersama kesulitan selalu ada kemudahan.',
+    quoteEn: 'Indeed, with hardship [will be] ease.',
+  },
+  {
+    surahNumber: 93,
+    surahName: 'Ad-Duha',
+    ayah: 3,
+    quoteId: 'Tuhanmu tidak meninggalkan engkau dan tidak pula membencimu.',
+    quoteEn: 'Your Lord has not forsaken you, nor has He detested you.',
+  },
+  {
+    surahNumber: 93,
+    surahName: 'Ad-Duha',
+    ayah: 4,
+    quoteId: 'Dan sungguh, yang kemudian itu lebih baik bagimu daripada yang permulaan.',
+    quoteEn: 'And the Hereafter is better for you than the first life.',
+  },
+  {
+    surahNumber: 18,
+    surahName: 'Al-Kahf',
+    ayah: 10,
+    quoteId: 'Ya Tuhan kami, berikanlah rahmat kepada kami dari sisi-Mu dan petunjuk lurus.',
+    quoteEn: 'Our Lord, grant us from Yourself mercy and prepare right guidance for us.',
+  },
+  {
+    surahNumber: 24,
+    surahName: 'An-Nur',
+    ayah: 35,
+    quoteId: 'Allah adalah cahaya langit dan bumi.',
+    quoteEn: 'Allah is the Light of the heavens and the earth.',
+  },
+  {
+    surahNumber: 67,
+    surahName: 'Al-Mulk',
+    ayah: 15,
+    quoteId: 'Dialah yang menjadikan bumi mudah untukmu, maka berjalanlah di segala penjurunya.',
+    quoteEn: 'It is He who made the earth tame for you - so walk among its slopes.',
+  },
+  {
+    surahNumber: 55,
+    surahName: 'Ar-Rahman',
+    ayah: 13,
+    quoteId: 'Maka nikmat Tuhanmu yang manakah yang kamu dustakan?',
+    quoteEn: 'So which of the favors of your Lord would you deny?',
+  },
+  {
+    surahNumber: 2,
+    surahName: 'Al-Baqarah',
+    ayah: 45,
+    quoteId: 'Jadikanlah sabar dan salat sebagai penolongmu.',
+    quoteEn: 'And seek help through patience and prayer.',
+  },
+  {
+    surahNumber: 10,
+    surahName: 'Yunus',
+    ayah: 57,
+    quoteId: 'Telah datang kepadamu pelajaran dari Tuhanmu dan penyembuh bagi penyakit di dada.',
+    quoteEn: 'There has come to you advice from your Lord and healing for what is in hearts.',
+  },
+  {
+    surahNumber: 17,
+    surahName: "Al-Isra'",
+    ayah: 82,
+    quoteId: 'Dan Kami turunkan dari Al-Quran suatu yang menjadi penawar dan rahmat.',
+    quoteEn: 'And We send down of the Quran that which is healing and mercy.',
+  },
+  {
+    surahNumber: 50,
+    surahName: 'Qaf',
+    ayah: 16,
+    quoteId: 'Dan Kami lebih dekat kepadanya daripada urat lehernya.',
+    quoteEn: 'And We are closer to him than his jugular vein.',
+  },
+  {
+    surahNumber: 57,
+    surahName: 'Al-Hadid',
+    ayah: 4,
+    quoteId: 'Dan Dia bersama kamu di mana saja kamu berada.',
+    quoteEn: 'And He is with you wherever you are.',
+  },
+  {
+    surahNumber: 35,
+    surahName: 'Fatir',
+    ayah: 34,
+    quoteId: 'Segala puji bagi Allah yang telah menghilangkan kesedihan dari kami.',
+    quoteEn: 'Praise to Allah, who has removed from us all sorrow.',
+  },
+  {
+    surahNumber: 23,
+    surahName: "Al-Mu'minun",
+    ayah: 118,
+    quoteId: 'Ya Tuhanku, berilah ampunan dan rahmat, Engkau sebaik-baik pemberi rahmat.',
+    quoteEn: 'My Lord, forgive and have mercy, and You are the best of the merciful.',
+  },
+  {
+    surahNumber: 103,
+    surahName: "Al-'Asr",
+    ayah: 3,
+    quoteId: 'Saling menasihati untuk kebenaran dan saling menasihati untuk kesabaran.',
+    quoteEn: 'Advise each other to truth and advise each other to patience.',
+  },
+  {
+    surahNumber: 112,
+    surahName: 'Al-Ikhlas',
+    ayah: 1,
+    quoteId: 'Katakanlah (Muhammad), Dialah Allah, Yang Maha Esa.',
+    quoteEn: 'Say, He is Allah, the One and Only.',
+  },
+  {
+    surahNumber: 28,
+    surahName: 'Al-Qasas',
+    ayah: 77,
+    quoteId: 'Dan carilah pada apa yang dianugerahkan Allah kepadamu kebahagiaan akhirat.',
+    quoteEn: 'Seek the home of the Hereafter through that which Allah has given you.',
+  },
+];
 
-export const getRandomNotificationMessage = (lang = 'en') => {
-  const pool = INSPIRING_MESSAGES[lang] || INSPIRING_MESSAGES.en;
-  const randomIndex = Math.floor(Math.random() * pool.length);
-  return pool[randomIndex];
+/**
+ * Get a shuffled sequence of distinct verses to avoid duplicate notifications
+ */
+export const getDistinctAyatSequence = (count = 24) => {
+  // Fisher-Yates shuffle on a copy of curated verses
+  const shuffled = [...INSPIRING_AYAT_POOL];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+
+  // If more slots needed than pool size, fill with unique random surah/ayah
+  const results = [...shuffled];
+  while (results.length < count) {
+    const rand = getRandomSurahAyah();
+    results.push({
+      surahNumber: rand.surah,
+      surahName: rand.surahInfo?.name_latin || `Surah ${rand.surah}`,
+      ayah: rand.ayah,
+      quoteId: 'Ada pesan penuh hikmah untukmu. Ketuk untuk menyimak ayat ini.',
+      quoteEn: 'A heartfelt reflection awaits you. Tap to read this verse.',
+    });
+  }
+
+  return results.slice(0, count);
 };
 
 /**
- * Request notification permissions and register notification channel
+ * Purge all legacy repeating alarms and notification channels from older versions
+ */
+export const purgeAllLegacyReminders = async () => {
+  const Notifications = getNotificationModule();
+  if (!Notifications) return;
+
+  try {
+    await Notifications.cancelAllScheduledNotificationsAsync().catch(() => {});
+    await Notifications.dismissAllNotificationsAsync().catch(() => {});
+
+    if (Platform.OS === 'android') {
+      for (const ch of LEGACY_CHANNELS) {
+        try {
+          await Notifications.deleteNotificationChannelAsync(ch);
+        } catch (e) {}
+      }
+    }
+  } catch (err) {
+    console.log('purgeAllLegacyReminders error:', err);
+  }
+};
+
+/**
+ * Request notification permissions and register channel
  */
 export const requestNotificationPermission = async () => {
   const Notifications = getNotificationModule();
   if (!Notifications) {
-    return true; // Graceful simulation in Expo Go & Web
+    return true; // Simulation for web & Expo Go
   }
 
   try {
@@ -168,16 +356,15 @@ export const requestNotificationPermission = async () => {
 };
 
 /**
- * Schedule recurring Quran Reminder with randomized inspiring call-to-action
+ * Schedule a fresh batch of DISTINCT Quran reminders
+ * Each upcoming notification in the batch has a DIFFERENT Surah and Ayah!
  */
-export const scheduleQuranReminder = async (intervalId = '4h', lang = 'en') => {
+export const scheduleQuranReminder = async (intervalId = '4h', lang = 'id') => {
   const Notifications = getNotificationModule();
   const selectedInterval =
     REMINDER_INTERVALS.find((i) => i.id === intervalId) || REMINDER_INTERVALS[2];
 
   try {
-    let notificationId = `remind_${Date.now()}`;
-
     if (Notifications) {
       const hasPermission = await requestNotificationPermission();
       if (!hasPermission) {
@@ -189,52 +376,63 @@ export const scheduleQuranReminder = async (intervalId = '4h', lang = 'en') => {
         };
       }
 
-      // Cancel all previous scheduled notifications first
-      try {
-        await Notifications.cancelAllScheduledNotificationsAsync();
-      } catch (e) {}
+      // Purge old schedules and stale Android repeating alarms
+      await purgeAllLegacyReminders();
 
-      const { surah, ayah } = getRandomSurahAyah();
-      const msg = getRandomNotificationMessage(lang);
+      const isIndo = lang === 'id';
+      const numSlots = selectedInterval.slots || 24;
+      const sequence = getDistinctAyatSequence(numSlots);
 
-      notificationId = await Notifications.scheduleNotificationAsync({
-        content: {
-          title: msg.title,
-          body: msg.body,
-          data: {
-            type: 'daily_ayah',
-            surah,
-            ayah,
+      // Schedule individual one-shot timers into the future
+      for (let i = 0; i < sequence.length; i++) {
+        const item = sequence[i];
+        const delaySeconds = selectedInterval.seconds * (i + 1);
+
+        const title = isIndo
+          ? `Ayat Hari Ini: ${item.surahName} : ${item.ayah}`
+          : `Daily Ayah: ${item.surahName} : ${item.ayah}`;
+
+        const body = isIndo
+          ? `"${item.quoteId}" (Ketuk untuk membaca)`
+          : `"${item.quoteEn}" (Tap to read & reflect)`;
+
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title,
+            body,
+            data: {
+              type: 'daily_ayah',
+              surah: item.surahNumber,
+              ayah: item.ayah,
+            },
+            sound: true,
+            channelId: CHANNEL_ID,
           },
-          sound: true,
-          channelId: CHANNEL_ID,
-        },
-        trigger: {
-          type: 'timeInterval',
-          seconds: selectedInterval.seconds,
-          repeats: true,
-          channelId: CHANNEL_ID,
-        },
-      });
+          trigger: {
+            type: 'timeInterval',
+            seconds: delaySeconds,
+            repeats: false,
+            channelId: CHANNEL_ID,
+          },
+        });
+      }
     }
 
     // Save settings
     const settings = {
       enabled: true,
       intervalId,
-      notificationId,
       updatedAt: new Date().toISOString(),
     };
     await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 
     return {
       success: true,
-      notificationId,
       interval: selectedInterval,
       isExpoGo,
     };
   } catch (error) {
-    console.log('Error scheduling notification:', error);
+    console.log('Error scheduling notification batch:', error);
     return { success: false, message: error.message };
   }
 };
@@ -244,12 +442,7 @@ export const scheduleQuranReminder = async (intervalId = '4h', lang = 'en') => {
  */
 export const cancelAllReminders = async () => {
   try {
-    const Notifications = getNotificationModule();
-    if (Notifications) {
-      try {
-        await Notifications.cancelAllScheduledNotificationsAsync();
-      } catch (e) {}
-    }
+    await purgeAllLegacyReminders();
 
     const settings = {
       enabled: false,
@@ -265,12 +458,13 @@ export const cancelAllReminders = async () => {
 };
 
 /**
- * Trigger immediate test notification with inspiring invitation
+ * Trigger immediate test notification with a fresh random inspiring verse
  */
-export const triggerTestNotification = async (lang = 'en') => {
+export const triggerTestNotification = async (lang = 'id') => {
   const Notifications = getNotificationModule();
-  const { surah, ayah, surahInfo } = getRandomSurahAyah();
-  const msg = getRandomNotificationMessage(lang);
+  const isIndo = lang === 'id';
+  const randIndex = Math.floor(Math.random() * INSPIRING_AYAT_POOL.length);
+  const item = INSPIRING_AYAT_POOL[randIndex];
 
   try {
     if (Notifications) {
@@ -278,20 +472,28 @@ export const triggerTestNotification = async (lang = 'en') => {
       if (!hasPermission) {
         return {
           success: false,
-          message: lang === 'id'
+          message: isIndo
             ? 'Izin notifikasi diperlukan. Silakan aktifkan izin notifikasi di Pengaturan HP.'
             : 'Notification permission required. Please enable it in device settings.',
         };
       }
 
+      const title = isIndo
+        ? `Ayat Hari Ini: ${item.surahName} : ${item.ayah}`
+        : `Daily Ayah: ${item.surahName} : ${item.ayah}`;
+
+      const body = isIndo
+        ? `"${item.quoteId}" (Ketuk untuk membaca & merenungkan)`
+        : `"${item.quoteEn}" (Tap to read & reflect)`;
+
       await Notifications.scheduleNotificationAsync({
         content: {
-          title: msg.title,
-          body: msg.body,
+          title,
+          body,
           data: {
             type: 'daily_ayah',
-            surah,
-            ayah,
+            surah: item.surahNumber,
+            ayah: item.ayah,
           },
           sound: true,
           channelId: CHANNEL_ID,
@@ -307,15 +509,36 @@ export const triggerTestNotification = async (lang = 'en') => {
 
     return {
       success: true,
-      surahInfo,
-      ayah,
-      messageTitle: msg.title,
-      messageBody: msg.body,
+      surahInfo: { name_latin: item.surahName, number: item.surahNumber },
+      ayah: item.ayah,
+      messageTitle: isIndo ? `Ayat Hari Ini: ${item.surahName} : ${item.ayah}` : `Daily Ayah: ${item.surahName} : ${item.ayah}`,
+      messageBody: isIndo ? item.quoteId : item.quoteEn,
       isExpoGo,
     };
   } catch (error) {
     console.log('Test notification error:', error);
     return { success: false, message: error.message };
+  }
+};
+
+/**
+ * Sync / replenish reminders on app startup
+ * Ensures legacy repeating alarms from previous versions are purged,
+ * and if reminder is enabled, tops up the schedule with fresh unique verses.
+ */
+export const initNotificationSync = async (lang = 'id') => {
+  try {
+    const Notifications = getNotificationModule();
+    if (!Notifications) return;
+
+    const settings = await getReminderSettings();
+    if (settings.enabled) {
+      await scheduleQuranReminder(settings.intervalId || '4h', lang);
+    } else {
+      await purgeAllLegacyReminders();
+    }
+  } catch (err) {
+    console.log('initNotificationSync error:', err);
   }
 };
 
@@ -338,11 +561,12 @@ export const getReminderSettings = async () => {
 
 export default {
   REMINDER_INTERVALS,
-  INSPIRING_MESSAGES,
-  getRandomNotificationMessage,
+  INSPIRING_AYAT_POOL,
+  getDistinctAyatSequence,
   requestNotificationPermission,
   scheduleQuranReminder,
   cancelAllReminders,
   triggerTestNotification,
+  initNotificationSync,
   getReminderSettings,
 };

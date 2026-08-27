@@ -150,12 +150,12 @@ export const TransactionList = ({
                 <View style={styles.dateTotals}>
                   {group.totalIncome > 0 && (
                     <Text style={[styles.groupIncome, { color: colors.incomeDark }]}>
-                      +{formatRupiah(group.totalIncome)}
+                      +{formatRupiah(Math.abs(group.totalIncome))}
                     </Text>
                   )}
                   {group.totalExpense > 0 && (
                     <Text style={[styles.groupExpense, { color: colors.expenseDark }]}>
-                      -{formatRupiah(group.totalExpense)}
+                      -{formatRupiah(Math.abs(group.totalExpense))}
                     </Text>
                   )}
                 </View>

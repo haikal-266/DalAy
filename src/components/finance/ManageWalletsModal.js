@@ -74,6 +74,27 @@ export const ManageWalletsModal = ({ visible, onClose, onToast, initialAddMode =
     setMode('edit');
   };
 
+  const parseSignedBalance = (str) => {
+    if (str === '' || str === undefined || str === null) return 0;
+    const s = str.toString().trim();
+    const isNeg = s.startsWith('-');
+    const digits = s.replace(/\D/g, '');
+    const num = Number.parseInt(digits, 10) || 0;
+    return isNeg ? -num : num;
+  };
+
+  const formatInputDisplay = (str) => {
+    if (str === '' || str === undefined || str === null) return '';
+    const s = str.toString().trim();
+    if (s === '-') return '-Rp ';
+    const isNeg = s.startsWith('-');
+    const digits = s.replace(/\D/g, '');
+    if (!digits) return isNeg ? '-Rp ' : '';
+    const num = Number.parseInt(digits, 10) || 0;
+    const formatted = formatRupiah(num, false);
+    return isNeg ? `-Rp ${formatted}` : `Rp ${formatted}`;
+  };
+
   const handleSave = async () => {
     if (!name.trim()) {
       setWalletAlert({
@@ -84,7 +105,7 @@ export const ManageWalletsModal = ({ visible, onClose, onToast, initialAddMode =
       return;
     }
 
-    const cleanBalance = Number.parseInt(initialBalance.replace(/\D/g, ''), 10) || 0;
+    const cleanBalance = parseSignedBalance(initialBalance);
 
     if (mode === 'create') {
       await addWallet({
@@ -131,7 +152,7 @@ export const ManageWalletsModal = ({ visible, onClose, onToast, initialAddMode =
           iconFamily: 'Ionicons',
           categoryColor: isIncrease ? (colors.income || '#10B981') : (colors.expense || '#EF4444'),
           categoryBgColor: isIncrease ? (colors.incomeLight || '#ECFDF5') : (colors.expenseLight || '#FEF2F2'),
-          rawText: `${isIndonesian ? 'Penyesuaian Saldo' : 'Balance Correction'} ${formatRupiah(adjustmentAmount)}`,
+          rawText: `${isIndonesian ? 'Penyesuaian Saldo' : 'Balance Correction'} ${isIncrease ? '+' : '-'}${formatRupiah(adjustmentAmount)}`,
           date: new Date().toISOString(),
         });
       }
@@ -350,15 +371,24 @@ export const ManageWalletsModal = ({ visible, onClose, onToast, initialAddMode =
                   ? (isIndonesian ? 'SALDO DOMPET SAAT INI (RUPIAH) :' : 'CURRENT WALLET BALANCE (IDR) :')
                   : (isIndonesian ? 'SALDO AWAL (RUPIAH) :' : 'INITIAL BALANCE (IDR) :')}
               </Text>
+
               <NeoInput
                 placeholder="0"
-                value={
-                  initialBalance !== ''
-                    ? formatRupiah(Number.parseInt(initialBalance.replace(/\D/g, ''), 10) || 0, true)
-                    : ''
-                }
-                onChangeText={(val) => setInitialBalance(val.replace(/\D/g, ''))}
-                keyboardType="numeric"
+                value={formatInputDisplay(initialBalance)}
+                onChangeText={(val) => {
+                  if (!val) {
+                    setInitialBalance('');
+                    return;
+                  }
+                  const isNeg = val.includes('-') || initialBalance.toString().trim().startsWith('-');
+                  const digits = val.replace(/\D/g, '');
+                  if (!digits) {
+                    setInitialBalance(isNeg ? '-' : '');
+                    return;
+                  }
+                  setInitialBalance(isNeg ? `-${digits}` : digits);
+                }}
+                keyboardType="numbers-and-punctuation"
                 leftIconName="cash-outline"
               />
               <Text style={[styles.balanceHint, { color: colors.textMuted }]}>

@@ -45,7 +45,7 @@ export const AyatCard = ({
   const handleShare = async () => {
     if (!ayah) return;
 
-    const shareMessage = `📖 *${surahName} (${ayah.surah}:${ayahNum})*\n\n${ayah.arab}\n\n"${ayah.translation}"\n\n_${t('quran.sharedFrom', 'Dibagikan dari aplikasi DalAy (Daily Ayah)')}_`;
+    const shareMessage = `*${surahName} (${ayah.surah}:${ayahNum})*\n\n${ayah.arab}\n\n"${ayah.translation}"\n\n_${t('quran.sharedFrom', 'Dibagikan dari aplikasi DalAy (Daily Ayah)')}_`;
 
     try {
       if (Platform.OS === 'web' && navigator.share) {

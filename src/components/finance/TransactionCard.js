@@ -78,7 +78,7 @@ export const TransactionCard = ({ transaction, onEdit, onDelete }) => {
               ]}
             >
               {isIncome ? '+' : '-'}
-              {formatRupiah(transaction.amount)}
+              {formatRupiah(Math.abs(transaction.amount || 0))}
             </Text>
 
             <View style={styles.btnRow}>
