@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { TYPOGRAPHY } from '../../theme/typography';
 import { NeoModal } from '../neo/NeoModal';
@@ -12,7 +12,7 @@ import { useFinance } from '../../stores/financeStore';
 import { pickAndImportExcel } from '../../services/excelImport';
 import { formatRupiah, formatDateIndo } from '../../utils/formatters';
 
-export const ImportModal = ({ visible, onClose }) => {
+export const ImportModal = ({ visible, onClose, onSuccess, onError }) => {
   const { colors } = useTheme();
   const { t, isIndonesian } = useLanguage();
   const { importTransactions } = useFinance();
@@ -41,8 +41,15 @@ export const ImportModal = ({ visible, onClose }) => {
     } else {
       setAlertConfig({
         title: isIndonesian ? 'Gagal Membaca File' : 'Failed to Read File',
-        message: result.error || (isIndonesian ? 'Format file tidak didukung atau tidak ada data transaksi yang valid.' : 'Unsupported file format or no valid transaction data found.'),
+        message:
+          result.error ||
+          (isIndonesian
+            ? 'Format file tidak didukung atau tidak ada data transaksi yang valid.'
+            : 'Unsupported file format or no valid transaction data found.'),
         type: 'danger',
+        showCancel: false,
+        confirmText: isIndonesian ? 'Tutup' : 'Close',
+        onConfirm: () => setAlertConfig(null),
       });
     }
   };
@@ -50,20 +57,26 @@ export const ImportModal = ({ visible, onClose }) => {
   const handleConfirmImport = async () => {
     if (!importedPreview || !importedPreview.transactions) return;
 
+    const count = importedPreview.transactions.length;
     const res = await importTransactions(importedPreview.transactions);
+    resetState();
+    onClose();
+
     if (res.success) {
-      setAlertConfig({
-        title: isIndonesian ? 'Impor Berhasil!' : 'Import Successful!',
-        message: isIndonesian
-          ? `Berhasil memasukkan ${res.count} catatan transaksi ke dalam pembukuan Anda.`
-          : `Successfully imported ${res.count} transaction records into your financial records.`,
-        type: 'success',
-        confirmText: isIndonesian ? 'Selesai' : 'Done',
-        onConfirm: () => {
-          resetState();
-          onClose();
-        },
-      });
+      const importedCount = res.count || count;
+      if (typeof onSuccess === 'function') {
+        onSuccess(importedCount);
+      }
+    } else {
+      if (typeof onError === 'function') {
+        onError(
+          res.error ||
+            res.message ||
+            (isIndonesian
+              ? 'Terjadi kesalahan saat menyimpan catatan transaksi.'
+              : 'An error occurred while importing transactions.')
+        );
+      }
     }
   };
 
@@ -249,17 +262,19 @@ export const ImportModal = ({ visible, onClose }) => {
         )}
       </NeoModal>
 
-      {/* Modern Alert / Confirmation Dialog */}
+      {/* In-Modal Modern Alert / Confirmation Dialog */}
       {alertConfig && (
         <ConfirmModal
+          insideModal={true}
           visible={Boolean(alertConfig)}
           onClose={() => setAlertConfig(null)}
           onConfirm={alertConfig.onConfirm || (() => setAlertConfig(null))}
           title={alertConfig.title}
           message={alertConfig.message}
           type={alertConfig.type}
+          iconName={alertConfig.iconName}
           confirmText={alertConfig.confirmText || (isIndonesian ? 'Tutup' : 'Close')}
-          cancelText={isIndonesian ? 'Batal' : 'Cancel'}
+          showCancel={alertConfig.showCancel !== false}
         />
       )}
     </>

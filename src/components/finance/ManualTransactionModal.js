@@ -120,8 +120,8 @@ export const ManualTransactionModal = ({
     const txDate = activeTx
       ? activeTx.date
       : defaultDate
-      ? new Date(defaultDate).toISOString()
-      : new Date().toISOString();
+        ? new Date(defaultDate).toISOString()
+        : new Date().toISOString();
 
     const activeWallet =
       selectedWallet ||
@@ -333,7 +333,7 @@ export const ManualTransactionModal = ({
           title={alertConfig.title}
           message={alertConfig.message}
           type={alertConfig.type}
-          confirmText={isIndonesian ? 'Mengerti' : 'Got it'}
+          confirmText={isIndonesian ? 'Tutup' : 'Close'}
           cancelText={isIndonesian ? 'Tutup' : 'Close'}
         />
       )}

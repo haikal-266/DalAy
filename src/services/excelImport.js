@@ -44,10 +44,17 @@ export const pickAndImportExcel = async () => {
       }
     } else {
       // Native (Android / iOS)
-      const base64Content = await FileSystem.readAsStringAsync(file.uri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-      workbook = XLSX.read(base64Content, { type: 'base64' });
+      try {
+        const base64Content = await FileSystem.readAsStringAsync(file.uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        workbook = XLSX.read(base64Content, { type: 'base64' });
+      } catch (fsErr) {
+        console.log('FileSystem.readAsStringAsync failed for Excel, trying fetch arrayBuffer fallback:', fsErr);
+        const res = await fetch(file.uri);
+        const arrayBuffer = await res.arrayBuffer();
+        workbook = XLSX.read(arrayBuffer, { type: 'array' });
+      }
     }
 
     if (!workbook || !workbook.SheetNames || workbook.SheetNames.length === 0) {

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Platform,
   Pressable,
   ActivityIndicator,
+  Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { TYPOGRAPHY } from '../theme/typography';
@@ -28,6 +29,7 @@ import { ImportModal } from '../components/finance/ImportModal';
 import { WalletCarousel } from '../components/finance/WalletCarousel';
 import { ManageWalletsModal } from '../components/finance/ManageWalletsModal';
 import { NeoSegmented } from '../components/neo/NeoSegmented';
+import { ConfirmModal } from '../components/neo/ConfirmModal';
 
 export const FinanceScreen = () => {
   const scrollViewRef = useRef(null);
@@ -64,9 +66,11 @@ export const FinanceScreen = () => {
   const [initialWalletAddMode, setInitialWalletAddMode] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [syncFeedback, setSyncFeedback] = useState(null);
+  const [modalAlert, setModalAlert] = useState(null);
 
-  const showSyncToast = (msg) => {
-    setSyncFeedback(msg);
+  const showSyncToast = (msg, icon = 'checkmark-circle') => {
+    const toastObj = typeof msg === 'string' ? { text: msg, icon } : msg;
+    setSyncFeedback(toastObj);
     setTimeout(() => setSyncFeedback(null), 3000);
   };
 
@@ -92,12 +96,15 @@ export const FinanceScreen = () => {
     if (!isConnected) {
       const res = await backupToGoogleDriveFile(getLocalSnapshot);
       if (res.success) {
-        showSyncToast(isIndonesian ? 'Pilih Drive untuk menyimpan data!' : 'Select Drive to save backup!');
+        showSyncToast(
+          isIndonesian ? 'Pilih Drive untuk menyimpan data' : 'Select Drive to save backup',
+          'cloud-upload-outline'
+        );
       }
     } else {
       const res = await performSync(getLocalSnapshot, applyMerged);
       if (res.success) {
-        showSyncToast(res.message);
+        showSyncToast(res.message, 'sync-outline');
       }
     }
   };
@@ -115,16 +122,106 @@ export const FinanceScreen = () => {
   const handleSaveManual = async (txData) => {
     if (editingTransaction) {
       await updateTransaction(txData.id, txData);
+      showSyncToast(
+        isIndonesian ? 'Transaksi berhasil diperbarui' : 'Transaction updated',
+        'checkmark-circle'
+      );
       setEditingTransaction(null);
     } else {
       await addTransaction(txData);
+      showSyncToast(
+        isIndonesian ? 'Transaksi berhasil dicatat' : 'Transaction recorded',
+        'checkmark-circle'
+      );
+    }
+  };
+
+  const handleDeleteTransaction = async (id) => {
+    await deleteTransaction(id);
+    showSyncToast(
+      isIndonesian ? 'Transaksi berhasil dihapus' : 'Transaction deleted',
+      'trash-outline'
+    );
+  };
+
+  const handleQuickAdd = async (text, type, date) => {
+    const res = await addFromNaturalLanguage(text, type, date);
+    if (res.success) {
+      showSyncToast(
+        isIndonesian
+          ? `Berhasil mencatat ${res.count || 1} transaksi`
+          : `Recorded ${res.count || 1} transactions`,
+        'checkmark-circle'
+      );
+    }
+    return res;
+  };
+
+  const [quickInputY, setQuickInputY] = useState(480);
+  const [transactionListY, setTransactionListY] = useState(700);
+
+  const isKeyboardVisibleRef = useRef(false);
+  const targetScrollYRef = useRef(null);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => {
+        isKeyboardVisibleRef.current = true;
+        if (targetScrollYRef.current !== null) {
+          const y = targetScrollYRef.current;
+          requestAnimationFrame(() => {
+            scrollViewRef.current?.scrollTo({
+              y,
+              animated: true,
+            });
+          });
+        }
+      }
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        isKeyboardVisibleRef.current = false;
+        targetScrollYRef.current = null;
+      }
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  const smoothScrollToTarget = (targetY) => {
+    const y = Math.max(0, targetY - 14);
+    targetScrollYRef.current = y;
+    if (isKeyboardVisibleRef.current) {
+      requestAnimationFrame(() => {
+        scrollViewRef.current?.scrollTo({
+          y,
+          animated: true,
+        });
+      });
+    } else {
+      setTimeout(() => {
+        requestAnimationFrame(() => {
+          if (targetScrollYRef.current !== null) {
+            scrollViewRef.current?.scrollTo({
+              y: targetScrollYRef.current,
+              animated: true,
+            });
+          }
+        });
+      }, 140);
     }
   };
 
   const handleFocusInput = () => {
-    setTimeout(() => {
-      scrollViewRef.current?.scrollTo({ y: 160, animated: true });
-    }, 120);
+    smoothScrollToTarget(quickInputY);
+  };
+
+  const handleSearchFocus = () => {
+    smoothScrollToTarget(transactionListY);
   };
 
   const getPeriodLabel = () => {
@@ -154,7 +251,7 @@ export const FinanceScreen = () => {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
-        automaticallyAdjustKeyboardInsets={true}
+        automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -272,8 +369,12 @@ export const FinanceScreen = () => {
               { backgroundColor: colors.accent, borderColor: colors.border },
             ]}
           >
-            <Ionicons name="checkmark-circle" size={16} color="#FFFFFF" />
-            <Text style={styles.syncToastText}>{syncFeedback}</Text>
+            <Ionicons
+              name={syncFeedback.icon || 'checkmark-circle'}
+              size={16}
+              color="#FFFFFF"
+            />
+            <Text style={styles.syncToastText}>{syncFeedback.text}</Text>
           </View>
         )}
 
@@ -303,15 +404,18 @@ export const FinanceScreen = () => {
         />
 
         {/* Smart Natural Language Quick Input Bar */}
-        <QuickInputBar
-          onAdd={addFromNaturalLanguage}
-          onOpenManual={() => {
-            setEditingTransaction(null);
-            setManualModalVisible(true);
-          }}
-          selectedDate={selectedInputDate}
-          onFocusInput={handleFocusInput}
-        />
+        <View onLayout={(e) => setQuickInputY(e.nativeEvent.layout.y)}>
+          <QuickInputBar
+            onAdd={handleQuickAdd}
+            onOpenManual={() => {
+              setEditingTransaction(null);
+              setManualModalVisible(true);
+            }}
+            selectedDate={selectedInputDate}
+            onFocus={handleFocusInput}
+            onFocusInput={handleFocusInput}
+          />
+        </View>
 
         {/* View Toggle Tabs (Transaction List vs Stats & Charts) */}
         <View style={styles.viewToggleContainer}>
@@ -335,19 +439,18 @@ export const FinanceScreen = () => {
 
         {/* Main Content Area */}
         {activeViewTab === 'list' ? (
-          <TransactionList
-            transactions={filteredTransactions}
-            typeFilter={typeFilter}
-            setTypeFilter={setTypeFilter}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            onEdit={handleOpenEdit}
-            onDelete={deleteTransaction}
-            onOpenManual={() => {
-              setEditingTransaction(null);
-              setManualModalVisible(true);
-            }}
-          />
+          <View onLayout={(e) => setTransactionListY(e.nativeEvent.layout.y)}>
+            <TransactionList
+              transactions={filteredTransactions}
+              typeFilter={typeFilter}
+              setTypeFilter={setTypeFilter}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              onEdit={handleOpenEdit}
+              onDelete={handleDeleteTransaction}
+              onSearchFocus={handleSearchFocus}
+            />
+          </View>
         ) : (
           <PieChartSection
             categoryStats={categoryStats}
@@ -374,9 +477,33 @@ export const FinanceScreen = () => {
       />
 
       {/* Export to Excel Modal */}
+      {/* Export to Excel Modal */}
       <ExportModal
         visible={exportModalVisible}
         onClose={() => setExportModalVisible(false)}
+        onSuccess={(fileName) => {
+          showSyncToast(
+            isIndonesian ? `Rekap ${fileName} siap dibagikan` : `Exported ${fileName}`,
+            'document-text-outline'
+          );
+          setModalAlert({
+            title: isIndonesian ? 'Ekspor Berhasil' : 'Export Successful',
+            message: isIndonesian
+              ? `Laporan Excel (${fileName}) telah selesai dibuat dan siap disimpan atau dibagikan.`
+              : `Excel report (${fileName}) is ready to download or share.`,
+            type: 'success',
+            iconName: 'document-text-outline',
+            confirmText: isIndonesian ? 'Selesai' : 'Done',
+          });
+        }}
+        onError={(err) => {
+          setModalAlert({
+            title: isIndonesian ? 'Gagal Ekspor' : 'Export Failed',
+            message: err,
+            type: 'danger',
+            confirmText: isIndonesian ? 'Tutup' : 'Close',
+          });
+        }}
         transactions={filteredTransactions}
         summary={summary}
         periodLabel={getPeriodLabel()}
@@ -386,14 +513,58 @@ export const FinanceScreen = () => {
       <ImportModal
         visible={importModalVisible}
         onClose={() => setImportModalVisible(false)}
+        onSuccess={(count) => {
+          showSyncToast(
+            isIndonesian
+              ? `Berhasil mengimpor ${count} transaksi`
+              : `Successfully imported ${count} transactions`,
+            'cloud-download-outline'
+          );
+          setModalAlert({
+            title: isIndonesian ? 'Impor Berhasil' : 'Import Successful',
+            message: isIndonesian
+              ? `Berhasil memasukkan ${count} catatan transaksi ke dalam pembukuan Anda.`
+              : `Successfully imported ${count} transaction records into your financial bookkeeping.`,
+            type: 'success',
+            iconName: 'cloud-download-outline',
+            confirmText: isIndonesian ? 'Selesai' : 'Done',
+          });
+        }}
+        onError={(err) => {
+          setModalAlert({
+            title: isIndonesian ? 'Gagal Mengimpor Data' : 'Import Failed',
+            message: err,
+            type: 'danger',
+            confirmText: isIndonesian ? 'Tutup' : 'Close',
+          });
+        }}
       />
 
       {/* Manage Custom Wallets Modal */}
       <ManageWalletsModal
         visible={manageWalletsVisible}
         onClose={() => setManageWalletsVisible(false)}
+        onToast={showSyncToast}
         initialAddMode={initialWalletAddMode}
       />
+
+      {/* Custom Neo Notification / Alert Modal */}
+      {modalAlert && (
+        <ConfirmModal
+          visible={Boolean(modalAlert)}
+          onClose={() => setModalAlert(null)}
+          onConfirm={() => {
+            if (modalAlert.onConfirm) modalAlert.onConfirm();
+            setModalAlert(null);
+          }}
+          title={modalAlert.title}
+          message={modalAlert.message}
+          type={modalAlert.type || 'info'}
+          iconName={modalAlert.iconName}
+          confirmText={modalAlert.confirmText || (isIndonesian ? 'Selesai' : 'Done')}
+          showCancel={false}
+        />
+      )}
     </KeyboardAvoidingView>
   );
 };
@@ -408,7 +579,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 48,
+    paddingBottom: 220,
   },
   header: {
     flexDirection: 'row',

@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { TYPOGRAPHY } from '../../theme/typography';
@@ -65,18 +64,37 @@ export const GoogleSyncCard = ({ onToast }) => {
         if (onToast) {
           onToast(
             isIndonesian
-              ? 'Pilih "Simpan ke Drive" pada menu share untuk menyimpan cadangan!'
-              : 'Select "Save to Drive" on share menu to save backup!'
+              ? 'Cadangan disiapkan. Silakan pilih "Simpan ke Drive".'
+              : 'Backup ready. Please select "Save to Drive".'
           );
         }
+        setConfirmDialog({
+          title: isIndonesian ? 'Cadangan Disimpan' : 'Backup Ready',
+          message: isIndonesian
+            ? `File cadangan (${res.fileName || 'dalay_cloud_backup_*.json'}) berhasil dibuat.\n\nSilakan pilih menu "Simpan ke Drive" pada jendela bagikan di HP Anda untuk menyimpannya ke Google Drive.`
+            : `Backup file generated.\n\nPlease select "Save to Drive" on your share menu to save it in Google Drive.`,
+          type: 'info',
+          iconName: 'cloud-upload-outline',
+          showCancel: false,
+          confirmText: isIndonesian ? 'Tutup' : 'Close',
+        });
       } else if (res.message) {
-        Alert.alert(isIndonesian ? 'Gagal Cadangkan' : 'Backup Failed', res.message);
+        setConfirmDialog({
+          title: isIndonesian ? 'Gagal Cadangkan' : 'Backup Failed',
+          message: res.message,
+          type: 'danger',
+          showCancel: false,
+          confirmText: isIndonesian ? 'Tutup' : 'Close',
+        });
       }
     } catch (err) {
-      Alert.alert(
-        isIndonesian ? 'Error Cadangan' : 'Backup Error',
-        err?.message || (isIndonesian ? 'Gagal membuat cadangan.' : 'Failed to create backup.')
-      );
+      setConfirmDialog({
+        title: isIndonesian ? 'Error Cadangan' : 'Backup Error',
+        message: err?.message || (isIndonesian ? 'Gagal membuat cadangan.' : 'Failed to create backup.'),
+        type: 'danger',
+        showCancel: false,
+        confirmText: isIndonesian ? 'Tutup' : 'Close',
+      });
     }
   };
 
@@ -93,15 +111,36 @@ export const GoogleSyncCard = ({ onToast }) => {
         try {
           const res = await restoreFromGoogleDriveFile(getLocalDataSnapshot, applyMergedDataset);
           if (res.success) {
-            if (onToast) onToast(res.message);
-          } else if (!res.canceled && res.message) {
-            Alert.alert(isIndonesian ? 'Gagal Memulihkan' : 'Restore Failed', res.message);
+            if (onToast) onToast(isIndonesian ? 'Data berhasil dipulihkan' : 'Data restored successfully');
+            setConfirmDialog({
+              title: isIndonesian ? 'Pemulihan Berhasil' : 'Restore Successful',
+              message: res.message || (isIndonesian
+                ? 'Seluruh data transaksi keuangan, dompet, dan riwayat Al-Quran Anda telah berhasil dipulihkan dari Google Drive.'
+                : 'All financial data, wallets, and Quran history successfully restored from Google Drive.'),
+              type: 'success',
+              iconName: 'cloud-done-outline',
+              showCancel: false,
+              confirmText: isIndonesian ? 'Selesai' : 'Done',
+            });
+          } else if (res.canceled) {
+            if (onToast) onToast(isIndonesian ? 'Pemulihan dibatalkan' : 'Restore canceled');
+          } else if (res.message) {
+            setConfirmDialog({
+              title: isIndonesian ? 'Gagal Memulihkan' : 'Restore Failed',
+              message: res.message,
+              type: 'danger',
+              showCancel: false,
+              confirmText: isIndonesian ? 'Tutup' : 'Close',
+            });
           }
         } catch (err) {
-          Alert.alert(
-            isIndonesian ? 'Error Pemulihan' : 'Restore Error',
-            err?.message || (isIndonesian ? 'Gagal memulihkan file.' : 'Failed to restore file.')
-          );
+          setConfirmDialog({
+            title: isIndonesian ? 'Error Pemulihan' : 'Restore Error',
+            message: err?.message || (isIndonesian ? 'Gagal memulihkan file cadangan.' : 'Failed to restore backup file.'),
+            type: 'danger',
+            showCancel: false,
+            confirmText: isIndonesian ? 'Tutup' : 'Close',
+          });
         }
       },
     });
@@ -174,13 +213,15 @@ export const GoogleSyncCard = ({ onToast }) => {
 
       {/* Last Backup Info */}
       <View style={styles.metaRow}>
-        <Ionicons name="time-outline" size={15} color={colors.textMuted} />
-        <Text style={[styles.metaLabel, { color: colors.textMuted }]}>
-          {isIndonesian ? 'Terakhir dicadangkan:' : 'Last backup:'}
-        </Text>
-        <Text style={[styles.metaValue, { color: colors.text }]}>
-          {formatLastSync(lastSyncTime)}
-        </Text>
+        <Ionicons name="time-outline" size={15} color={colors.textMuted} style={styles.metaIcon} />
+        <View style={styles.metaTextContainer}>
+          <Text style={[styles.metaLabel, { color: colors.textMuted }]}>
+            {isIndonesian ? 'Terakhir dicadangkan: ' : 'Last backup: '}
+            <Text style={[styles.metaValue, { color: colors.text }]}>
+              {formatLastSync(lastSyncTime)}
+            </Text>
+          </Text>
+        </View>
       </View>
 
       {/* Main Action Buttons */}
@@ -194,7 +235,12 @@ export const GoogleSyncCard = ({ onToast }) => {
         >
           <View style={styles.btnInner}>
             <Ionicons name="cloud-upload" size={19} color="#FFFFFF" style={styles.btnIcon} />
-            <Text style={styles.actionBtnText}>
+            <Text
+              style={styles.actionBtnText}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.85}
+            >
               {isIndonesian ? 'Cadangkan ke Google Drive' : 'Backup to Google Drive'}
             </Text>
           </View>
@@ -209,7 +255,12 @@ export const GoogleSyncCard = ({ onToast }) => {
         >
           <View style={styles.btnInner}>
             <Ionicons name="cloud-download-outline" size={19} color={colors.text} style={styles.btnIcon} />
-            <Text style={[styles.restoreBtnText, { color: colors.text }]}>
+            <Text
+              style={[styles.restoreBtnText, { color: colors.text }]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.85}
+            >
               {isIndonesian ? 'Pulihkan dari Google Drive' : 'Restore from Google Drive'}
             </Text>
           </View>
@@ -231,17 +282,19 @@ export const GoogleSyncCard = ({ onToast }) => {
         </Text>
       </View>
 
-      {/* Confirmation Dialog */}
+      {/* Confirmation & Alert Dialog */}
       {confirmDialog && (
         <ConfirmModal
-          visible={true}
+          visible={Boolean(confirmDialog)}
           title={confirmDialog.title}
           message={confirmDialog.message}
           type={confirmDialog.type}
+          iconName={confirmDialog.iconName}
           confirmText={confirmDialog.confirmText}
           cancelText={isIndonesian ? 'Batal' : 'Cancel'}
+          showCancel={confirmDialog.showCancel !== false}
           onConfirm={confirmDialog.onConfirm}
-          onCancel={() => setConfirmDialog(null)}
+          onClose={() => setConfirmDialog(null)}
         />
       )}
     </NeoCard>
@@ -308,14 +361,21 @@ const styles = StyleSheet.create({
   },
   metaRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 6,
     marginBottom: 16,
     paddingHorizontal: 2,
   },
+  metaIcon: {
+    marginTop: 2,
+  },
+  metaTextContainer: {
+    flex: 1,
+  },
   metaLabel: {
     fontSize: 12,
     fontWeight: '500',
+    lineHeight: 18,
   },
   metaValue: {
     fontSize: 12,

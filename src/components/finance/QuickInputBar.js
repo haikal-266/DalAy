@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { TYPOGRAPHY } from '../../theme/typography';
 import { NeoCard } from '../neo/NeoCard';
 import { NeoInput } from '../neo/NeoInput';
 import { NeoButton } from '../neo/NeoButton';
@@ -17,6 +16,7 @@ export const QuickInputBar = ({
   onAdd,
   onOpenManual,
   onFocus,
+  onFocusInput,
   selectedDate = new Date(),
 }) => {
   const { colors } = useTheme();
@@ -25,6 +25,11 @@ export const QuickInputBar = ({
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
   const [alertConfig, setAlertConfig] = useState(null); // { title, message, type }
+
+  const handleInputFocus = (e) => {
+    if (typeof onFocus === 'function') onFocus(e);
+    if (typeof onFocusInput === 'function') onFocusInput(e);
+  };
 
   // Live parsed items as user types
   const parsedPreview = useMemo(() => {
@@ -110,7 +115,7 @@ export const QuickInputBar = ({
         }
         value={inputText}
         onChangeText={setInputText}
-        onFocus={onFocus}
+        onFocus={handleInputFocus}
         multiline
         numberOfLines={2}
         style={styles.inputWrapper}
@@ -191,7 +196,7 @@ export const QuickInputBar = ({
           title={alertConfig.title}
           message={alertConfig.message}
           type={alertConfig.type}
-          confirmText={isIndonesian ? 'Mengerti' : 'Got it'}
+          confirmText={isIndonesian ? 'Tutup' : 'Close'}
           cancelText={isIndonesian ? 'Tutup' : 'Close'}
         />
       )}

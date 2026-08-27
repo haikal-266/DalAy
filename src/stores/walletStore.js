@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const STORAGE_KEY_WALLETS = '@dalay_wallets_v1';
 const STORAGE_KEY_SELECTED_WALLET = '@dalay_selected_wallet_id';
 
-export const WALLET_ICONS = [
+export const PRIMARY_WALLET_ICONS = [
   'cash-outline',
   'card-outline',
   'phone-portrait-outline',
@@ -14,7 +14,59 @@ export const WALLET_ICONS = [
   'shield-checkmark-outline',
   'server-outline',
   'diamond-outline',
+  'sparkles-outline',
+];
+
+export const EXTENDED_WALLET_ICONS = [
+  // Financial & Banking
+  'business-outline',
+  'cash',
+  'card',
+  'wallet',
+  'receipt-outline',
+  'calculator-outline',
+  'pricetag-outline',
+  'pricetags-outline',
+  'qr-code-outline',
+  'stats-chart-outline',
+  'bar-chart-outline',
+  'pie-chart-outline',
+  'globe-outline',
+  // Assets, Goals & Savings
+  'home-outline',
+  'car-outline',
+  'car-sport-outline',
+  'airplane-outline',
+  'boat-outline',
+  'gift-outline',
+  'trophy-outline',
   'ribbon-outline',
+  'medal-outline',
+  'heart-outline',
+  'star-outline',
+  'key-outline',
+  'lock-closed-outline',
+  'shield-outline',
+  // Daily & Lifestyle
+  'cart-outline',
+  'basket-outline',
+  'cafe-outline',
+  'restaurant-outline',
+  'fast-food-outline',
+  'fitness-outline',
+  'school-outline',
+  'book-outline',
+  'film-outline',
+  'game-controller-outline',
+  'camera-outline',
+  'headset-outline',
+  'cube-outline',
+  'layers-outline',
+];
+
+export const WALLET_ICONS = [
+  ...PRIMARY_WALLET_ICONS,
+  ...EXTENDED_WALLET_ICONS,
 ];
 
 export const WALLET_COLORS = [

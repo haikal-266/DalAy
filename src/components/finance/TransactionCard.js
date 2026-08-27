@@ -19,7 +19,7 @@ export const TransactionCard = ({ transaction, onEdit, onDelete }) => {
   return (
     <>
       <NeoCard
-        variant="white"
+        variant="light"
         padding={12}
         style={styles.card}
       >
@@ -166,6 +166,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    flexWrap: 'wrap',
   },
   categoryNameText: {
     fontSize: 11,

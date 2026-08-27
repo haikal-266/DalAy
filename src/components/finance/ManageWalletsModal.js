@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { TYPOGRAPHY } from '../../theme/typography';
@@ -14,25 +13,33 @@ import { NeoButton } from '../neo/NeoButton';
 import { ConfirmModal } from '../neo/ConfirmModal';
 import { useTheme } from '../../stores/themeStore';
 import { useLanguage } from '../../stores/languageStore';
-import { useWallet, WALLET_ICONS, WALLET_COLORS } from '../../stores/walletStore';
+import {
+  useWallet,
+  PRIMARY_WALLET_ICONS,
+  EXTENDED_WALLET_ICONS,
+  WALLET_ICONS,
+  WALLET_COLORS,
+} from '../../stores/walletStore';
 import { useFinance } from '../../stores/financeStore';
 import { formatRupiah } from '../../utils/formatters';
 
-export const ManageWalletsModal = ({ visible, onClose, initialAddMode = false }) => {
-  const { colors, isDark } = useTheme();
+export const ManageWalletsModal = ({ visible, onClose, onToast, initialAddMode = false }) => {
+  const { colors } = useTheme();
   const { isIndonesian } = useLanguage();
   const { wallets, addWallet, updateWallet, deleteWallet, getWalletBalance } = useWallet();
-  const { transactions } = useFinance();
+  const { transactions, addTransaction } = useFinance();
 
   // Mode: 'list' | 'create' | 'edit'
   const [mode, setMode] = useState(initialAddMode ? 'create' : 'list');
   const [editingWallet, setEditingWallet] = useState(null);
+  const [walletAlert, setWalletAlert] = useState(null);
 
   // Form State
   const [name, setName] = useState('');
   const [initialBalance, setInitialBalance] = useState('');
   const [selectedIcon, setSelectedIcon] = useState(WALLET_ICONS[0]);
   const [selectedColor, setSelectedColor] = useState(WALLET_COLORS[0]);
+  const [iconsExpanded, setIconsExpanded] = useState(false);
 
   // Delete Confirm Modal
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -43,6 +50,7 @@ export const ManageWalletsModal = ({ visible, onClose, initialAddMode = false })
     setSelectedIcon(WALLET_ICONS[0]);
     setSelectedColor(WALLET_COLORS[0]);
     setEditingWallet(null);
+    setIconsExpanded(false);
     setMode('list');
   };
 
@@ -54,18 +62,25 @@ export const ManageWalletsModal = ({ visible, onClose, initialAddMode = false })
   const handleStartEdit = (wallet) => {
     setEditingWallet(wallet);
     setName(wallet.name);
-    setInitialBalance(wallet.initialBalance ? wallet.initialBalance.toString() : '');
+    // Get actual current calculated balance from transactions + initialBalance
+    const stats = getWalletBalance(wallet.id, transactions);
+    const currentBal = stats?.balance !== undefined ? stats.balance : (wallet.initialBalance || 0);
+    setInitialBalance(currentBal.toString());
     setSelectedIcon(wallet.icon || WALLET_ICONS[0]);
+    if (EXTENDED_WALLET_ICONS.includes(wallet.icon)) {
+      setIconsExpanded(true);
+    }
     setSelectedColor(wallet.color || WALLET_COLORS[0]);
     setMode('edit');
   };
 
   const handleSave = async () => {
     if (!name.trim()) {
-      Alert.alert(
-        isIndonesian ? 'Nama Diperlukan' : 'Name Required',
-        isIndonesian ? 'Silakan masukkan nama dompet.' : 'Please enter wallet name.'
-      );
+      setWalletAlert({
+        title: isIndonesian ? 'Nama Diperlukan' : 'Name Required',
+        message: isIndonesian ? 'Silakan masukkan nama dompet.' : 'Please enter wallet name.',
+        type: 'warning',
+      });
       return;
     }
 
@@ -78,13 +93,61 @@ export const ManageWalletsModal = ({ visible, onClose, initialAddMode = false })
         icon: selectedIcon,
         color: selectedColor,
       });
+      if (onToast) {
+        onToast(
+          isIndonesian
+            ? `Dompet "${name.trim()}" berhasil ditambahkan`
+            : `Wallet "${name.trim()}" created successfully`,
+          'wallet-outline'
+        );
+      }
     } else if (mode === 'edit' && editingWallet) {
+      // Calculate diff between target balance and current balance
+      const stats = getWalletBalance(editingWallet.id, transactions);
+      const currentBal = stats?.balance !== undefined ? stats.balance : (editingWallet.initialBalance || 0);
+      const diff = cleanBalance - currentBal;
+
+      // Update wallet details (name, icon, color)
       await updateWallet(editingWallet.id, {
         name: name.trim(),
-        initialBalance: cleanBalance,
         icon: selectedIcon,
         color: selectedColor,
       });
+
+      // If balance changed, automatically record an income or expense transaction with label "Penyesuaian Saldo"
+      if (diff !== 0 && typeof addTransaction === 'function') {
+        const isIncrease = diff > 0;
+        const adjustmentAmount = Math.abs(diff);
+
+        await addTransaction({
+          name: isIndonesian ? 'Penyesuaian Saldo' : 'Balance Correction',
+          amount: adjustmentAmount,
+          type: isIncrease ? 'income' : 'expense',
+          walletId: editingWallet.id,
+          walletName: name.trim(),
+          categoryId: 'cat_adjustment',
+          categoryName: isIndonesian ? 'Penyesuaian' : 'Correction',
+          iconName: 'swap-horizontal',
+          iconFamily: 'Ionicons',
+          categoryColor: isIncrease ? (colors.income || '#10B981') : (colors.expense || '#EF4444'),
+          categoryBgColor: isIncrease ? (colors.incomeLight || '#ECFDF5') : (colors.expenseLight || '#FEF2F2'),
+          rawText: `${isIndonesian ? 'Penyesuaian Saldo' : 'Balance Correction'} ${formatRupiah(adjustmentAmount)}`,
+          date: new Date().toISOString(),
+        });
+      }
+
+      if (onToast) {
+        onToast(
+          diff !== 0
+            ? (isIndonesian
+              ? `Dompet "${name.trim()}" diperbarui & saldo disesuaikan`
+              : `Wallet "${name.trim()}" updated & balance adjusted`)
+            : (isIndonesian
+              ? `Dompet "${name.trim()}" berhasil diperbarui`
+              : `Wallet "${name.trim()}" updated successfully`),
+          'wallet-outline'
+        );
+      }
     }
 
     resetForm();
@@ -92,9 +155,21 @@ export const ManageWalletsModal = ({ visible, onClose, initialAddMode = false })
 
   const handleDeleteConfirm = async () => {
     if (deleteTarget) {
+      const targetName = deleteTarget.name;
       const res = await deleteWallet(deleteTarget.id);
       if (!res.success) {
-        Alert.alert(isIndonesian ? 'Gagal' : 'Failed', res.message);
+        setWalletAlert({
+          title: isIndonesian ? 'Gagal Menghapus' : 'Delete Failed',
+          message: res.message,
+          type: 'danger',
+        });
+      } else if (onToast) {
+        onToast(
+          isIndonesian
+            ? `Dompet "${targetName}" berhasil dihapus`
+            : `Wallet "${targetName}" deleted`,
+          'trash-outline'
+        );
       }
       setDeleteTarget(null);
     }
@@ -114,12 +189,12 @@ export const ManageWalletsModal = ({ visible, onClose, initialAddMode = false })
               ? 'Kelola Dompet'
               : 'Manage Wallets'
             : mode === 'create'
-            ? isIndonesian
-              ? 'Tambah Dompet Baru'
-              : 'Add New Wallet'
-            : isIndonesian
-            ? 'Edit Dompet'
-            : 'Edit Wallet'
+              ? isIndonesian
+                ? 'Tambah Dompet Baru'
+                : 'Add New Wallet'
+              : isIndonesian
+                ? 'Edit Dompet'
+                : 'Edit Wallet'
         }
         subtitle={
           mode === 'list'
@@ -127,8 +202,8 @@ export const ManageWalletsModal = ({ visible, onClose, initialAddMode = false })
               ? 'Diversifikasi sumber dana dan akun Anda'
               : 'Diversify your funds and accounts'
             : isIndonesian
-            ? 'Atur nama, ikon, warna, dan saldo awal'
-            : 'Configure name, icon, color, and balance'
+              ? 'Atur nama, ikon, warna, dan saldo awal'
+              : 'Configure name, icon, color, and balance'
         }
         footer={
           mode === 'list' ? (
@@ -268,15 +343,17 @@ export const ManageWalletsModal = ({ visible, onClose, initialAddMode = false })
               />
             </View>
 
-            {/* Initial Balance Input */}
+            {/* Balance Input */}
             <View style={styles.formGroup}>
               <Text style={[styles.formLabel, { color: colors.textSecondary }]}>
-                {isIndonesian ? 'SALDO AWAL (RUPIAH) :' : 'INITIAL BALANCE (IDR) :'}
+                {mode === 'edit'
+                  ? (isIndonesian ? 'SALDO DOMPET SAAT INI (RUPIAH) :' : 'CURRENT WALLET BALANCE (IDR) :')
+                  : (isIndonesian ? 'SALDO AWAL (RUPIAH) :' : 'INITIAL BALANCE (IDR) :')}
               </Text>
               <NeoInput
                 placeholder="0"
                 value={
-                  initialBalance
+                  initialBalance !== ''
                     ? formatRupiah(Number.parseInt(initialBalance.replace(/\D/g, ''), 10) || 0, true)
                     : ''
                 }
@@ -284,15 +361,49 @@ export const ManageWalletsModal = ({ visible, onClose, initialAddMode = false })
                 keyboardType="numeric"
                 leftIconName="cash-outline"
               />
+              <Text style={[styles.balanceHint, { color: colors.textMuted }]}>
+                {mode === 'edit'
+                  ? (isIndonesian
+                    ? 'Total saldo riil dompet ini. Anda dapat langsung mengubahnya sesuai saldo fisik/rekening Anda.'
+                    : 'Total real balance of this wallet. You can change it to match your actual balance.')
+                  : (isIndonesian
+                    ? 'Saldo yang tersedia di dompet ini saat pertama kali dibuat.'
+                    : 'Starting balance available in this wallet upon creation.')}
+              </Text>
             </View>
 
             {/* Icon Picker */}
             <View style={styles.formGroup}>
-              <Text style={[styles.formLabel, { color: colors.textSecondary }]}>
-                {isIndonesian ? 'PILIH IKON :' : 'SELECT ICON :'}
-              </Text>
+              <View style={styles.sectionHeaderRow}>
+                <Text style={[styles.formLabel, { color: colors.textSecondary }]}>
+                  {isIndonesian ? 'PILIH IKON :' : 'SELECT ICON :'}
+                </Text>
+                <Pressable
+                  onPress={() => setIconsExpanded(!iconsExpanded)}
+                  style={({ pressed }) => [
+                    styles.expandToggleBtn,
+                    {
+                      backgroundColor: colors.surfaceLight,
+                      borderColor: colors.borderLight,
+                    },
+                    pressed && styles.expandBtnPressed,
+                  ]}
+                >
+                  <Text style={[styles.expandToggleText, { color: colors.primary }]}>
+                    {iconsExpanded
+                      ? (isIndonesian ? 'Sembunyikan' : 'Show Less')
+                      : (isIndonesian ? `Lebih Banyak (+${EXTENDED_WALLET_ICONS.length})` : `More (+${EXTENDED_WALLET_ICONS.length})`)}
+                  </Text>
+                  <Ionicons
+                    name={iconsExpanded ? 'chevron-up' : 'chevron-down'}
+                    size={13}
+                    color={colors.primary}
+                  />
+                </Pressable>
+              </View>
+
               <View style={styles.pickerGrid}>
-                {WALLET_ICONS.map((iconName) => {
+                {(iconsExpanded ? WALLET_ICONS : PRIMARY_WALLET_ICONS).map((iconName) => {
                   const isSelected = selectedIcon === iconName;
                   return (
                     <Pressable
@@ -352,7 +463,8 @@ export const ManageWalletsModal = ({ visible, onClose, initialAddMode = false })
 
       {/* Delete Confirmation Modal */}
       <ConfirmModal
-        visible={!!deleteTarget}
+        insideModal={true}
+        visible={Boolean(deleteTarget)}
         title={isIndonesian ? 'Hapus Dompet?' : 'Delete Wallet?'}
         message={
           isIndonesian
@@ -362,8 +474,23 @@ export const ManageWalletsModal = ({ visible, onClose, initialAddMode = false })
         confirmText={isIndonesian ? 'Ya, Hapus' : 'Yes, Delete'}
         cancelText={isIndonesian ? 'Batal' : 'Cancel'}
         onConfirm={handleDeleteConfirm}
-        onCancel={() => setDeleteTarget(null)}
+        onClose={() => setDeleteTarget(null)}
       />
+
+      {/* In-Modal Alert Dialog */}
+      {walletAlert && (
+        <ConfirmModal
+          insideModal={true}
+          visible={Boolean(walletAlert)}
+          title={walletAlert.title}
+          message={walletAlert.message}
+          type={walletAlert.type || 'warning'}
+          iconName={walletAlert.iconName}
+          showCancel={false}
+          confirmText={isIndonesian ? 'Tutup' : 'Close'}
+          onClose={() => setWalletAlert(null)}
+        />
+      )}
     </>
   );
 };
@@ -443,6 +570,33 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.5,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  expandToggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  expandToggleText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  expandBtnPressed: {
+    opacity: 0.7,
+  },
+  balanceHint: {
+    fontSize: 10,
+    marginTop: 4,
+    lineHeight: 14,
   },
   pickerGrid: {
     flexDirection: 'row',

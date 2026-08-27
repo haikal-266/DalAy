@@ -14,6 +14,8 @@ import { formatRupiah } from '../../utils/formatters';
 export const ExportModal = ({
   visible,
   onClose,
+  onSuccess,
+  onError,
   transactions = [],
   summary = { totalIncome: 0, totalExpense: 0, balance: 0 },
   periodLabel,
@@ -33,8 +35,8 @@ export const ExportModal = ({
           ? 'Tidak ada catatan transaksi keuangan yang dapat diekspor pada periode ini.'
           : 'There are no financial records available to export for this period.',
         type: 'warning',
-        confirmText: isIndonesian ? 'Mengerti' : 'Got it',
-        onConfirm: () => setAlertConfig(null),
+        showCancel: false,
+        confirmText: isIndonesian ? 'Tutup' : 'Close',
       });
       return;
     }
@@ -42,28 +44,21 @@ export const ExportModal = ({
     setExporting(true);
     const res = await exportTransactionsToExcel(transactions, summary, resolvedPeriodLabel);
     setExporting(false);
+    onClose();
 
     if (res.success) {
-      setAlertConfig({
-        title: isIndonesian ? 'Berhasil Diekspor!' : 'Export Successful!',
-        message: isIndonesian
-          ? `Laporan Excel (${res.fileName}) telah selesai dibuat dan siap diunduh / dibagikan.`
-          : `Excel report (${res.fileName}) is ready to download / share.`,
-        type: 'success',
-        confirmText: isIndonesian ? 'Selesai' : 'Done',
-        onConfirm: () => {
-          setAlertConfig(null);
-          onClose();
-        },
-      });
+      if (typeof onSuccess === 'function') {
+        onSuccess(res.fileName);
+      }
     } else {
-      setAlertConfig({
-        title: isIndonesian ? 'Gagal Ekspor' : 'Export Failed',
-        message: res.error || (isIndonesian ? 'Terjadi kesalahan saat membuat file Excel.' : 'An error occurred while creating Excel file.'),
-        type: 'danger',
-        confirmText: isIndonesian ? 'Tutup' : 'Close',
-        onConfirm: () => setAlertConfig(null),
-      });
+      if (typeof onError === 'function') {
+        onError(
+          res.error ||
+          (isIndonesian
+            ? 'Terjadi kesalahan saat membuat file Excel.'
+            : 'An error occurred while creating Excel file.')
+        );
+      }
     }
   };
 
@@ -178,17 +173,20 @@ export const ExportModal = ({
         </View>
       </NeoModal>
 
-      {/* Modern Confirm / Feedback Dialog */}
+      {/* In-Modal Neo Confirm / Feedback Dialog */}
       {alertConfig && (
         <ConfirmModal
+          insideModal={true}
           visible={Boolean(alertConfig)}
           onClose={() => setAlertConfig(null)}
           onConfirm={alertConfig.onConfirm}
           title={alertConfig.title}
           message={alertConfig.message}
           type={alertConfig.type}
+          iconName={alertConfig.iconName}
           confirmText={alertConfig.confirmText}
           cancelText={isIndonesian ? 'Tutup' : 'Close'}
+          showCancel={alertConfig.showCancel !== false}
         />
       )}
     </>

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -9,6 +9,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   useWindowDimensions,
+  Keyboard,
+  LayoutAnimation,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { TYPOGRAPHY } from '../../theme/typography';
@@ -30,8 +32,30 @@ export const NeoModal = ({
 }) => {
   const { colors } = useTheme();
   const { width: windowWidth } = useWindowDimensions();
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
 
   const isTablet = windowWidth >= 768;
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setKeyboardVisible(true);
+      }
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setKeyboardVisible(false);
+      }
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   return (
     <Modal
@@ -42,8 +66,14 @@ export const NeoModal = ({
       onRequestClose={onClose}
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.backdrop}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={[
+          styles.backdrop,
+          keyboardVisible && {
+            justifyContent: 'flex-start',
+            paddingTop: Platform.OS === 'android' ? 40 : 54,
+          },
+        ]}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
       >
         <Pressable style={styles.outsideOverlay} onPress={onClose} />
@@ -109,7 +139,10 @@ export const NeoModal = ({
           {/* Scrollable Modal Body */}
           <ScrollView
             style={styles.body}
-            contentContainerStyle={styles.bodyContent}
+            contentContainerStyle={[
+              styles.bodyContent,
+              keyboardVisible && { paddingBottom: 160 },
+            ]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             automaticallyAdjustKeyboardInsets={true}

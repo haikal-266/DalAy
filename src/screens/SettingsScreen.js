@@ -32,8 +32,9 @@ export const SettingsScreen = () => {
   const [toastMessage, setToastMessage] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState(null); // { visible, title, message, type, confirmText, onConfirm }
 
-  const showToast = (msg) => {
-    setToastMessage(msg);
+  const showToast = (msg, icon = 'checkmark-circle') => {
+    const toastObj = typeof msg === 'string' ? { text: msg, icon } : msg;
+    setToastMessage(toastObj);
     setTimeout(() => setToastMessage(null), 3000);
   };
 
@@ -41,8 +42,19 @@ export const SettingsScreen = () => {
     setLanguage(langId);
     showToast(
       langId === 'en'
-        ? 'Language switched to English (Default)'
-        : 'Bahasa diubah ke Bahasa Indonesia'
+        ? 'Language switched to English'
+        : 'Bahasa diubah ke Bahasa Indonesia',
+      'language-outline'
+    );
+  };
+
+  const handleSelectTheme = (theme) => {
+    setTheme(theme.id);
+    showToast(
+      isIndonesian
+        ? `Tema "${theme.name}" diterapkan`
+        : `Theme "${theme.name}" applied`,
+      'color-palette-outline'
     );
   };
 
@@ -57,7 +69,10 @@ export const SettingsScreen = () => {
       onConfirm: () => {
         clearHistory();
         setConfirmDialog(null);
-        showToast(isIndonesian ? 'Riwayat bacaan berhasil dibersihkan' : 'Reading history cleared');
+        showToast(
+          isIndonesian ? 'Riwayat bacaan berhasil dibersihkan' : 'Reading history cleared',
+          'trash-outline'
+        );
       },
     });
   };
@@ -73,7 +88,10 @@ export const SettingsScreen = () => {
       onConfirm: () => {
         clearAllTransactions();
         setConfirmDialog(null);
-        showToast(isIndonesian ? 'Seluruh data keuangan berhasil direset' : 'All financial data reset');
+        showToast(
+          isIndonesian ? 'Seluruh data keuangan berhasil direset' : 'All financial data reset',
+          'trash-outline'
+        );
       },
     });
   };
@@ -86,8 +104,8 @@ export const SettingsScreen = () => {
           ? 'Belum ada catatan transaksi keuangan yang dapat diekspor ke Excel.'
           : 'There are no financial records available to export to Excel.',
         type: 'warning',
-        confirmText: isIndonesian ? 'Mengerti' : 'Got it',
-        onConfirm: () => setConfirmDialog(null),
+        showCancel: false,
+        confirmText: isIndonesian ? 'Tutup' : 'Close',
       });
       return;
     }
@@ -101,12 +119,17 @@ export const SettingsScreen = () => {
     setExporting(false);
 
     if (res.success) {
+      showToast(
+        isIndonesian ? `Rekap ${res.fileName} siap dibagikan` : `Exported ${res.fileName}`,
+        'document-text-outline'
+      );
       setConfirmDialog({
-        title: isIndonesian ? 'Ekspor Berhasil!' : 'Export Successful!',
+        title: isIndonesian ? 'Ekspor Berhasil' : 'Export Successful',
         message: isIndonesian
           ? `Laporan Excel (${res.fileName}) telah selesai dibuat dan siap disimpan / dibagikan.`
           : `Excel report (${res.fileName}) has been successfully generated.`,
         type: 'success',
+        showCancel: false,
         confirmText: isIndonesian ? 'Selesai' : 'Done',
         onConfirm: () => setConfirmDialog(null),
       });
@@ -115,6 +138,7 @@ export const SettingsScreen = () => {
         title: isIndonesian ? 'Gagal Ekspor' : 'Export Failed',
         message: res.error || (isIndonesian ? 'Terjadi kesalahan saat mengekspor data.' : 'An error occurred during export.'),
         type: 'danger',
+        showCancel: false,
         confirmText: isIndonesian ? 'Tutup' : 'Close',
         onConfirm: () => setConfirmDialog(null),
       });
@@ -162,8 +186,12 @@ export const SettingsScreen = () => {
               { backgroundColor: colors.primary, borderColor: colors.primaryDark },
             ]}
           >
-            <Ionicons name="checkmark-circle" size={16} color="#FFFFFF" />
-            <Text style={styles.toastText}>{toastMessage}</Text>
+            <Ionicons
+              name={toastMessage.icon || 'checkmark-circle'}
+              size={16}
+              color="#FFFFFF"
+            />
+            <Text style={styles.toastText}>{toastMessage.text}</Text>
           </View>
         )}
 
@@ -322,7 +350,7 @@ export const SettingsScreen = () => {
             return (
               <Pressable
                 key={theme.id}
-                onPress={() => setTheme(theme.id)}
+                onPress={() => handleSelectTheme(theme)}
                 style={({ pressed }) => [
                   styles.themeCard,
                   {
@@ -625,19 +653,38 @@ export const SettingsScreen = () => {
       <ImportModal
         visible={importModalVisible}
         onClose={() => setImportModalVisible(false)}
+        onSuccess={(count) => {
+          showToast(
+            isIndonesian
+              ? `Berhasil mengimpor ${count} transaksi`
+              : `Successfully imported ${count} transactions`,
+            'cloud-download-outline'
+          );
+          setConfirmDialog({
+            title: isIndonesian ? 'Impor Berhasil' : 'Import Successful',
+            message: isIndonesian
+              ? `Berhasil memasukkan ${count} catatan transaksi ke dalam pembukuan Anda.`
+              : `Successfully imported ${count} transaction records into your financial bookkeeping.`,
+            type: 'success',
+            showCancel: false,
+            confirmText: isIndonesian ? 'Selesai' : 'Done',
+          });
+        }}
       />
 
-      {/* Modern Confirm Modal Dialog */}
+      {/* Modern Confirm / Alert Modal Dialog */}
       {confirmDialog && (
         <ConfirmModal
           visible={Boolean(confirmDialog)}
           onClose={() => setConfirmDialog(null)}
-          onConfirm={confirmDialog.onConfirm}
+          onConfirm={confirmDialog.onConfirm || (() => setConfirmDialog(null))}
           title={confirmDialog.title}
           message={confirmDialog.message}
           type={confirmDialog.type || 'danger'}
+          iconName={confirmDialog.iconName}
           confirmText={confirmDialog.confirmText}
           cancelText={isIndonesian ? 'Batal' : 'Cancel'}
+          showCancel={confirmDialog.showCancel !== false}
         />
       )}
     </View>

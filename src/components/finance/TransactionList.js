@@ -2,9 +2,10 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { TYPOGRAPHY } from '../../theme/typography';
-import { TransactionCard } from './TransactionCard';
+import { NeoCard } from '../neo/NeoCard';
 import { NeoInput } from '../neo/NeoInput';
 import { NeoSegmented } from '../neo/NeoSegmented';
+import { TransactionCard } from './TransactionCard';
 import { useTheme } from '../../stores/themeStore';
 import { useLanguage } from '../../stores/languageStore';
 import { getRelativeDateLabel, formatRupiah } from '../../utils/formatters';
@@ -17,9 +18,10 @@ export const TransactionList = ({
   setTypeFilter,
   onEdit,
   onDelete,
+  onSearchFocus,
 }) => {
   const { colors } = useTheme();
-  const { t } = useLanguage();
+  const { t, isIndonesian } = useLanguage();
 
   // Group transactions by date
   const groupedTransactions = useMemo(() => {
@@ -48,54 +50,79 @@ export const TransactionList = ({
   }, [transactions]);
 
   return (
-    <View style={styles.container}>
-      {/* Search & Filter Header */}
-      <View style={styles.filterSection}>
+    <NeoCard variant="white" padding={16} style={styles.cardContainer}>
+      {/* 1. Header Row (Matching PieChartSection) */}
+      <View style={styles.cardHeader}>
+        <View style={styles.titleGroup}>
+          <Ionicons name="receipt" size={17} color={colors.primary} />
+          <Text style={[styles.cardTitle, { color: colors.text }]}>
+            {isIndonesian ? 'DAFTAR RIWAYAT TRANSAKSI' : 'TRANSACTION HISTORY'}
+          </Text>
+        </View>
+        <View
+          style={[
+            styles.countBadge,
+            { backgroundColor: colors.surfaceLight, borderColor: colors.borderLight },
+          ]}
+        >
+          <Text style={[styles.countBadgeText, { color: colors.textSecondary }]}>
+            {transactions.length} {isIndonesian ? 'catatan' : 'records'}
+          </Text>
+        </View>
+      </View>
+
+      {/* 2. Search Input */}
+      <View style={styles.searchWrapper}>
         <NeoInput
           placeholder={t('finance.searchPlaceholder', 'Cari transaksi (nama, kategori, nominal)...')}
           value={searchQuery}
           onChangeText={setSearchQuery}
           leftIconName="search-outline"
+          onFocus={onSearchFocus}
           style={styles.searchInput}
-        />
-
-        <NeoSegmented
-          options={[
-            { label: t('finance.allTypes', 'Semua'), value: 'all' },
-            {
-              label: t('finance.expense', 'Pengeluaran'),
-              value: 'expense',
-              iconName: 'arrow-up',
-              activeColor: colors.expense,
-            },
-            {
-              label: t('finance.income', 'Pemasukan'),
-              value: 'income',
-              iconName: 'arrow-down',
-              activeColor: colors.income,
-            },
-          ]}
-          selectedValue={typeFilter}
-          onSelect={setTypeFilter}
-          style={styles.typeSegmented}
         />
       </View>
 
-      {/* List / Groups */}
+      {/* 3. Type Filter Segmented */}
+      <NeoSegmented
+        options={[
+          { label: t('finance.allTypes', 'Semua'), value: 'all' },
+          {
+            label: t('finance.expense', 'Pengeluaran'),
+            value: 'expense',
+            iconName: 'arrow-up',
+            activeColor: colors.expense,
+          },
+          {
+            label: t('finance.income', 'Pemasukan'),
+            value: 'income',
+            iconName: 'arrow-down',
+            activeColor: colors.income,
+          },
+        ]}
+        selectedValue={typeFilter}
+        onSelect={setTypeFilter}
+        style={styles.typeSegmented}
+      />
+
+      {/* 4. Subtle Divider */}
+      <View style={[styles.divider, { backgroundColor: colors.borderLight }]} />
+
+      {/* 5. List Content Area / Empty State */}
       {groupedTransactions.length === 0 ? (
         <View
           style={[
             styles.emptyState,
             {
-              backgroundColor: colors.surface,
-              borderColor: colors.border,
+              backgroundColor: colors.surfaceLight,
+              borderColor: colors.borderLight,
             },
           ]}
         >
           <View
             style={[
               styles.emptyIconCircle,
-              { backgroundColor: colors.surfaceLight },
+              { backgroundColor: colors.surface },
             ]}
           >
             <Ionicons name="receipt-outline" size={32} color={colors.textSubtle} />
@@ -135,50 +162,83 @@ export const TransactionList = ({
               </View>
 
               {/* Transactions in Group */}
-              {group.items.map((tx) => (
-                <TransactionCard
-                  key={tx.id}
-                  transaction={tx}
-                  onEdit={onEdit}
-                  onDelete={onDelete}
-                />
-              ))}
+              <View style={styles.cardsList}>
+                {group.items.map((tx) => (
+                  <TransactionCard
+                    key={tx.id}
+                    transaction={tx}
+                    onEdit={onEdit}
+                    onDelete={onDelete}
+                  />
+                ))}
+              </View>
             </View>
           ))}
         </View>
       )}
-    </View>
+    </NeoCard>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  cardContainer: {
     marginTop: 4,
-    marginBottom: 16,
+    marginBottom: 20,
   },
-  filterSection: {
-    marginBottom: 16,
-    gap: 12,
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  titleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  cardTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  countBadge: {
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  countBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  searchWrapper: {
+    marginBottom: 10,
   },
   searchInput: {
     marginBottom: 0,
   },
   typeSegmented: {
     alignSelf: 'stretch',
+    marginBottom: 4,
+  },
+  divider: {
+    height: 1,
+    marginVertical: 14,
   },
   groupsContainer: {
     gap: 16,
   },
   groupWrapper: {
-    marginBottom: 12,
+    marginBottom: 4,
   },
   dateHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 6,
+    paddingVertical: 4,
     paddingHorizontal: 2,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   dateLabel: {
     fontSize: 11,
@@ -198,33 +258,36 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
+  cardsList: {
+    gap: 6,
+  },
   emptyState: {
-    padding: 32,
-    borderRadius: 20,
+    padding: 24,
+    borderRadius: 16,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: 12,
+    marginVertical: 6,
   },
   emptyIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 22,
+    width: 56,
+    height: 56,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   emptyTitle: {
-    fontSize: TYPOGRAPHY.size.md,
+    fontSize: TYPOGRAPHY.size.sm,
     fontWeight: '800',
     marginBottom: 4,
     textAlign: 'center',
   },
   emptySubtitle: {
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 11,
+    lineHeight: 16,
     textAlign: 'center',
-    maxWidth: 280,
+    maxWidth: 260,
   },
 });
 

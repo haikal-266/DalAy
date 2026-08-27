@@ -479,17 +479,59 @@ export const importBackupFromFile = async () => {
     const file = result.assets[0];
     let jsonContent = '';
 
-    if (Platform.OS === 'web') {
-      if (file.file) {
+    // Strategy 1: Direct Web File object if present
+    if (file.file && typeof file.file.text === 'function') {
+      try {
         jsonContent = await file.file.text();
-      } else {
-        const res = await fetch(file.uri);
-        jsonContent = await res.text();
+      } catch (e) {
+        console.log('file.file.text() failed, trying fetch fallback:', e);
       }
-    } else {
-      jsonContent = await FileSystem.readAsStringAsync(file.uri, {
-        encoding: FileSystem.EncodingType.UTF8,
-      });
+    }
+
+    // Strategy 2: fetch(file.uri) (React Native ContentResolver/stream layer - works reliably on Android SAF & file://)
+    if (!jsonContent && file.uri) {
+      try {
+        const res = await fetch(file.uri);
+        if (res.ok || res.status === 200 || res.status === 0) {
+          jsonContent = await res.text();
+        }
+      } catch (fetchErr) {
+        console.log('fetch(file.uri) failed, trying FileSystem:', fetchErr);
+      }
+    }
+
+    // Strategy 3: FileSystem.readAsStringAsync
+    if (!jsonContent && file.uri && Platform.OS !== 'web') {
+      try {
+        jsonContent = await FileSystem.readAsStringAsync(file.uri, {
+          encoding: FileSystem.EncodingType.UTF8,
+        });
+      } catch (fsErr) {
+        console.log('FileSystem.readAsStringAsync failed:', fsErr);
+      }
+    }
+
+    // Strategy 4: fetch + blob + FileReader (bulletproof fallback on strict Android scoped storage)
+    if (!jsonContent && file.uri) {
+      try {
+        const blobRes = await fetch(file.uri);
+        const blob = await blobRes.blob();
+        jsonContent = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = (e) => reject(e);
+          reader.readAsText(blob);
+        });
+      } catch (blobErr) {
+        console.log('FileReader blob fallback failed:', blobErr);
+      }
+    }
+
+    if (!jsonContent || !jsonContent.trim()) {
+      return {
+        success: false,
+        error: 'File cadangan kosong atau tidak dapat diakses oleh perangkat.',
+      };
     }
 
     const parsed = JSON.parse(jsonContent);

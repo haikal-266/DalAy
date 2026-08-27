@@ -17,6 +17,7 @@ import { NeoButton } from './NeoButton';
 export const ConfirmModal = ({
   visible = false,
   onClose,
+  onCancel,
   onConfirm,
   title = 'Konfirmasi',
   message = 'Apakah Anda yakin ingin melanjutkan tindakan ini?',
@@ -25,12 +26,22 @@ export const ConfirmModal = ({
   type = 'danger', // 'danger' | 'warning' | 'info' | 'success'
   iconName,
   loading = false,
+  showCancel = true,
+  insideModal = false,
 }) => {
   const { colors } = useTheme();
-  const { t } = useLanguage();
+  const { t, isIndonesian } = useLanguage();
   const { width } = useWindowDimensions();
 
-  const resolvedConfirmText = confirmText || (type === 'danger' ? t('modal.delete', 'Hapus') : t('modal.confirm', 'Konfirmasi'));
+  const handleClose = onClose || onCancel || onConfirm || (() => { });
+  const handleConfirm = onConfirm || handleClose;
+  const isSingleButton = !showCancel || !onConfirm || onConfirm === onClose || onConfirm === onCancel;
+
+  const resolvedConfirmText =
+    confirmText ||
+    (isSingleButton
+      ? (isIndonesian ? 'Tutup' : 'Close')
+      : (type === 'danger' ? t('modal.delete', 'Hapus') : t('modal.confirm', 'Konfirmasi')));
   const resolvedCancelText = cancelText || t('modal.cancel', 'Batal');
 
   // Type configuration
@@ -39,14 +50,14 @@ export const ConfirmModal = ({
       color: colors.expense,
       bgColor: colors.expenseLight,
       borderColor: colors.expenseBorder,
-      icon: iconName || 'trash-outline',
+      icon: iconName || 'alert-circle-outline',
       btnVariant: 'expense',
     },
     warning: {
       color: colors.brandGold || '#D97706',
       bgColor: colors.brandGoldLight || '#FEF3C7',
       borderColor: colors.brandGold || '#FDE68A',
-      icon: iconName || 'alert-circle-outline',
+      icon: iconName || 'warning-outline',
       btnVariant: 'accent',
     },
     info: {
@@ -71,71 +82,83 @@ export const ConfirmModal = ({
     btnVariant: 'expense',
   };
 
+  if (!visible) return null;
+
+  const content = (
+    <View style={[styles.backdrop, insideModal && styles.insideModalBackdrop]}>
+      <Pressable style={styles.backdropTouch} onPress={handleClose} />
+
+      <View
+        style={[
+          styles.dialogContainer,
+          {
+            backgroundColor: colors.surface,
+            borderColor: colors.border,
+            maxWidth: Math.min(width - 36, 420),
+          },
+        ]}
+      >
+        {/* Top Decorative Icon Emblem */}
+        <View
+          style={[
+            styles.iconEmblem,
+            {
+              backgroundColor: config.bgColor,
+              borderColor: config.borderColor,
+            },
+          ]}
+        >
+          <Ionicons name={config.icon} size={30} color={config.color} />
+        </View>
+
+        {/* Title & Description */}
+        <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
+        <Text style={[styles.message, { color: colors.textSecondary }]}>
+          {message}
+        </Text>
+
+        {/* Action Buttons */}
+        <View style={styles.buttonRow}>
+          {!isSingleButton && (
+            <View style={styles.buttonWrapper}>
+              <NeoButton
+                title={resolvedCancelText}
+                variant="secondary"
+                size="md"
+                onPress={handleClose}
+                disabled={loading}
+                fullWidth
+              />
+            </View>
+          )}
+          <View style={styles.buttonWrapper}>
+            <NeoButton
+              title={resolvedConfirmText}
+              variant={config.btnVariant}
+              size="md"
+              loading={loading}
+              onPress={handleConfirm}
+              fullWidth
+            />
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+
+  if (insideModal) {
+    return content;
+  }
+
   return (
     <Modal
       visible={visible}
       transparent
       animationType="fade"
       statusBarTranslucent
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
     >
-      <View style={styles.backdrop}>
-        <Pressable style={styles.backdropTouch} onPress={onClose} />
-
-        <View
-          style={[
-            styles.dialogContainer,
-            {
-              backgroundColor: colors.surface,
-              borderColor: colors.border,
-              maxWidth: Math.min(width - 36, 420),
-            },
-          ]}
-        >
-          {/* Top Decorative Icon Emblem */}
-          <View
-            style={[
-              styles.iconEmblem,
-              {
-                backgroundColor: config.bgColor,
-                borderColor: config.borderColor,
-              },
-            ]}
-          >
-            <Ionicons name={config.icon} size={30} color={config.color} />
-          </View>
-
-          {/* Title & Description */}
-          <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
-          <Text style={[styles.message, { color: colors.textSecondary }]}>
-            {message}
-          </Text>
-
-          {/* Action Buttons */}
-          <View style={styles.buttonRow}>
-            <View style={styles.buttonWrapper}>
-              <NeoButton
-                title={resolvedCancelText}
-                variant="secondary"
-                size="md"
-                onPress={onClose}
-                disabled={loading}
-                fullWidth
-              />
-            </View>
-            <View style={styles.buttonWrapper}>
-              <NeoButton
-                title={resolvedConfirmText}
-                variant={config.btnVariant}
-                size="md"
-                loading={loading}
-                onPress={onConfirm}
-                fullWidth
-              />
-            </View>
-          </View>
-        </View>
-      </View>
+      {content}
     </Modal>
   );
 };
@@ -152,6 +175,15 @@ const styles = StyleSheet.create({
         backdropFilter: 'blur(8px)',
       },
     }),
+  },
+  insideModalBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 99999,
+    elevation: 99999,
   },
   backdropTouch: {
     ...StyleSheet.absoluteFillObject,
