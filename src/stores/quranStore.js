@@ -61,19 +61,32 @@ export const QuranProvider = ({ children }) => {
     setLoading(true);
     try {
       // Load favorites and history
-      const [rawFavs, rawHist] = await Promise.all([
+      const [rawFavs, rawHist, lastAyahJson] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEY_FAVORITES),
         AsyncStorage.getItem(STORAGE_KEY_HISTORY),
+        AsyncStorage.getItem('@dalay_last_viewed_ayah'),
       ]);
 
       if (rawFavs) setFavorites(JSON.parse(rawFavs));
       if (rawHist) setHistory(JSON.parse(rawHist));
 
-      // Load initial ayah in current language
-      const initial = await getLastOrInitialAyah(currentLanguage);
-      setCurrentAyah(initial);
+      // Always fetch a fresh random ayah for each new session
+      const lastAyah = lastAyahJson ? JSON.parse(lastAyahJson) : null;
+      let newAyah = await fetchRandomAyah(currentLanguage);
+
+      // Guarantee the new session's ayah is different from the previous session
+      if (lastAyah && newAyah && newAyah.surah === lastAyah.surah && newAyah.ayah === lastAyah.ayah) {
+        newAyah = await fetchRandomAyah(currentLanguage);
+      }
+
+      setCurrentAyah(newAyah);
+      if (newAyah) {
+        await AsyncStorage.setItem('@dalay_last_viewed_ayah', JSON.stringify(newAyah));
+      }
     } catch (e) {
       console.log('Error loading initial quran data:', e);
+      const initial = await getLastOrInitialAyah(currentLanguage);
+      setCurrentAyah(initial);
     } finally {
       setLoading(false);
     }

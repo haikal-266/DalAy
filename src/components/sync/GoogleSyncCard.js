@@ -8,8 +8,6 @@ import {
   Alert,
   TouchableOpacity,
 } from 'react-native';
-import * as WebBrowser from 'expo-web-browser';
-import * as Google from 'expo-auth-session/providers/google';
 import { Ionicons } from '@expo/vector-icons';
 import { TYPOGRAPHY } from '../../theme/typography';
 import { NeoCard } from '../neo/NeoCard';
@@ -49,18 +47,6 @@ export const GoogleSyncCard = ({ onToast }) => {
   const [tokenModalVisible, setTokenModalVisible] = useState(false);
   const [tokenInput, setTokenInput] = useState('');
 
-  // Official Expo SDK 57 Google Auth Request
-  const [, response, promptAsync] = Google.useAuthRequest({
-    webClientId: '702052069332-6vk90v9chhg7v37od7pfun0lmv01f8q5.apps.googleusercontent.com',
-    androidClientId: '702052069332-k07dttmreincr9bq2tfddcjs7n54hft8.apps.googleusercontent.com',
-    scopes: [
-      'https://www.googleapis.com/auth/userinfo.profile',
-      'https://www.googleapis.com/auth/userinfo.email',
-      'https://www.googleapis.com/auth/drive.appdata',
-      'https://www.googleapis.com/auth/drive.file',
-    ],
-  });
-
   // Helper to package local data snapshot
   const getLocalDataSnapshot = () => ({
     transactions: transactions || [],
@@ -81,35 +67,16 @@ export const GoogleSyncCard = ({ onToast }) => {
     }
   };
 
-  // Automatic redirect back handler
-  useEffect(() => {
-    if (response?.type === 'success') {
-      const token =
-        response.authentication?.accessToken ||
-        response.params?.access_token;
-      if (token) {
-        handleAccessTokenLogin(token, getLocalDataSnapshot, applyMergedDataset).then((res) => {
-          if (res?.success && onToast) onToast(res.message);
-          else if (res && !res.success) {
-            Alert.alert(isIndonesian ? 'Gagal Sinkronisasi' : 'Sync Failed', res.message);
-          }
-        });
-      }
-    } else if (response?.type === 'error') {
-      Alert.alert(
-        isIndonesian ? 'Gagal Terhubung' : 'Connection Failed',
-        response.error?.message ||
-          (isIndonesian ? 'Terjadi kesalahan saat login Google.' : 'Google sign-in error.')
-      );
-    }
-  }, [response]);
-
   const handleStartOAuthLogin = async () => {
-    const res = await connectAndSync(null, getLocalDataSnapshot, applyMergedDataset);
-    if (res.success) {
-      if (onToast) onToast(res.message);
-    } else if (!res.canceled) {
-      setTokenModalVisible(true);
+    try {
+      const res = await connectAndSync(null, getLocalDataSnapshot, applyMergedDataset);
+      if (res?.success) {
+        if (onToast) onToast(res.message);
+      } else if (!res?.canceled && res?.message) {
+        Alert.alert(isIndonesian ? 'Status Koneksi' : 'Connection Status', res.message);
+      }
+    } catch (err) {
+      console.log('Error in handleStartOAuthLogin:', err);
     }
   };
 

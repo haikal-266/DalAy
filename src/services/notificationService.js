@@ -15,7 +15,7 @@ const isExpoGo =
  * Safe dynamic module getter
  * Prevents Expo Go SDK 53+ Android crash by only loading native module in standalone builds
  */
-const getNotificationModule = () => {
+export const getNotificationModule = () => {
   if (Platform.OS === 'web' || isExpoGo) {
     return null;
   }

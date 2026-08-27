@@ -1,20 +1,40 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { LanguageProvider } from './src/stores/languageStore';
 import { ThemeProvider, useTheme } from './src/stores/themeStore';
 import { QuranProvider } from './src/stores/quranStore';
+import { WalletProvider } from './src/stores/walletStore';
 import { FinanceProvider } from './src/stores/financeStore';
 import { SyncProvider } from './src/stores/syncStore';
 import { QuranScreen } from './src/screens/QuranScreen';
 import { FinanceScreen } from './src/screens/FinanceScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { BottomTabBar } from './src/navigation/BottomTabBar';
+import { getNotificationModule } from './src/services/notificationService';
 
 const AppContent = () => {
   const [activeTab, setActiveTab] = useState('quran');
   const { colors, isDark } = useTheme();
+
+  useEffect(() => {
+    let subscription = null;
+    try {
+      const Notifications = getNotificationModule();
+      if (Notifications && typeof Notifications.addNotificationResponseReceivedListener === 'function') {
+        subscription = Notifications.addNotificationResponseReceivedListener(() => {
+          setActiveTab('quran');
+        });
+      }
+    } catch (e) {}
+
+    return () => {
+      if (subscription && typeof subscription.remove === 'function') {
+        subscription.remove();
+      }
+    };
+  }, []);
 
   const renderActiveScreen = () => {
     switch (activeTab) {
@@ -56,11 +76,13 @@ export default function App() {
       <LanguageProvider>
         <ThemeProvider>
           <QuranProvider>
-            <FinanceProvider>
-              <SyncProvider>
-                <AppContent />
-              </SyncProvider>
-            </FinanceProvider>
+            <WalletProvider>
+              <FinanceProvider>
+                <SyncProvider>
+                  <AppContent />
+                </SyncProvider>
+              </FinanceProvider>
+            </WalletProvider>
           </QuranProvider>
         </ThemeProvider>
       </LanguageProvider>

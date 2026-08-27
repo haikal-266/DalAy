@@ -46,6 +46,22 @@ export const TransactionCard = ({ transaction, onEdit, onDelete }) => {
               <Text style={[styles.categoryNameText, { color: colors.textSecondary }]}>
                 {transaction.categoryName || (isIndonesian ? 'Lain-lain' : 'Other')}
               </Text>
+              {transaction.walletName ? (
+                <>
+                  <Text style={[styles.dotSeparator, { color: colors.textSubtle }]}>•</Text>
+                  <View
+                    style={[
+                      styles.walletBadge,
+                      { backgroundColor: colors.surfaceLight, borderColor: colors.borderLight },
+                    ]}
+                  >
+                    <Ionicons name="wallet-outline" size={10} color={colors.primary} />
+                    <Text style={[styles.walletBadgeText, { color: colors.primary }]}>
+                      {transaction.walletName}
+                    </Text>
+                  </View>
+                </>
+              ) : null}
               <Text style={[styles.dotSeparator, { color: colors.textSubtle }]}>•</Text>
               <Text style={[styles.timeText, { color: colors.textMuted }]}>
                 {formatTimeIndo(transaction.date)}
@@ -182,6 +198,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  walletBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  walletBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
   },
   btnPressed: {
     opacity: 0.7,

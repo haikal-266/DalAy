@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useMemo, useRef 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFinance } from './financeStore';
 import { useQuran } from './quranStore';
+import { useWallet } from './walletStore';
 import {
   signInWithGoogle,
   fetchGoogleUserProfile,
@@ -25,6 +26,7 @@ const SyncContext = createContext(null);
 export const SyncProvider = ({ children }) => {
   const { transactions } = useFinance();
   const { favorites, history } = useQuran();
+  const { wallets } = useWallet();
 
   const [googleAccount, setGoogleAccount] = useState(null);
   const [googleClientId, setGoogleClientId] = useState('');
@@ -58,6 +60,7 @@ export const SyncProvider = ({ children }) => {
             updatedAt: new Date().toISOString(),
             userEmail: googleAccount.email,
             transactions: transactions || [],
+            wallets: wallets || [],
             quranFavorites: favorites || [],
             quranHistory: history || [],
           };

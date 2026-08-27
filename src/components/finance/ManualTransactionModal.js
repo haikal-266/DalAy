@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { TYPOGRAPHY } from '../../theme/typography';
 import { NeoModal } from '../neo/NeoModal';
 import { NeoInput } from '../neo/NeoInput';
@@ -9,8 +9,10 @@ import { CategoryIcon } from '../common/CategoryIcon';
 import { ConfirmModal } from '../neo/ConfirmModal';
 import { useTheme } from '../../stores/themeStore';
 import { useLanguage } from '../../stores/languageStore';
+import { useWallet } from '../../stores/walletStore';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, detectCategory } from '../../utils/categories';
 import { formatRupiah } from '../../utils/formatters';
+import { Ionicons } from '@expo/vector-icons';
 
 export const ManualTransactionModal = ({
   visible,
@@ -22,9 +24,11 @@ export const ManualTransactionModal = ({
 }) => {
   const { colors } = useTheme();
   const { t, isIndonesian } = useLanguage();
+  const { wallets, selectedWalletId } = useWallet();
   const [type, setType] = useState('expense');
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
+  const [selectedWallet, setSelectedWallet] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [alertConfig, setAlertConfig] = useState(null); // { visible, title, message, type }
 
@@ -41,6 +45,9 @@ export const ManualTransactionModal = ({
         (c) => c.id === activeTx.categoryId || c.name.toLowerCase() === (activeTx.categoryName || '').toLowerCase()
       );
       setSelectedCategory(found || categories[0]);
+
+      const foundWallet = wallets.find((w) => w.id === activeTx.walletId);
+      setSelectedWallet(foundWallet || wallets[0]);
     } else if (visible && !activeTx) {
       resetForm();
     }
@@ -51,6 +58,10 @@ export const ManualTransactionModal = ({
     setName('');
     setAmount('');
     setSelectedCategory(EXPENSE_CATEGORIES[0]);
+    const defaultW =
+      wallets.find((w) => w.id === selectedWalletId && selectedWalletId !== 'all') ||
+      wallets[0];
+    setSelectedWallet(defaultW);
   };
 
   const handleTypeChange = (newType) => {
@@ -112,11 +123,18 @@ export const ManualTransactionModal = ({
       ? new Date(defaultDate).toISOString()
       : new Date().toISOString();
 
+    const activeWallet =
+      selectedWallet ||
+      wallets.find((w) => w.id === selectedWalletId && selectedWalletId !== 'all') ||
+      wallets[0];
+
     const txData = {
       id: activeTx ? activeTx.id : undefined,
       type,
       name: name.trim(),
       amount: cleanAmount,
+      walletId: activeWallet?.id || 'wallet_cash',
+      walletName: activeWallet?.name || 'Tunai',
       categoryId: category.id,
       categoryName: category.name,
       iconName: category.iconName || 'cube',
@@ -206,6 +224,54 @@ export const ManualTransactionModal = ({
             keyboardType="numeric"
             leftIconName="cash-outline"
           />
+        </View>
+
+        {/* Wallet Picker */}
+        <View style={styles.section}>
+          <Text style={[styles.label, { color: colors.textSecondary }]}>
+            {isIndonesian ? 'PILIH DOMPET / REKENING :' : 'SELECT WALLET / ACCOUNT :'}
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.walletsRow}
+          >
+            {wallets.map((w) => {
+              const isSelected = (selectedWallet?.id || (wallets[0] && wallets[0].id)) === w.id;
+              const wColor = w.color || colors.primary;
+              return (
+                <Pressable
+                  key={w.id}
+                  onPress={() => setSelectedWallet(w)}
+                  style={[
+                    styles.walletPill,
+                    {
+                      backgroundColor: isSelected ? wColor + '25' : colors.surfaceLight,
+                      borderColor: isSelected ? wColor : colors.borderLight,
+                      borderWidth: isSelected ? 2 : 1,
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name={w.icon || 'wallet-outline'}
+                    size={15}
+                    color={isSelected ? wColor : colors.textSecondary}
+                  />
+                  <Text
+                    style={[
+                      styles.walletPillText,
+                      {
+                        color: isSelected ? colors.text : colors.textSecondary,
+                        fontWeight: isSelected ? '800' : '600',
+                      },
+                    ]}
+                  >
+                    {w.name}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
         </View>
 
         {/* Category Picker Grid */}
@@ -313,6 +379,21 @@ const styles = StyleSheet.create({
   },
   categoryNameSelected: {
     fontWeight: '800',
+  },
+  walletsRow: {
+    gap: 8,
+    paddingVertical: 2,
+  },
+  walletPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+  },
+  walletPillText: {
+    fontSize: 11,
   },
 });
 

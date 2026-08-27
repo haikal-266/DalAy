@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  useWindowDimensions,
   RefreshControl,
   KeyboardAvoidingView,
   Platform,
@@ -26,11 +25,11 @@ import { TransactionList } from '../components/finance/TransactionList';
 import { ManualTransactionModal } from '../components/finance/ManualTransactionModal';
 import { ExportModal } from '../components/finance/ExportModal';
 import { ImportModal } from '../components/finance/ImportModal';
+import { WalletCarousel } from '../components/finance/WalletCarousel';
+import { ManageWalletsModal } from '../components/finance/ManageWalletsModal';
 import { NeoSegmented } from '../components/neo/NeoSegmented';
 
 export const FinanceScreen = () => {
-  const { width } = useWindowDimensions();
-  const isTablet = width >= 768;
   const scrollViewRef = useRef(null);
   const { colors } = useTheme();
   const { t, isIndonesian } = useLanguage();
@@ -61,6 +60,8 @@ export const FinanceScreen = () => {
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [exportModalVisible, setExportModalVisible] = useState(false);
   const [importModalVisible, setImportModalVisible] = useState(false);
+  const [manageWalletsVisible, setManageWalletsVisible] = useState(false);
+  const [initialWalletAddMode, setInitialWalletAddMode] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [syncFeedback, setSyncFeedback] = useState(null);
 
@@ -276,6 +277,18 @@ export const FinanceScreen = () => {
           </View>
         )}
 
+        {/* Diversified Custom Wallets Carousel */}
+        <WalletCarousel
+          onOpenManageWallets={() => {
+            setInitialWalletAddMode(false);
+            setManageWalletsVisible(true);
+          }}
+          onAddNewWallet={() => {
+            setInitialWalletAddMode(true);
+            setManageWalletsVisible(true);
+          }}
+        />
+
         {/* Financial Summary KPI Cards */}
         <SummaryCards
           summary={summary}
@@ -373,6 +386,13 @@ export const FinanceScreen = () => {
       <ImportModal
         visible={importModalVisible}
         onClose={() => setImportModalVisible(false)}
+      />
+
+      {/* Manage Custom Wallets Modal */}
+      <ManageWalletsModal
+        visible={manageWalletsVisible}
+        onClose={() => setManageWalletsVisible(false)}
+        initialAddMode={initialWalletAddMode}
       />
     </KeyboardAvoidingView>
   );

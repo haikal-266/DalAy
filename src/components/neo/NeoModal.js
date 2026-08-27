@@ -28,7 +28,7 @@ export const NeoModal = ({
   maxHeight = '88%',
   width = '92%',
 }) => {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const { width: windowWidth } = useWindowDimensions();
 
   const isTablet = windowWidth >= 768;
@@ -42,8 +42,9 @@ export const NeoModal = ({
       onRequestClose={onClose}
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.backdrop}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
       >
         <Pressable style={styles.outsideOverlay} onPress={onClose} />
 
@@ -111,6 +112,7 @@ export const NeoModal = ({
             contentContainerStyle={styles.bodyContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            automaticallyAdjustKeyboardInsets={true}
           >
             {children}
           </ScrollView>
@@ -205,6 +207,7 @@ const styles = StyleSheet.create({
   },
   bodyContent: {
     padding: 16,
+    paddingBottom: 32,
   },
   footer: {
     padding: 14,

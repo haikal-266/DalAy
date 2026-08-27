@@ -12,6 +12,7 @@ export const FinanceProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [periodFilter, setPeriodFilter] = useState('all'); // 'today' | 'week' | 'month' | 'all'
   const [typeFilter, setTypeFilter] = useState('all'); // 'all' | 'expense' | 'income'
+  const [walletFilter, setWalletFilter] = useState('all'); // 'all' | walletId
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
@@ -55,15 +56,24 @@ export const FinanceProvider = ({ children }) => {
    * Add transactions via Natural Language Input
    * e.g. "makan 5k, bensin 15k"
    */
-  const addFromNaturalLanguage = async (rawInput, type = 'expense', customDate = null) => {
+  const addFromNaturalLanguage = async (
+    rawInput,
+    type = 'expense',
+    customDate = null,
+    targetWalletId = null,
+    targetWalletName = null
+  ) => {
     const parsed = parseFinancialInput(rawInput, type);
     if (!parsed || parsed.length === 0) {
       return { success: false, count: 0, message: 'Tidak ada transaksi yang berhasil dibaca.' };
     }
 
-    const itemsWithDate = customDate
-      ? parsed.map((item) => ({ ...item, date: new Date(customDate).toISOString() }))
-      : parsed;
+    const itemsWithDate = parsed.map((item) => ({
+      ...item,
+      walletId: targetWalletId || (walletFilter !== 'all' ? walletFilter : 'wallet_cash'),
+      walletName: targetWalletName || 'Tunai',
+      date: customDate ? new Date(customDate).toISOString() : (item.date || new Date().toISOString()),
+    }));
 
     const updated = [...itemsWithDate, ...transactions];
     await saveTransactions(updated);
@@ -79,6 +89,8 @@ export const FinanceProvider = ({ children }) => {
       type: txData.type || 'expense',
       name: txData.name || 'Transaksi Baru',
       amount: txData.amount || 0,
+      walletId: txData.walletId || (walletFilter !== 'all' ? walletFilter : 'wallet_cash'),
+      walletName: txData.walletName || 'Tunai',
       categoryId: txData.categoryId || 'other',
       categoryName: txData.categoryName || 'Lain-lain',
       iconName: txData.iconName || 'cube',
@@ -131,9 +143,17 @@ export const FinanceProvider = ({ children }) => {
     }
   };
 
-  // Filtered transactions based on active period, type, and search query
+  // Filtered transactions based on active period, type, wallet, and search query
   const filteredTransactions = useMemo(() => {
     return transactions.filter((tx) => {
+      // Filter by Wallet
+      if (walletFilter !== 'all') {
+        const txWalletId = tx.walletId || 'wallet_cash';
+        if (txWalletId !== walletFilter) {
+          return false;
+        }
+      }
+
       // Filter by Type
       if (typeFilter !== 'all' && tx.type !== typeFilter) {
         return false;
@@ -154,12 +174,13 @@ export const FinanceProvider = ({ children }) => {
         const matchName = tx.name.toLowerCase().includes(q);
         const matchCategory = (tx.categoryName || '').toLowerCase().includes(q);
         const matchAmount = tx.amount.toString().includes(q);
-        if (!matchName && !matchCategory && !matchAmount) return false;
+        const matchWallet = (tx.walletName || '').toLowerCase().includes(q);
+        if (!matchName && !matchCategory && !matchAmount && !matchWallet) return false;
       }
 
       return true;
     });
-  }, [transactions, periodFilter, typeFilter, searchQuery]);
+  }, [transactions, walletFilter, periodFilter, typeFilter, searchQuery]);
 
   // Overall Financial Summary
   const summary = useMemo(() => {
@@ -238,6 +259,8 @@ export const FinanceProvider = ({ children }) => {
       setPeriodFilter,
       typeFilter,
       setTypeFilter,
+      walletFilter,
+      setWalletFilter,
       searchQuery,
       setSearchQuery,
       summary,
@@ -256,6 +279,7 @@ export const FinanceProvider = ({ children }) => {
       loading,
       periodFilter,
       typeFilter,
+      walletFilter,
       searchQuery,
       summary,
       categoryStats,
