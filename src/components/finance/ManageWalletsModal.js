@@ -36,7 +36,8 @@ export const ManageWalletsModal = ({ visible, onClose, onToast, initialAddMode =
 
   // Form State
   const [name, setName] = useState('');
-  const [initialBalance, setInitialBalance] = useState('');
+  const [balanceDigits, setBalanceDigits] = useState('');
+  const [isNegative, setIsNegative] = useState(false);
   const [selectedIcon, setSelectedIcon] = useState(WALLET_ICONS[0]);
   const [selectedColor, setSelectedColor] = useState(WALLET_COLORS[0]);
   const [iconsExpanded, setIconsExpanded] = useState(false);
@@ -46,7 +47,8 @@ export const ManageWalletsModal = ({ visible, onClose, onToast, initialAddMode =
 
   const resetForm = () => {
     setName('');
-    setInitialBalance('');
+    setBalanceDigits('');
+    setIsNegative(false);
     setSelectedIcon(WALLET_ICONS[0]);
     setSelectedColor(WALLET_COLORS[0]);
     setEditingWallet(null);
@@ -65,7 +67,9 @@ export const ManageWalletsModal = ({ visible, onClose, onToast, initialAddMode =
     // Get actual current calculated balance from transactions + initialBalance
     const stats = getWalletBalance(wallet.id, transactions);
     const currentBal = stats?.balance !== undefined ? stats.balance : (wallet.initialBalance || 0);
-    setInitialBalance(currentBal.toString());
+    setIsNegative(currentBal < 0);
+    const absVal = Math.abs(currentBal);
+    setBalanceDigits(absVal === 0 ? '' : absVal.toString());
     setSelectedIcon(wallet.icon || WALLET_ICONS[0]);
     if (EXTENDED_WALLET_ICONS.includes(wallet.icon)) {
       setIconsExpanded(true);
@@ -74,22 +78,8 @@ export const ManageWalletsModal = ({ visible, onClose, onToast, initialAddMode =
     setMode('edit');
   };
 
-  const parseSignedBalance = (str) => {
-    if (str === '' || str === undefined || str === null) return 0;
-    const s = str.toString().trim();
-    const isNeg = s.startsWith('-');
-    const digits = s.replace(/\D/g, '');
-    const num = Number.parseInt(digits, 10) || 0;
-    return isNeg ? -num : num;
-  };
-
-  const formatInputDisplay = (str) => {
-    if (str === '' || str === undefined || str === null) return '';
-    const s = str.toString().trim();
-    if (s === '-') return '-Rp ';
-    const isNeg = s.startsWith('-');
-    const digits = s.replace(/\D/g, '');
-    if (!digits) return isNeg ? '-Rp ' : '';
+  const formatBalanceInput = (digits, isNeg) => {
+    if (!digits) return '';
     const num = Number.parseInt(digits, 10) || 0;
     const formatted = formatRupiah(num, false);
     return isNeg ? `-Rp ${formatted}` : `Rp ${formatted}`;
@@ -105,7 +95,8 @@ export const ManageWalletsModal = ({ visible, onClose, onToast, initialAddMode =
       return;
     }
 
-    const cleanBalance = parseSignedBalance(initialBalance);
+    const num = Number.parseInt(balanceDigits, 10) || 0;
+    const cleanBalance = isNegative ? -num : num;
 
     if (mode === 'create') {
       await addWallet({
@@ -135,7 +126,8 @@ export const ManageWalletsModal = ({ visible, onClose, onToast, initialAddMode =
         color: selectedColor,
       });
 
-      // If balance changed, automatically record an income or expense transaction with label "Penyesuaian Saldo"
+      // If balance changed, automatically record an adjustment transaction with label "Penyesuaian Saldo"
+      // Note: Not recorded as income/expense, only displayed in transaction history.
       if (diff !== 0 && typeof addTransaction === 'function') {
         const isIncrease = diff > 0;
         const adjustmentAmount = Math.abs(diff);
@@ -143,15 +135,17 @@ export const ManageWalletsModal = ({ visible, onClose, onToast, initialAddMode =
         await addTransaction({
           name: isIndonesian ? 'Penyesuaian Saldo' : 'Balance Correction',
           amount: adjustmentAmount,
-          type: isIncrease ? 'income' : 'expense',
+          type: 'adjustment',
+          isIncrease,
+          adjustmentDiff: diff,
           walletId: editingWallet.id,
           walletName: name.trim(),
           categoryId: 'cat_adjustment',
           categoryName: isIndonesian ? 'Penyesuaian' : 'Correction',
           iconName: 'swap-horizontal',
           iconFamily: 'Ionicons',
-          categoryColor: isIncrease ? (colors.income || '#10B981') : (colors.expense || '#EF4444'),
-          categoryBgColor: isIncrease ? (colors.incomeLight || '#ECFDF5') : (colors.expenseLight || '#FEF2F2'),
+          categoryColor: colors.accent || '#3B82F6',
+          categoryBgColor: (colors.accent || '#3B82F6') + '20',
           rawText: `${isIndonesian ? 'Penyesuaian Saldo' : 'Balance Correction'} ${isIncrease ? '+' : '-'}${formatRupiah(adjustmentAmount)}`,
           date: new Date().toISOString(),
         });
@@ -292,7 +286,11 @@ export const ManageWalletsModal = ({ visible, onClose, onToast, initialAddMode =
                     </View>
                     <View style={styles.walletItemText}>
                       <View style={styles.nameRow}>
-                        <Text style={[styles.walletItemTitle, { color: colors.text }]}>
+                        <Text
+                          style={[styles.walletItemTitle, { color: colors.text }]}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
                           {wallet.name}
                         </Text>
                         {wallet.isDefault && (
@@ -309,6 +307,16 @@ export const ManageWalletsModal = ({ visible, onClose, onToast, initialAddMode =
                             </Text>
                           </View>
                         )}
+                      </View>
+                      <View style={styles.balanceRow}>
+                        <Text
+                          style={[
+                            styles.walletItemBalance,
+                            { color: stats.balance >= 0 ? colors.textSecondary : (colors.expense || '#EF4444') },
+                          ]}
+                        >
+                          {formatRupiah(stats.balance)}
+                        </Text>
                         {stats.balance < 0 && (
                           <View
                             style={[
@@ -327,14 +335,6 @@ export const ManageWalletsModal = ({ visible, onClose, onToast, initialAddMode =
                           </View>
                         )}
                       </View>
-                      <Text
-                        style={[
-                          styles.walletItemBalance,
-                          { color: stats.balance >= 0 ? colors.textSecondary : (colors.expense || '#EF4444') },
-                        ]}
-                      >
-                        {formatRupiah(stats.balance)}
-                      </Text>
                     </View>
                   </View>
 
@@ -394,33 +394,120 @@ export const ManageWalletsModal = ({ visible, onClose, onToast, initialAddMode =
                   : (isIndonesian ? 'SALDO AWAL (RUPIAH) :' : 'INITIAL BALANCE (IDR) :')}
               </Text>
 
+              {/* Sign Selector (Positif vs Negatif / Hutang) - Compact Segmented */}
+              <View
+                style={[
+                  styles.signSegmentedContainer,
+                  { backgroundColor: colors.surfaceLight, borderColor: colors.borderLight },
+                ]}
+              >
+                <Pressable
+                  onPress={() => setIsNegative(false)}
+                  style={({ pressed }) => [
+                    styles.signSegmentedTab,
+                    !isNegative
+                      ? [
+                          styles.signSegmentedTabActive,
+                          {
+                            backgroundColor: colors.primary + '18',
+                            borderColor: colors.primary,
+                          },
+                        ]
+                      : null,
+                    pressed && styles.tabPressed,
+                  ]}
+                >
+                  <Ionicons
+                    name="add-circle"
+                    size={14}
+                    color={!isNegative ? colors.primary : colors.textMuted}
+                  />
+                  <Text
+                    style={[
+                      styles.signSegmentedText,
+                      {
+                        color: !isNegative ? colors.primary : colors.textMuted,
+                        fontWeight: !isNegative ? '800' : '600',
+                      },
+                    ]}
+                  >
+                    {isIndonesian ? '+ Positif' : '+ Positive'}
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={() => setIsNegative(true)}
+                  style={({ pressed }) => [
+                    styles.signSegmentedTab,
+                    isNegative
+                      ? [
+                          styles.signSegmentedTabActive,
+                          {
+                            backgroundColor: (colors.expense || '#EF4444') + '18',
+                            borderColor: colors.expense || '#EF4444',
+                          },
+                        ]
+                      : null,
+                    pressed && styles.tabPressed,
+                  ]}
+                >
+                  <Ionicons
+                    name="remove-circle"
+                    size={14}
+                    color={isNegative ? (colors.expense || '#EF4444') : colors.textMuted}
+                  />
+                  <Text
+                    style={[
+                      styles.signSegmentedText,
+                      {
+                        color: isNegative ? (colors.expense || '#EF4444') : colors.textMuted,
+                        fontWeight: isNegative ? '800' : '600',
+                      },
+                    ]}
+                  >
+                    {isIndonesian ? '- Hutang' : '- Debt'}
+                  </Text>
+                </Pressable>
+              </View>
+
               <NeoInput
-                placeholder="0"
-                value={formatInputDisplay(initialBalance)}
+                placeholder={isNegative ? "-Rp 0" : "Rp 0"}
+                value={formatBalanceInput(balanceDigits, isNegative)}
                 onChangeText={(val) => {
                   if (!val) {
-                    setInitialBalance('');
+                    setBalanceDigits('');
                     return;
                   }
-                  const isNeg = val.includes('-') || initialBalance.toString().trim().startsWith('-');
+                  if (val.includes('-')) {
+                    setIsNegative(true);
+                  } else if (val.includes('+')) {
+                    setIsNegative(false);
+                  }
                   const digits = val.replace(/\D/g, '');
-                  if (!digits) {
-                    setInitialBalance(isNeg ? '-' : '');
-                    return;
-                  }
-                  setInitialBalance(isNeg ? `-${digits}` : digits);
+                  setBalanceDigits(digits);
                 }}
-                keyboardType="numbers-and-punctuation"
-                leftIconName="cash-outline"
+                keyboardType="numeric"
+                leftIconName={isNegative ? "alert-circle-outline" : "cash-outline"}
+                rightIcon={
+                  balanceDigits ? (
+                    <Pressable onPress={() => setBalanceDigits('')} hitSlop={10}>
+                      <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+                    </Pressable>
+                  ) : null
+                }
               />
-              <Text style={[styles.balanceHint, { color: colors.textMuted }]}>
-                {mode === 'edit'
+              <Text style={[styles.balanceHint, { color: isNegative ? (colors.expense || '#EF4444') : colors.textMuted }]}>
+                {isNegative
                   ? (isIndonesian
-                    ? 'Total saldo riil dompet ini. Anda dapat langsung mengubahnya sesuai saldo fisik/rekening Anda.'
-                    : 'Total real balance of this wallet. You can change it to match your actual balance.')
-                  : (isIndonesian
-                    ? 'Saldo yang tersedia di dompet ini saat pertama kali dibuat.'
-                    : 'Starting balance available in this wallet upon creation.')}
+                    ? 'Saldo negatif dicatat sebagai kewajiban/hutang (kartu kredit, pinjaman, paylater).'
+                    : 'Negative balance is recorded as debt/liability (credit card, loan, paylater).')
+                  : mode === 'edit'
+                    ? (isIndonesian
+                      ? 'Total saldo riil dompet ini. Anda dapat langsung mengubahnya sesuai saldo fisik/rekening Anda.'
+                      : 'Total real balance of this wallet. You can change it to match your actual balance.')
+                    : (isIndonesian
+                      ? 'Saldo yang tersedia di dompet ini saat pertama kali dibuat.'
+                      : 'Starting balance available in this wallet upon creation.')}
               </Text>
             </View>
 
@@ -564,6 +651,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     flex: 1,
+    minWidth: 0,
+    marginRight: 10,
   },
   walletItemIcon: {
     width: 40,
@@ -572,9 +661,12 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   walletItemText: {
     flex: 1,
+    minWidth: 0,
+    justifyContent: 'center',
   },
   nameRow: {
     flexDirection: 'row',
@@ -584,36 +676,45 @@ const styles = StyleSheet.create({
   walletItemTitle: {
     fontSize: TYPOGRAPHY.size.sm,
     fontWeight: '800',
+    flexShrink: 1,
   },
   defaultBadge: {
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
+    flexShrink: 0,
   },
   defaultBadgeText: {
     fontSize: 9,
     fontWeight: '900',
+  },
+  balanceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 3,
+  },
+  walletItemBalance: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   debtBadge: {
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
     borderWidth: 1,
+    flexShrink: 0,
   },
   debtBadgeText: {
     fontSize: 9,
     fontWeight: '800',
     letterSpacing: 0.2,
   },
-  walletItemBalance: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 2,
-  },
   actionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flexShrink: 0,
   },
   iconActionBtn: {
     width: 32,
@@ -622,6 +723,34 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  signSegmentedContainer: {
+    flexDirection: 'row',
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 2.5,
+    marginTop: 2,
+    marginBottom: 4,
+  },
+  signSegmentedTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 7,
+  },
+  signSegmentedTabActive: {
+    borderWidth: 1,
+  },
+  tabPressed: {
+    opacity: 0.75,
+  },
+  signSegmentedText: {
+    fontSize: 11,
+    letterSpacing: 0.1,
   },
   formContainer: {
     gap: 16,

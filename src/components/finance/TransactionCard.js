@@ -14,7 +14,26 @@ export const TransactionCard = ({ transaction, onEdit, onDelete }) => {
   const { isIndonesian, t } = useLanguage();
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
 
-  const isIncome = transaction.type === 'income';
+  const isAdjustment = transaction.type === 'adjustment' || transaction.categoryId === 'cat_adjustment';
+  const isIncrease = transaction.isIncrease ?? (transaction.adjustmentDiff !== undefined ? transaction.adjustmentDiff > 0 : transaction.type === 'income');
+  const isIncome = transaction.type === 'income' && !isAdjustment;
+
+  let fallbackIcon = 'cube';
+  let fallbackColor = colors.expenseDark;
+  let fallbackBgColor = colors.expenseLight;
+
+  if (isAdjustment) {
+    fallbackIcon = 'swap-horizontal';
+    fallbackColor = colors.accent || '#3B82F6';
+    fallbackBgColor = colors.accentLight || '#DBEAFE';
+  } else if (isIncome) {
+    fallbackIcon = 'wallet';
+    fallbackColor = colors.incomeDark;
+    fallbackBgColor = colors.incomeLight;
+  }
+
+  const isPositive = isAdjustment ? isIncrease : isIncome;
+  const amountColor = isPositive ? colors.incomeDark : colors.expenseDark;
 
   return (
     <>
@@ -26,10 +45,10 @@ export const TransactionCard = ({ transaction, onEdit, onDelete }) => {
         <View style={styles.row}>
           {/* Category Icon Badge */}
           <CategoryIcon
-            iconName={transaction.iconName || (isIncome ? 'wallet' : 'cube')}
+            iconName={transaction.iconName || fallbackIcon}
             iconFamily={transaction.iconFamily || 'Ionicons'}
-            color={transaction.categoryColor || (isIncome ? colors.incomeDark : colors.expenseDark)}
-            bgColor={transaction.categoryBgColor || (isIncome ? colors.incomeLight : colors.expenseLight)}
+            color={transaction.categoryColor || fallbackColor}
+            bgColor={transaction.categoryBgColor || fallbackBgColor}
             size={18}
             containerSize={42}
             borderRadius={12}
@@ -74,15 +93,15 @@ export const TransactionCard = ({ transaction, onEdit, onDelete }) => {
             <Text
               style={[
                 styles.amountText,
-                { color: isIncome ? colors.incomeDark : colors.expenseDark },
+                { color: amountColor },
               ]}
             >
-              {isIncome ? '+' : '-'}
+              {isPositive ? '+' : '-'}
               {formatRupiah(Math.abs(transaction.amount || 0))}
             </Text>
 
             <View style={styles.btnRow}>
-              {onEdit && (
+              {onEdit && !isAdjustment && (
                 <Pressable
                   onPress={() => onEdit(transaction)}
                   style={({ pressed }) => [

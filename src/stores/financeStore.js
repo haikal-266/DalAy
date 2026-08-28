@@ -155,8 +155,12 @@ export const FinanceProvider = ({ children }) => {
       }
 
       // Filter by Type
-      if (typeFilter !== 'all' && tx.type !== typeFilter) {
-        return false;
+      if (typeFilter !== 'all') {
+        const isAdjustment = tx.type === 'adjustment' || tx.categoryId === 'cat_adjustment';
+        if (isAdjustment) return false;
+        if (tx.type !== typeFilter) {
+          return false;
+        }
       }
 
       // Filter by Period
@@ -188,9 +192,14 @@ export const FinanceProvider = ({ children }) => {
     let totalExpense = 0;
 
     filteredTransactions.forEach((tx) => {
+      const isAdjustment = tx.type === 'adjustment' || tx.categoryId === 'cat_adjustment';
+      if (isAdjustment) {
+        // Balance corrections are reconciliations, not actual cashflow income/expense
+        return;
+      }
       if (tx.type === 'income') {
         totalIncome += tx.amount || 0;
-      } else {
+      } else if (tx.type === 'expense') {
         totalExpense += tx.amount || 0;
       }
     });
@@ -213,6 +222,8 @@ export const FinanceProvider = ({ children }) => {
     const currentType = typeFilter === 'income' ? 'income' : 'expense';
 
     filteredTransactions.forEach((tx) => {
+      const isAdjustment = tx.type === 'adjustment' || tx.categoryId === 'cat_adjustment';
+      if (isAdjustment) return;
       // If we are looking at all or specific type
       if (typeFilter !== 'all' && tx.type !== typeFilter) return;
       if (typeFilter === 'all' && tx.type !== 'expense') return; // Default breakdown is expense

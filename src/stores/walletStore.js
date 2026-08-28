@@ -241,19 +241,30 @@ export const WalletProvider = ({ children }) => {
       return assignedWalletId === walletId;
     });
 
+    const isAdjustmentTx = (t) => t.type === 'adjustment' || t.categoryId === 'cat_adjustment';
+
     const income = txs
-      .filter((t) => t.type === 'income')
+      .filter((t) => t.type === 'income' && !isAdjustmentTx(t))
       .reduce((sum, t) => sum + (t.amount || 0), 0);
 
     const expense = txs
-      .filter((t) => t.type === 'expense')
+      .filter((t) => t.type === 'expense' && !isAdjustmentTx(t))
       .reduce((sum, t) => sum + (t.amount || 0), 0);
+
+    const adjustment = txs
+      .filter(isAdjustmentTx)
+      .reduce((sum, t) => {
+        if (t.adjustmentDiff !== undefined) return sum + t.adjustmentDiff;
+        if (t.isIncrease !== undefined) return sum + (t.isIncrease ? (t.amount || 0) : -(t.amount || 0));
+        return sum + (t.type === 'income' ? (t.amount || 0) : -(t.amount || 0));
+      }, 0);
 
     return {
       initial,
       income,
       expense,
-      balance: initial + income - expense,
+      adjustment,
+      balance: initial + income - expense + adjustment,
       txCount: txs.length,
     };
   };

@@ -22,12 +22,19 @@ export const exportTransactionsToExcel = async (
       return { success: false, error: 'Tidak ada transaksi untuk diekspor.' };
     }
 
+    const getJenisLabel = (t) => {
+      if (t.type === 'adjustment' || t.categoryId === 'cat_adjustment') {
+        return 'Penyesuaian';
+      }
+      return t.type === 'income' ? 'Pemasukan' : 'Pengeluaran';
+    };
+
     // 1. Sheet 1: Detail Transaksi
     const txRows = transactions.map((t, index) => ({
       'No': index + 1,
       'Tanggal': formatDateIndo(t.date, false, false),
       'Waktu': formatTimeIndo(t.date),
-      'Jenis': t.type === 'income' ? 'Pemasukan' : 'Pengeluaran',
+      'Jenis': getJenisLabel(t),
       'Kategori': `${t.categoryIcon || ''} ${t.categoryName || '-'}`,
       'Keterangan': t.name || '-',
       'Nominal (Rp)': t.amount || 0,
@@ -37,10 +44,11 @@ export const exportTransactionsToExcel = async (
     // 2. Sheet 2: Rekap Per Kategori
     const categoryMap = {};
     transactions.forEach((t) => {
-      const key = `${t.type}_${t.categoryName}`;
+      const jenis = getJenisLabel(t);
+      const key = `${jenis}_${t.categoryName}`;
       if (!categoryMap[key]) {
         categoryMap[key] = {
-          'Jenis': t.type === 'income' ? 'Pemasukan' : 'Pengeluaran',
+          'Jenis': jenis,
           'Kategori': `${t.categoryIcon || ''} ${t.categoryName || '-'}`,
           'Jumlah Transaksi': 0,
           'Total Nominal (Rp)': 0,

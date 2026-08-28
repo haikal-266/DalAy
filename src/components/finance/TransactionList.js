@@ -39,10 +39,13 @@ export const TransactionList = ({
         };
       }
       groups[dateKey].items.push(tx);
-      if (tx.type === 'income') {
-        groups[dateKey].totalIncome += tx.amount || 0;
-      } else {
-        groups[dateKey].totalExpense += tx.amount || 0;
+      const isAdjustment = tx.type === 'adjustment' || tx.categoryId === 'cat_adjustment';
+      if (!isAdjustment) {
+        if (tx.type === 'income') {
+          groups[dateKey].totalIncome += tx.amount || 0;
+        } else if (tx.type === 'expense') {
+          groups[dateKey].totalExpense += tx.amount || 0;
+        }
       }
     });
 
