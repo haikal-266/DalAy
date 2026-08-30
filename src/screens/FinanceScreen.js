@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { TYPOGRAPHY } from '../theme/typography';
+import { isSameDay, isThisWeek, isThisMonth } from '../utils/formatters';
 import { useFinance } from '../stores/financeStore';
 import { useQuran } from '../stores/quranStore';
 import { useSync } from '../stores/syncStore';
@@ -29,6 +30,7 @@ import { ImportModal } from '../components/finance/ImportModal';
 import { WalletCarousel } from '../components/finance/WalletCarousel';
 import { ManageWalletsModal } from '../components/finance/ManageWalletsModal';
 import { TransferModal } from '../components/finance/TransferModal';
+import { useWallet } from '../stores/walletStore';
 import { NeoSegmented } from '../components/neo/NeoSegmented';
 import { ConfirmModal } from '../components/neo/ConfirmModal';
 
@@ -38,6 +40,8 @@ export const FinanceScreen = () => {
   const { t, isIndonesian } = useLanguage();
   const { isConnected, isSyncing, performSync, backupToGoogleDriveFile } = useSync();
   const { favorites, history, replaceFavoritesAndHistory } = useQuran();
+
+  const { getTotalNetWorth } = useWallet();
 
   const {
     transactions,
@@ -58,6 +62,44 @@ export const FinanceScreen = () => {
     updateTransaction,
     deleteTransaction,
   } = useFinance();
+
+  const totalNetWorth = getTotalNetWorth(transactions);
+
+  // Overall financial summary for All Wallets (fixed, independent of selected individual wallet)
+  const allWalletsSummary = useMemo(() => {
+    let totalIncome = 0;
+    let totalExpense = 0;
+
+    transactions.forEach((tx) => {
+      const isAdjustment = tx.type === 'adjustment' || tx.categoryId === 'cat_adjustment';
+      if (isAdjustment) return;
+
+      // Filter by active period
+      if (periodFilter === 'today') {
+        if (!isSameDay(tx.date, new Date())) return;
+      } else if (periodFilter === 'week') {
+        if (!isThisWeek(tx.date)) return;
+      } else if (periodFilter === 'month') {
+        if (!isThisMonth(tx.date)) return;
+      }
+
+      // Internal wallet transfers do not count as overall income/expense
+      if (tx.isTransfer) return;
+
+      if (tx.type === 'income') {
+        totalIncome += tx.amount || 0;
+      } else if (tx.type === 'expense') {
+        totalExpense += tx.amount || 0;
+      }
+    });
+
+    return {
+      totalIncome,
+      totalExpense,
+      balance: totalIncome - totalExpense,
+      transactionCount: transactions.length,
+    };
+  }, [transactions, periodFilter]);
 
   const [selectedInputDate, setSelectedInputDate] = useState(new Date());
   const [activeViewTab, setActiveViewTab] = useState('list'); // 'list' | 'chart'
@@ -384,6 +426,14 @@ export const FinanceScreen = () => {
           </View>
         )}
 
+        {/* Fixed All Wallets Overview KPI Card */}
+        <SummaryCards
+          summary={allWalletsSummary}
+          periodFilter={periodFilter}
+          onPeriodChange={setPeriodFilter}
+          totalNetWorth={totalNetWorth}
+        />
+
         {/* Diversified Custom Wallets Carousel */}
         <WalletCarousel
           onOpenManageWallets={() => {
@@ -395,13 +445,6 @@ export const FinanceScreen = () => {
             setManageWalletsVisible(true);
           }}
           onOpenTransfer={() => setTransferModalVisible(true)}
-        />
-
-        {/* Financial Summary KPI Cards */}
-        <SummaryCards
-          summary={summary}
-          periodFilter={periodFilter}
-          onPeriodChange={setPeriodFilter}
         />
 
         {/* 7-Day Date Strip & Calendar Picker */}

@@ -8,7 +8,6 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { TYPOGRAPHY } from '../../theme/typography';
 import { useTheme } from '../../stores/themeStore';
 import { useLanguage } from '../../stores/languageStore';
 import { useWallet } from '../../stores/walletStore';
@@ -24,23 +23,19 @@ export const WalletCarousel = ({ onOpenManageWallets, onAddNewWallet, onOpenTran
     selectedWalletId,
     selectWallet,
     getWalletBalance,
-    getTotalNetWorth,
   } = useWallet();
   const { transactions, setWalletFilter } = useFinance();
 
-  const totalNetWorth = getTotalNetWorth(transactions);
-  const isAllSelected = selectedWalletId === 'all';
-
   const scrollViewRef = useRef(null);
 
-  // Total slides = 1 ("Semua Dompet") + wallets.length + 1 ("Tambah Dompet")
-  const totalSlides = wallets.length + 2;
-  const slideKeys = ['slide_all', ...wallets.map((w) => `slide_${w.id}`), 'slide_add_new'];
+  // Total slides = wallets.length + 1 ("Tambah Dompet")
+  const totalSlides = wallets.length + 1;
+  const slideKeys = [...wallets.map((w) => `slide_${w.id}`), 'slide_add_new'];
 
   const [activeIndex, setActiveIndex] = useState(() => {
     if (selectedWalletId === 'all') return 0;
     const idx = wallets.findIndex((w) => w.id === selectedWalletId);
-    return idx >= 0 ? idx + 1 : 0;
+    return idx >= 0 ? idx : 0;
   });
 
   const scrollToIndex = (index, animated = true) => {
@@ -55,20 +50,16 @@ export const WalletCarousel = ({ onOpenManageWallets, onAddNewWallet, onOpenTran
 
   // Sync scroll position if selectedWalletId changes externally or on initial mount
   useEffect(() => {
-    const idx =
-      selectedWalletId === 'all'
-        ? 0
-        : wallets.findIndex((w) => w.id === selectedWalletId) + 1;
+    if (selectedWalletId === 'all') return;
+    const idx = wallets.findIndex((w) => w.id === selectedWalletId);
     if (idx >= 0 && idx !== activeIndex) {
       scrollToIndex(idx, true);
     }
   }, [selectedWalletId]);
 
   useEffect(() => {
-    const idx =
-      selectedWalletId === 'all'
-        ? 0
-        : wallets.findIndex((w) => w.id === selectedWalletId) + 1;
+    if (selectedWalletId === 'all') return;
+    const idx = wallets.findIndex((w) => w.id === selectedWalletId);
     if (idx >= 0) {
       const timer = setTimeout(() => {
         scrollToIndex(idx, false);
@@ -83,11 +74,8 @@ export const WalletCarousel = ({ onOpenManageWallets, onAddNewWallet, onOpenTran
     if (newIndex >= 0 && newIndex < totalSlides && newIndex !== activeIndex) {
       setActiveIndex(newIndex);
       // Auto-select wallet corresponding to this slide
-      if (newIndex === 0) {
-        selectWallet('all');
-        setWalletFilter('all');
-      } else if (newIndex <= wallets.length) {
-        const targetWallet = wallets[newIndex - 1];
+      if (newIndex < wallets.length) {
+        const targetWallet = wallets[newIndex];
         if (targetWallet) {
           selectWallet(targetWallet.id);
           setWalletFilter(targetWallet.id);
@@ -111,8 +99,12 @@ export const WalletCarousel = ({ onOpenManageWallets, onAddNewWallet, onOpenTran
       {/* Header Bar */}
       <View style={styles.headerRow}>
         <View style={styles.titleGroup}>
-          <Ionicons name="wallet" size={18} color={colors.primary} />
-          <Text style={[styles.headerTitle, { color: colors.text }]}>
+          <Ionicons name="wallet" size={15} color={colors.primary} />
+          <Text
+            style={[styles.headerTitle, { color: colors.text }]}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
             {isIndonesian ? 'Dompet & Rekening' : 'Wallets & Accounts'}
           </Text>
         </View>
@@ -132,7 +124,7 @@ export const WalletCarousel = ({ onOpenManageWallets, onAddNewWallet, onOpenTran
               ]}
               accessibilityLabel="Transfer Antar Dompet"
             >
-              <Ionicons name="swap-horizontal" size={13} color={colors.primaryDark} />
+              <Ionicons name="swap-horizontal" size={12} color={colors.primaryDark} />
               <Text style={[styles.transferHeaderBtnText, { color: colors.primaryDark }]}>
                 {isIndonesian ? 'Transfer' : 'Transfer'}
               </Text>
@@ -151,7 +143,7 @@ export const WalletCarousel = ({ onOpenManageWallets, onAddNewWallet, onOpenTran
               pressed && styles.pressed,
             ]}
           >
-            <Ionicons name="settings-outline" size={13} color={colors.textSecondary} />
+            <Ionicons name="settings-outline" size={12} color={colors.textSecondary} />
             <Text style={[styles.manageBtnText, { color: colors.textSecondary }]}>
               {isIndonesian ? 'Kelola' : 'Manage'}
             </Text>
@@ -168,107 +160,12 @@ export const WalletCarousel = ({ onOpenManageWallets, onAddNewWallet, onOpenTran
         onMomentumScrollEnd={handleScrollEnd}
         decelerationRate="fast"
       >
-        {/* Slide 0: Semua Dompet */}
-        <View style={[styles.slideContainer, { width: windowWidth }]}>
-          <Pressable
-            onPress={() => handleSelect('all', 0)}
-            style={({ pressed }) => [
-              styles.walletCard,
-              {
-                backgroundColor: isAllSelected ? colors.surface : colors.surfaceLight,
-                borderColor: isAllSelected ? colors.primary : colors.border,
-                borderWidth: isAllSelected ? 2 : 1.5,
-              },
-              isAllSelected && {
-                shadowColor: colors.primary,
-                shadowOpacity: 0.2,
-                shadowRadius: 8,
-                elevation: 4,
-              },
-              pressed && styles.pressed,
-            ]}
-          >
-            <View style={styles.cardHeader}>
-              <View style={styles.cardHeaderLeft}>
-                <View
-                  style={[
-                    styles.iconBadge,
-                    { backgroundColor: colors.primary + '20', borderColor: colors.primary },
-                  ]}
-                >
-                  <Ionicons name="layers-outline" size={18} color={colors.primary} />
-                </View>
-                <View style={styles.headerTitleCol}>
-                  <Text style={[styles.walletName, { color: colors.text }]} numberOfLines={1}>
-                    {isIndonesian ? 'Semua Dompet' : 'All Wallets'}
-                  </Text>
-                  <Text style={[styles.walletTypeLabel, { color: colors.textMuted }]}>
-                    {isIndonesian ? 'Total Keseluruhan' : 'Total Combined'}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.headerRightBadges}>
-                {totalNetWorth < 0 && (
-                  <View
-                    style={[
-                      styles.debtBadge,
-                      {
-                        backgroundColor: colors.expenseLight || '#FEF2F2',
-                        borderColor: colors.expense || '#EF4444',
-                      },
-                    ]}
-                  >
-                    <Text style={[styles.debtBadgeText, { color: colors.expense || '#EF4444' }]}>
-                      {isIndonesian ? 'Hutang' : 'Debt'}
-                    </Text>
-                  </View>
-                )}
-                {isAllSelected && (
-                  <View style={[styles.activePill, { backgroundColor: colors.primary }]}>
-                    <Ionicons name="checkmark-circle" size={11} color="#FFFFFF" />
-                    <Text style={styles.activePillText}>
-                      {isIndonesian ? 'AKTIF' : 'ACTIVE'}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </View>
-
-            <View style={styles.cardBody}>
-              <Text style={[styles.balanceLabel, { color: colors.textSecondary }]}>
-                {isIndonesian ? 'TOTAL SALDO BERSIH' : 'TOTAL NET WORTH'}
-              </Text>
-              <Text
-                style={[
-                  styles.walletBalance,
-                  { color: totalNetWorth >= 0 ? colors.income : colors.expense },
-                ]}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.8}
-              >
-                {formatRupiah(totalNetWorth)}
-              </Text>
-            </View>
-
-            <View style={styles.cardFooter}>
-              <Text style={[styles.walletSub, { color: colors.textMuted }]}>
-                <Ionicons name="link-outline" size={12} color={colors.textMuted} /> {wallets.length} {isIndonesian ? 'dompet terhubung' : 'wallets linked'}
-              </Text>
-              <Text style={[styles.swipeHint, { color: colors.textMuted }]}>
-                {isIndonesian ? 'Geser untuk ganti dompet ›' : 'Swipe to switch ›'}
-              </Text>
-            </View>
-          </Pressable>
-        </View>
-
         {/* Individual Wallet Slides */}
         {wallets.map((wallet, idx) => {
           const stats = getWalletBalance(wallet.id, transactions);
           const isSelected = selectedWalletId === wallet.id;
           const cardColor = wallet.color || colors.primary;
-          const slideIndex = idx + 1;
+          const slideIndex = idx;
 
           return (
             <View key={wallet.id} style={[styles.slideContainer, { width: windowWidth }]}>
@@ -447,47 +344,52 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     marginBottom: 10,
+    gap: 8,
   },
   titleGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
+    flex: 1,
+    minWidth: 0,
   },
   headerTitle: {
-    fontSize: TYPOGRAPHY.size.sm,
+    fontSize: 11,
     fontWeight: '800',
-    letterSpacing: -0.2,
+    letterSpacing: 0.2,
     textTransform: 'uppercase',
+    flexShrink: 1,
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
+    flexShrink: 0,
   },
   transferHeaderBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 7,
     borderWidth: 1,
   },
   transferHeaderBtnText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
   },
   manageBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 7,
     borderWidth: 1,
   },
   manageBtnText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
   },
   slideContainer: {
