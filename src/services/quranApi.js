@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SURAH_DATA, getRandomSurahAyah } from '../utils/surahData';
+import { SURAH_DATA, getRandomSurahAyah } from '../utils/surahData.js';
+import { getOfflineSurah } from '../data/quran/offlineQuran.js';
 
 const CACHE_KEY_AYAT = '@dalay_cached_ayats';
 const CACHE_KEY_LAST_RANDOM = '@dalay_last_random_ayah';
@@ -102,8 +103,48 @@ const cleanHtmlText = (html) => {
  * Fetch a specific Ayah from API with multi-endpoint fallback & local cache
  */
 export const fetchAyah = async (surahNumber, ayahNumber, lang = 'en') => {
-  const surahInfo = SURAH_DATA.find((s) => s.number === surahNumber) || SURAH_DATA[0];
+  const surahInfo = SURAH_DATA.find((s) => s.number === Number(surahNumber)) || SURAH_DATA[0];
   const isIndo = lang === 'id';
+  const sNum = Number(surahNumber);
+  const aNum = Number(ayahNumber);
+
+  // 1. Instant Offline Local Dataset Check (Complete 114 Surahs, 6,236 Ayahs)
+  try {
+    const offlineSurah = getOfflineSurah(sNum);
+    if (offlineSurah && Array.isArray(offlineSurah.verses)) {
+      const v = offlineSurah.verses.find((item) => item.number === aNum);
+      if (v) {
+        const formatted = {
+          surah: sNum,
+          ayah: aNum,
+          surahName: offlineSurah.name || surahInfo.name_latin,
+          surah_name: offlineSurah.name || surahInfo.name_latin,
+          surahNameArab: offlineSurah.nameArab || surahInfo.name,
+          surah_name_ar: offlineSurah.nameArab || surahInfo.name,
+          surah_meaning: offlineSurah.translation || surahInfo.meaning,
+          total_ayahs: offlineSurah.numberOfVerses || surahInfo.number_of_ayahs,
+          revelation: offlineSurah.revelation || surahInfo.revelation,
+          arab: v.textArab || '',
+          latin: v.textLatin || '',
+          translation: isIndo
+            ? (v.translationId || v.translationEn)
+            : (v.translationEn || v.translationId),
+          translation_id: v.translationId || '',
+          translation_en: v.translationEn || '',
+          tafsir_wajiz: v.tafsirWajiz || '',
+          audio: getAyahAudioUrl(sNum, aNum),
+          _lang: lang,
+          _isOffline: true,
+        };
+
+        // Cache for last random/history
+        cacheAyat(formatted, lang);
+        return formatted;
+      }
+    }
+  } catch (offlineErr) {
+    console.log('Offline surah read note:', offlineErr.message);
+  }
 
   // Primary API for Indonesian: myQuran v3
   if (isIndo) {
@@ -209,11 +250,38 @@ export const fetchAyah = async (surahNumber, ayahNumber, lang = 'en') => {
  * Fetch Tafsir for a specific Surah & Ayah in English or Indonesian
  */
 export const fetchTafsir = async (surahNumber, ayahNumber, lang = 'en') => {
-  const surahInfo = SURAH_DATA.find((s) => s.number === surahNumber) || SURAH_DATA[0];
+  const surahInfo = SURAH_DATA.find((s) => s.number === Number(surahNumber)) || SURAH_DATA[0];
   const isIndo = lang === 'id';
-  const cacheKey = `@dalay_tafsir_${lang}_${surahNumber}_${ayahNumber}`;
-  
-  // 1. Check local cache
+  const sNum = Number(surahNumber);
+  const aNum = Number(ayahNumber);
+  const cacheKey = `@dalay_tafsir_${lang}_${sNum}_${aNum}`;
+
+  // 1. Instant Offline Tafsir Ringkas / Wajiz (Kemenag RI) Check
+  try {
+    const offlineSurah = getOfflineSurah(sNum);
+    if (offlineSurah && Array.isArray(offlineSurah.verses)) {
+      const v = offlineSurah.verses.find((item) => item.number === aNum);
+      if (v && v.tafsirWajiz) {
+        if (isIndo) {
+          const result = {
+            surah: sNum,
+            ayah: aNum,
+            surahName: offlineSurah.name || surahInfo.name_latin,
+            surahNameAr: offlineSurah.nameArab || surahInfo.name,
+            surahDesc: offlineSurah.translation || surahInfo.meaning,
+            source: 'Tafsir Ringkas / Wajiz (Kemenag RI)',
+            text: v.tafsirWajiz,
+            _isOffline: true,
+          };
+
+          AsyncStorage.setItem(cacheKey, JSON.stringify(result)).catch(() => {});
+          return result;
+        }
+      }
+    }
+  } catch (e) {}
+
+  // 2. Check local cache
   try {
     const cached = await AsyncStorage.getItem(cacheKey);
     if (cached) {
@@ -221,7 +289,7 @@ export const fetchTafsir = async (surahNumber, ayahNumber, lang = 'en') => {
     }
   } catch (e) {}
 
-  // 2. English Tafsir (Quran.com API: Ibn Kathir / Ma'arif al-Qur'an)
+  // 3. English Tafsir (Quran.com API: Ibn Kathir / Ma'arif al-Qur'an)
   if (!isIndo) {
     // Attempt 1: Tafsir Ibn Kathir (English - ID 169)
     try {
@@ -353,15 +421,35 @@ export const fetchTafsir = async (surahNumber, ayahNumber, lang = 'en') => {
     }
   }
 
+  // Final Fallback: If offline or network unavailable, provide offline Tafsir Wajiz Kemenag!
+  try {
+    const offlineSurah = getOfflineSurah(sNum);
+    if (offlineSurah && Array.isArray(offlineSurah.verses)) {
+      const v = offlineSurah.verses.find((item) => item.number === aNum);
+      if (v && v.tafsirWajiz) {
+        return {
+          surah: sNum,
+          ayah: aNum,
+          surahName: offlineSurah.name || surahInfo.name_latin,
+          surahNameAr: offlineSurah.nameArab || surahInfo.name,
+          surahDesc: offlineSurah.translation || surahInfo.meaning,
+          source: 'Tafsir Ringkas / Wajiz (Kemenag RI)',
+          text: v.tafsirWajiz,
+          _isOffline: true,
+        };
+      }
+    }
+  } catch (e) {}
+
   return {
-    surah: surahNumber,
-    ayah: ayahNumber,
+    surah: sNum,
+    ayah: aNum,
     surahName: surahInfo.name_latin,
     surahNameAr: surahInfo.name,
-    source: isIndo ? 'Kementerian Agama RI (Kemenag)' : 'Tafsir Ibn Kathir',
+    source: isIndo ? 'Tafsir Ringkas / Wajiz (Kemenag RI)' : 'Tafsir Ibn Kathir',
     text: isIndo
-      ? 'Tafsir belum tersedia saat offline. Silakan hubungkan internet untuk memuat tafsir lengkap.'
-      : 'Tafsir commentary is not cached yet. Please connect to the internet to load full commentary.',
+      ? 'Tafsir untuk ayat ini sedang dimuat.'
+      : 'Tafsir commentary is currently loading.',
   };
 };
 
@@ -423,10 +511,30 @@ const getCachedAyat = async (surahNumber, ayahNumber, lang = 'en') => {
   }
 };
 
+/**
+ * Get all verses of a Surah from offline dataset
+ */
+export const getSurahVerses = (surahNumber, lang = 'id') => {
+  const offlineSurah = getOfflineSurah(surahNumber);
+  if (!offlineSurah) return null;
+  const isIndo = lang === 'id';
+  return {
+    ...offlineSurah,
+    verses: (offlineSurah.verses || []).map((v) => ({
+      ...v,
+      translation: isIndo ? v.translationId : v.translationEn,
+    })),
+  };
+};
+
+export { getOfflineSurah };
+
 export default {
   fetchAyah,
   fetchTafsir,
   fetchRandomAyah,
   getLastOrInitialAyah,
+  getSurahVerses,
+  getOfflineSurah,
   OFFLINE_FALLBACK_AYAHS,
 };
