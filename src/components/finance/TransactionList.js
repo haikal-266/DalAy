@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { TYPOGRAPHY } from '../../theme/typography';
 import { NeoCard } from '../neo/NeoCard';
@@ -9,6 +9,7 @@ import { TransactionCard } from './TransactionCard';
 import { useTheme } from '../../stores/themeStore';
 import { useLanguage } from '../../stores/languageStore';
 import { getRelativeDateLabel, formatRupiah } from '../../utils/formatters';
+import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../../utils/categories';
 
 export const TransactionList = ({
   transactions = [],
@@ -16,6 +17,8 @@ export const TransactionList = ({
   setSearchQuery,
   typeFilter = 'all',
   setTypeFilter,
+  categoryFilter = 'all',
+  setCategoryFilter,
   onEdit,
   onDelete,
   onSearchFocus,
@@ -51,6 +54,20 @@ export const TransactionList = ({
 
     return Object.values(groups).sort((a, b) => b.dateKey.localeCompare(a.dateKey));
   }, [transactions]);
+
+  const availableCategories = useMemo(() => {
+    if (typeFilter === 'expense') return EXPENSE_CATEGORIES;
+    if (typeFilter === 'income') return INCOME_CATEGORIES;
+    const seen = new Set();
+    const list = [];
+    [...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES].forEach((c) => {
+      if (!seen.has(c.id)) {
+        seen.add(c.id);
+        list.push(c);
+      }
+    });
+    return list;
+  }, [typeFilter]);
 
   return (
     <NeoCard variant="white" padding={16} style={styles.cardContainer}>
@@ -108,7 +125,84 @@ export const TransactionList = ({
         style={styles.typeSegmented}
       />
 
-      {/* 4. Subtle Divider */}
+      {/* 4. Category Filter Chips Horizontal Bar */}
+      <View style={styles.categoryFilterWrapper}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoryChipsContent}
+        >
+          <Pressable
+            onPress={() => setCategoryFilter && setCategoryFilter('all')}
+            style={({ pressed }) => [
+              styles.categoryChip,
+              {
+                backgroundColor: categoryFilter === 'all' ? colors.primary : colors.surfaceLight,
+                borderColor: categoryFilter === 'all' ? colors.primaryDark : colors.border,
+              },
+              categoryFilter === 'all' && styles.categoryChipActive,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Ionicons
+              name="pricetags-outline"
+              size={12}
+              color={categoryFilter === 'all' ? '#FFFFFF' : colors.textSecondary}
+            />
+            <Text
+              style={[
+                styles.categoryChipText,
+                {
+                  color: categoryFilter === 'all' ? '#FFFFFF' : colors.textSecondary,
+                  fontWeight: categoryFilter === 'all' ? '800' : '600',
+                },
+              ]}
+            >
+              {isIndonesian ? 'Semua Kategori' : 'All'}
+            </Text>
+          </Pressable>
+
+          {availableCategories.map((cat) => {
+            const isSelected = categoryFilter === cat.id;
+            const catColor = cat.color || colors.primary;
+
+            return (
+              <Pressable
+                key={cat.id}
+                onPress={() => setCategoryFilter && setCategoryFilter(isSelected ? 'all' : cat.id)}
+                style={({ pressed }) => [
+                  styles.categoryChip,
+                  {
+                    backgroundColor: isSelected ? catColor : colors.surfaceLight,
+                    borderColor: isSelected ? catColor : colors.border,
+                  },
+                  isSelected && styles.categoryChipActive,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Ionicons
+                  name={cat.iconName || 'pricetag-outline'}
+                  size={12}
+                  color={isSelected ? '#FFFFFF' : catColor}
+                />
+                <Text
+                  style={[
+                    styles.categoryChipText,
+                    {
+                      color: isSelected ? '#FFFFFF' : colors.text,
+                      fontWeight: isSelected ? '800' : '600',
+                    },
+                  ]}
+                >
+                  {cat.name}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      {/* 5. Subtle Divider */}
       <View style={[styles.divider, { backgroundColor: colors.borderLight }]} />
 
       {/* 5. List Content Area / Empty State */}
@@ -291,6 +385,38 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     textAlign: 'center',
     maxWidth: 260,
+  },
+  categoryFilterWrapper: {
+    marginTop: 8,
+  },
+  categoryChipsContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 2,
+  },
+  categoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  categoryChipActive: {
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+  },
+  categoryChipText: {
+    fontSize: 11,
+  },
+  pressed: {
+    opacity: 0.75,
+    transform: [{ scale: 0.96 }],
   },
 });
 

@@ -13,6 +13,7 @@ export const FinanceProvider = ({ children }) => {
   const [periodFilter, setPeriodFilter] = useState('all'); // 'today' | 'week' | 'month' | 'all'
   const [typeFilter, setTypeFilter] = useState('all'); // 'all' | 'expense' | 'income'
   const [walletFilter, setWalletFilter] = useState('all'); // 'all' | walletId
+  const [categoryFilter, setCategoryFilter] = useState('all'); // 'all' | categoryId
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
@@ -118,6 +119,100 @@ export const FinanceProvider = ({ children }) => {
     return { success: true, count: importedList.length };
   };
 
+  /**
+   * Transfer funds between wallets
+   */
+  const transferBalance = async ({
+    sourceWalletId,
+    sourceWalletName,
+    targetWalletId,
+    targetWalletName,
+    amount,
+    adminFee = 0,
+    note = '',
+    date = null,
+  }) => {
+    const transferId = `trf_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const txDate = date ? new Date(date).toISOString() : new Date().toISOString();
+    const numAmount = Number(amount) || 0;
+    const numFee = Number(adminFee) || 0;
+
+    // 1. Transaction Out from Source Wallet
+    const txOut = {
+      id: `tx_trf_out_${Date.now()}_1`,
+      transferId,
+      isTransfer: true,
+      transferRole: 'out',
+      type: 'expense',
+      name: `Transfer ke ${targetWalletName}`,
+      amount: numAmount,
+      walletId: sourceWalletId,
+      walletName: sourceWalletName,
+      targetWalletId,
+      targetWalletName,
+      categoryId: 'cat_transfer',
+      categoryName: 'Transfer Dompet',
+      iconName: 'swap-horizontal',
+      iconFamily: 'Ionicons',
+      categoryColor: '#0EA5E9',
+      categoryBgColor: '#E0F2FE',
+      rawText: note || `Transfer ke ${targetWalletName}`,
+      date: txDate,
+    };
+
+    // 2. Transaction In to Target Wallet
+    const txIn = {
+      id: `tx_trf_in_${Date.now()}_2`,
+      transferId,
+      isTransfer: true,
+      transferRole: 'in',
+      type: 'income',
+      name: `Transfer dari ${sourceWalletName}`,
+      amount: numAmount,
+      walletId: targetWalletId,
+      walletName: targetWalletName,
+      sourceWalletId,
+      sourceWalletName,
+      categoryId: 'cat_transfer',
+      categoryName: 'Transfer Dompet',
+      iconName: 'swap-horizontal',
+      iconFamily: 'Ionicons',
+      categoryColor: '#0EA5E9',
+      categoryBgColor: '#E0F2FE',
+      rawText: note || `Transfer dari ${sourceWalletName}`,
+      date: txDate,
+    };
+
+    const newTxs = [txOut, txIn];
+
+    // 3. Admin Fee if any (charged to Source Wallet)
+    if (numFee > 0) {
+      const txFee = {
+        id: `tx_trf_fee_${Date.now()}_3`,
+        transferId,
+        isTransferFee: true,
+        type: 'expense',
+        name: `Biaya Admin (${sourceWalletName} → ${targetWalletName})`,
+        amount: numFee,
+        walletId: sourceWalletId,
+        walletName: sourceWalletName,
+        categoryId: 'cat_admin_fee',
+        categoryName: 'Biaya Admin',
+        iconName: 'receipt-outline',
+        iconFamily: 'Ionicons',
+        categoryColor: '#F59E0B',
+        categoryBgColor: '#FEF3C7',
+        rawText: 'Biaya Admin Transfer',
+        date: txDate,
+      };
+      newTxs.push(txFee);
+    }
+
+    const updated = [...newTxs, ...transactions];
+    await saveTransactions(updated);
+    return { success: true, count: newTxs.length, transferId };
+  };
+
   const updateTransaction = async (id, updatedFields) => {
     const updated = transactions.map((t) =>
       t.id === id ? { ...t, ...updatedFields } : t
@@ -126,7 +221,14 @@ export const FinanceProvider = ({ children }) => {
   };
 
   const deleteTransaction = async (id) => {
-    const updated = transactions.filter((t) => t.id !== id);
+    const target = transactions.find((t) => t.id === id);
+    let updated;
+    if (target?.transferId) {
+      // If deleting a transfer, remove all paired transfer records
+      updated = transactions.filter((t) => t.transferId !== target.transferId);
+    } else {
+      updated = transactions.filter((t) => t.id !== id);
+    }
     await saveTransactions(updated);
   };
 
@@ -163,6 +265,14 @@ export const FinanceProvider = ({ children }) => {
         }
       }
 
+      // Filter by Category
+      if (categoryFilter !== 'all') {
+        const txCatId = tx.categoryId || 'other';
+        if (txCatId !== categoryFilter) {
+          return false;
+        }
+      }
+
       // Filter by Period
       if (periodFilter === 'today') {
         if (!isSameDay(tx.date, new Date())) return false;
@@ -184,7 +294,7 @@ export const FinanceProvider = ({ children }) => {
 
       return true;
     });
-  }, [transactions, walletFilter, periodFilter, typeFilter, searchQuery]);
+  }, [transactions, walletFilter, periodFilter, typeFilter, categoryFilter, searchQuery]);
 
   // Overall Financial Summary
   const summary = useMemo(() => {
@@ -195,6 +305,11 @@ export const FinanceProvider = ({ children }) => {
       const isAdjustment = tx.type === 'adjustment' || tx.categoryId === 'cat_adjustment';
       if (isAdjustment) {
         // Balance corrections are reconciliations, not actual cashflow income/expense
+        return;
+      }
+      // When viewing 'all' wallets, internal transfers between your own wallets
+      // should NOT inflate total income or expense! (Only transfer fee counts as real expense)
+      if (walletFilter === 'all' && tx.isTransfer) {
         return;
       }
       if (tx.type === 'income') {
@@ -212,50 +327,54 @@ export const FinanceProvider = ({ children }) => {
       balance,
       transactionCount: filteredTransactions.length,
     };
-  }, [filteredTransactions]);
+  }, [filteredTransactions, walletFilter]);
 
   // Category breakdown for statistics & charts
   const categoryStats = useMemo(() => {
     const map = {};
     let totalNominal = 0;
 
-    const currentType = typeFilter === 'income' ? 'income' : 'expense';
-
     filteredTransactions.forEach((tx) => {
       const isAdjustment = tx.type === 'adjustment' || tx.categoryId === 'cat_adjustment';
       if (isAdjustment) return;
-      // If we are looking at all or specific type
+
       if (typeFilter !== 'all' && tx.type !== typeFilter) return;
-      if (typeFilter === 'all' && tx.type !== 'expense') return; // Default breakdown is expense
 
       const catId = tx.categoryId || 'other';
+      const catName = tx.categoryName || 'Lain-lain';
+      const catColor = tx.categoryColor || '#64748B';
+      const catBgColor = tx.categoryBgColor || '#F1F5F9';
+      const iconName = tx.iconName || 'cube';
+      const iconFamily = tx.iconFamily || 'Ionicons';
+      const amount = tx.amount || 0;
+
+      totalNominal += amount;
+
       if (!map[catId]) {
         map[catId] = {
           id: catId,
-          name: tx.categoryName || 'Lain-lain',
-          iconName: tx.iconName || 'cube',
-          iconFamily: tx.iconFamily || 'Ionicons',
-          color: tx.categoryColor || '#64748B',
-          bgColor: tx.categoryBgColor || '#F1F5F9',
+          name: catName,
+          color: catColor,
+          bgColor: catBgColor,
+          iconName,
+          iconFamily,
           amount: 0,
           count: 0,
         };
       }
-      map[catId].amount += tx.amount || 0;
+
+      map[catId].amount += amount;
       map[catId].count += 1;
-      totalNominal += tx.amount || 0;
     });
 
-    const list = Object.values(map).map((item) => ({
-      ...item,
-      percentage: totalNominal > 0 ? Math.round((item.amount / totalNominal) * 100) : 0,
-    }));
-
-    // Sort highest amount first
-    list.sort((a, b) => b.amount - a.amount);
+    const list = Object.values(map)
+      .map((item) => ({
+        ...item,
+        percentage: totalNominal > 0 ? (item.amount / totalNominal) * 100 : 0,
+      }))
+      .sort((a, b) => b.amount - a.amount);
 
     return {
-      type: currentType,
       totalNominal,
       categories: list,
     };
@@ -272,12 +391,15 @@ export const FinanceProvider = ({ children }) => {
       setTypeFilter,
       walletFilter,
       setWalletFilter,
+      categoryFilter,
+      setCategoryFilter,
       searchQuery,
       setSearchQuery,
       summary,
       categoryStats,
       addFromNaturalLanguage,
       addTransaction,
+      transferBalance,
       importTransactions,
       updateTransaction,
       deleteTransaction,
@@ -291,6 +413,7 @@ export const FinanceProvider = ({ children }) => {
       periodFilter,
       typeFilter,
       walletFilter,
+      categoryFilter,
       searchQuery,
       summary,
       categoryStats,

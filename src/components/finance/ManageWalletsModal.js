@@ -223,7 +223,7 @@ export const ManageWalletsModal = ({ visible, onClose, onToast, initialAddMode =
         footer={
           mode === 'list' ? (
             <NeoButton
-              title={isIndonesian ? '+ Tambah Dompet Baru' : '+ Add New Wallet'}
+              title={isIndonesian ? 'Tambah Dompet Baru' : 'Add New Wallet'}
               variant="primary"
               onPress={handleStartCreate}
               fullWidth

@@ -17,11 +17,13 @@ import { getNotificationModule, initNotificationSync } from './src/services/noti
 const AppContent = () => {
   const [activeTab, setActiveTab] = useState('quran');
   const { colors, isDark } = useTheme();
-  const { currentLanguage } = useLanguage();
+  const { currentLanguage, loading: langLoading } = useLanguage();
   const { selectSpecificAyah } = useQuran();
 
   useEffect(() => {
-    // Purge any stale repeating alarms and top up fresh distinct reminders
+    if (langLoading) return;
+
+    // Purge any stale repeating alarms and top up fresh distinct reminders in active language
     initNotificationSync(currentLanguage);
 
     let subscription = null;
@@ -45,7 +47,7 @@ const AppContent = () => {
         subscription.remove();
       }
     };
-  }, [currentLanguage]);
+  }, [currentLanguage, langLoading]);
 
   const renderActiveScreen = () => {
     switch (activeTab) {

@@ -11,7 +11,7 @@ const STORAGE_KEY_HISTORY = '@dalay_ayat_history';
 const QuranContext = createContext(null);
 
 export const QuranProvider = ({ children }) => {
-  const { currentLanguage } = useLanguage();
+  const { currentLanguage, loading: langLoading } = useLanguage();
   const [currentAyah, setCurrentAyah] = useState(null);
   const [favorites, setFavorites] = useState([]);
   const [history, setHistory] = useState([]);
@@ -22,9 +22,11 @@ export const QuranProvider = ({ children }) => {
   const soundRef = useRef(null);
   const webAudioRef = useRef(null);
 
-  // Initialize on mount
+  // Initialize once language store has loaded the user's preferred language
   useEffect(() => {
-    loadInitialData();
+    if (!langLoading) {
+      loadInitialData();
+    }
 
     return () => {
       // Cleanup audio on unmount
@@ -46,16 +48,21 @@ export const QuranProvider = ({ children }) => {
         soundRef.current = null;
       }
     };
-  }, []);
+  }, [langLoading]);
 
-  // Update current ayah translation when language changes
+  // Update current ayah translation when language changes or if language doesn't match
   useEffect(() => {
+    if (langLoading) return;
     if (currentAyah?.surah && currentAyah?.ayah) {
-      fetchAyah(currentAyah.surah, currentAyah.ayah, currentLanguage).then((updated) => {
-        if (updated) setCurrentAyah(updated);
-      });
+      if (currentAyah._lang !== currentLanguage) {
+        fetchAyah(currentAyah.surah, currentAyah.ayah, currentLanguage).then((updated) => {
+          if (updated) {
+            setCurrentAyah({ ...updated, _lang: currentLanguage });
+          }
+        });
+      }
     }
-  }, [currentLanguage]);
+  }, [currentLanguage, langLoading, currentAyah?.surah, currentAyah?.ayah, currentAyah?._lang]);
 
   const loadInitialData = async () => {
     setLoading(true);
@@ -70,7 +77,7 @@ export const QuranProvider = ({ children }) => {
       if (rawFavs) setFavorites(JSON.parse(rawFavs));
       if (rawHist) setHistory(JSON.parse(rawHist));
 
-      // Always fetch a fresh random ayah for each new session
+      // Always fetch a fresh random ayah for each new session using active language
       const lastAyah = lastAyahJson ? JSON.parse(lastAyahJson) : null;
       let newAyah = await fetchRandomAyah(currentLanguage);
 
@@ -79,6 +86,9 @@ export const QuranProvider = ({ children }) => {
         newAyah = await fetchRandomAyah(currentLanguage);
       }
 
+      if (newAyah) {
+        newAyah = { ...newAyah, _lang: currentLanguage };
+      }
       setCurrentAyah(newAyah);
       if (newAyah) {
         await AsyncStorage.setItem('@dalay_last_viewed_ayah', JSON.stringify(newAyah));
@@ -86,7 +96,7 @@ export const QuranProvider = ({ children }) => {
     } catch (e) {
       console.log('Error loading initial quran data:', e);
       const initial = await getLastOrInitialAyah(currentLanguage);
-      setCurrentAyah(initial);
+      setCurrentAyah(initial ? { ...initial, _lang: currentLanguage } : null);
     } finally {
       setLoading(false);
     }
@@ -100,9 +110,10 @@ export const QuranProvider = ({ children }) => {
     await stopAudio();
     try {
       const ayah = await fetchRandomAyah(currentLanguage);
-      setCurrentAyah(ayah);
-      await addToHistory(ayah);
-      return ayah;
+      const tagged = { ...ayah, _lang: currentLanguage };
+      setCurrentAyah(tagged);
+      await addToHistory(tagged);
+      return tagged;
     } catch (e) {
       console.log('Error getting random ayah:', e);
     } finally {
@@ -118,9 +129,10 @@ export const QuranProvider = ({ children }) => {
     await stopAudio();
     try {
       const ayah = await fetchAyah(surahNumber, ayahNumber, currentLanguage);
-      setCurrentAyah(ayah);
-      await addToHistory(ayah);
-      return ayah;
+      const tagged = { ...ayah, _lang: currentLanguage };
+      setCurrentAyah(tagged);
+      await addToHistory(tagged);
+      return tagged;
     } catch (e) {
       console.log('Error fetching specific ayah:', e);
     } finally {

@@ -1,4 +1,3 @@
-import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SURAH_DATA, getRandomSurahAyah } from '../utils/surahData';
 
@@ -132,8 +131,13 @@ export const fetchAyah = async (surahNumber, ayahNumber, lang = 'en') => {
           revelation: surahInfo.revelation,
           arab: data.arab || data.text_arab || data.ar || '',
           latin: data.latin || data.text_latin || data.tr || '',
-          translation: data.text || data.translation || data.id || data.text_id || '',
+          translation: (typeof data.translation === 'string' && data.translation) ||
+                       (typeof data.text === 'string' && data.text) ||
+                       (typeof data.text_id === 'string' && data.text_id) ||
+                       (typeof data.terjemahan === 'string' && data.terjemahan) ||
+                       (typeof data.id === 'string' ? data.id : ''),
           audio: data.audio || getAyahAudioUrl(surahNumber, ayahNumber),
+          _lang: 'id',
         };
 
         await cacheAyat(formatted, lang);
@@ -174,6 +178,7 @@ export const fetchAyah = async (surahNumber, ayahNumber, lang = 'en') => {
           latin: '',
           translation: transData.text || '',
           audio: getAyahAudioUrl(surahNumber, ayahNumber),
+          _lang: lang,
         };
 
         await cacheAyat(formatted, lang);
@@ -186,7 +191,7 @@ export const fetchAyah = async (surahNumber, ayahNumber, lang = 'en') => {
 
   // Offline fallback: Check local cache first
   const cached = await getCachedAyat(surahNumber, ayahNumber, lang);
-  if (cached) return cached;
+  if (cached) return { ...cached, _lang: lang };
 
   // Built-in offline fallback
   const builtin = OFFLINE_FALLBACK_AYAHS.find(
@@ -196,6 +201,7 @@ export const fetchAyah = async (surahNumber, ayahNumber, lang = 'en') => {
   return {
     ...builtin,
     translation: isIndo ? (builtin.translation_id || builtin.translation) : builtin.translation,
+    _lang: lang,
   };
 };
 
@@ -362,23 +368,30 @@ export const fetchTafsir = async (surahNumber, ayahNumber, lang = 'en') => {
 /**
  * Fetch a random Ayah
  */
-export const fetchRandomAyah = async (lang = 'en') => {
+export const fetchRandomAyah = async (lang = 'id') => {
   const { surah, ayah } = getRandomSurahAyah();
   const ayahData = await fetchAyah(surah, ayah, lang);
+  const taggedData = { ...ayahData, _lang: lang };
   try {
-    await AsyncStorage.setItem(CACHE_KEY_LAST_RANDOM, JSON.stringify(ayahData));
+    await AsyncStorage.setItem(CACHE_KEY_LAST_RANDOM, JSON.stringify(taggedData));
   } catch (e) {}
-  return ayahData;
+  return taggedData;
 };
 
 /**
  * Get last viewed ayah or initial fallback
  */
-export const getLastOrInitialAyah = async (lang = 'en') => {
+export const getLastOrInitialAyah = async (lang = 'id') => {
   try {
     const saved = await AsyncStorage.getItem(CACHE_KEY_LAST_RANDOM);
     if (saved) {
-      return JSON.parse(saved);
+      const parsed = JSON.parse(saved);
+      if (parsed && parsed._lang === lang && parsed.translation) {
+        return parsed;
+      }
+      if (parsed && parsed.surah && parsed.ayah) {
+        return await fetchAyah(parsed.surah, parsed.ayah, lang);
+      }
     }
   } catch (e) {}
   return fetchAyah(1, 1, lang);

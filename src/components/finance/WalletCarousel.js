@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   Pressable,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { TYPOGRAPHY } from '../../theme/typography';
@@ -14,9 +15,10 @@ import { useWallet } from '../../stores/walletStore';
 import { useFinance } from '../../stores/financeStore';
 import { formatRupiah } from '../../utils/formatters';
 
-export const WalletCarousel = ({ onOpenManageWallets, onAddNewWallet }) => {
+export const WalletCarousel = ({ onOpenManageWallets, onAddNewWallet, onOpenTransfer }) => {
   const { colors, isDark } = useTheme();
   const { isIndonesian } = useLanguage();
+  const { width: windowWidth } = useWindowDimensions();
   const {
     wallets,
     selectedWalletId,
@@ -29,9 +31,79 @@ export const WalletCarousel = ({ onOpenManageWallets, onAddNewWallet }) => {
   const totalNetWorth = getTotalNetWorth(transactions);
   const isAllSelected = selectedWalletId === 'all';
 
-  const handleSelect = (id) => {
+  const scrollViewRef = useRef(null);
+
+  // Total slides = 1 ("Semua Dompet") + wallets.length + 1 ("Tambah Dompet")
+  const totalSlides = wallets.length + 2;
+  const slideKeys = ['slide_all', ...wallets.map((w) => `slide_${w.id}`), 'slide_add_new'];
+
+  const [activeIndex, setActiveIndex] = useState(() => {
+    if (selectedWalletId === 'all') return 0;
+    const idx = wallets.findIndex((w) => w.id === selectedWalletId);
+    return idx >= 0 ? idx + 1 : 0;
+  });
+
+  const scrollToIndex = (index, animated = true) => {
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollTo({
+        x: index * windowWidth,
+        animated,
+      });
+      setActiveIndex(index);
+    }
+  };
+
+  // Sync scroll position if selectedWalletId changes externally or on initial mount
+  useEffect(() => {
+    const idx =
+      selectedWalletId === 'all'
+        ? 0
+        : wallets.findIndex((w) => w.id === selectedWalletId) + 1;
+    if (idx >= 0 && idx !== activeIndex) {
+      scrollToIndex(idx, true);
+    }
+  }, [selectedWalletId]);
+
+  useEffect(() => {
+    const idx =
+      selectedWalletId === 'all'
+        ? 0
+        : wallets.findIndex((w) => w.id === selectedWalletId) + 1;
+    if (idx >= 0) {
+      const timer = setTimeout(() => {
+        scrollToIndex(idx, false);
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  const handleScrollEnd = (e) => {
+    const offsetX = e.nativeEvent.contentOffset.x;
+    const newIndex = Math.round(offsetX / windowWidth);
+    if (newIndex >= 0 && newIndex < totalSlides && newIndex !== activeIndex) {
+      setActiveIndex(newIndex);
+      // Auto-select wallet corresponding to this slide
+      if (newIndex === 0) {
+        selectWallet('all');
+        setWalletFilter('all');
+      } else if (newIndex <= wallets.length) {
+        const targetWallet = wallets[newIndex - 1];
+        if (targetWallet) {
+          selectWallet(targetWallet.id);
+          setWalletFilter(targetWallet.id);
+        }
+      }
+    }
+  };
+
+  const handleSelect = (id, index) => {
+    if (id === 'add_new') {
+      onAddNewWallet();
+      return;
+    }
     selectWallet(id);
     setWalletFilter(id);
+    scrollToIndex(index, true);
   };
 
   return (
@@ -45,220 +117,328 @@ export const WalletCarousel = ({ onOpenManageWallets, onAddNewWallet }) => {
           </Text>
         </View>
 
-        <Pressable
-          onPress={onOpenManageWallets}
-          style={({ pressed }) => [
-            styles.manageBtn,
-            {
-              backgroundColor: colors.surfaceLight,
-              borderColor: colors.border,
-            },
-            pressed && styles.pressed,
-          ]}
-        >
-          <Ionicons name="settings-outline" size={13} color={colors.textSecondary} />
-          <Text style={[styles.manageBtnText, { color: colors.textSecondary }]}>
-            {isIndonesian ? 'Kelola' : 'Manage'}
-          </Text>
-        </Pressable>
-      </View>
-
-      {/* Horizontal Cards ScrollView */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* Card: Total / Semua Dompet */}
-        <Pressable
-          onPress={() => handleSelect('all')}
-          style={({ pressed }) => [
-            styles.walletCard,
-            {
-              backgroundColor: isAllSelected ? colors.surface : colors.surfaceLight,
-              borderColor: isAllSelected ? colors.primary : colors.border,
-              borderWidth: isAllSelected ? 2.5 : 1.5,
-            },
-            isAllSelected && {
-              shadowColor: colors.primary,
-              shadowOpacity: 0.25,
-              shadowRadius: 10,
-              elevation: 6,
-            },
-            pressed && styles.pressed,
-          ]}
-        >
-          <View style={styles.cardHeader}>
-            <View
-              style={[
-                styles.iconBadge,
-                { backgroundColor: colors.primary + '20', borderColor: colors.primary },
-              ]}
-            >
-              <Ionicons name="layers-outline" size={16} color={colors.primary} />
-            </View>
-            <View style={styles.headerRightBadges}>
-              {totalNetWorth < 0 && (
-                <View
-                  style={[
-                    styles.debtBadge,
-                    {
-                      backgroundColor: colors.expenseLight || '#FEF2F2',
-                      borderColor: colors.expense || '#EF4444',
-                    },
-                  ]}
-                >
-                  <Text style={[styles.debtBadgeText, { color: colors.expense || '#EF4444' }]}>
-                    {isIndonesian ? 'Hutang' : 'Debt'}
-                  </Text>
-                </View>
-              )}
-              {isAllSelected && (
-                <View style={[styles.activePill, { backgroundColor: colors.primary }]}>
-                  <Text style={styles.activePillText}>
-                    {isIndonesian ? 'AKTIF' : 'ACTIVE'}
-                  </Text>
-                </View>
-              )}
-            </View>
-          </View>
-
-          <Text style={[styles.walletName, { color: colors.textSecondary }]} numberOfLines={1}>
-            {isIndonesian ? 'Semua Dompet' : 'All Wallets'}
-          </Text>
-          <Text
-            style={[
-              styles.walletBalance,
-              { color: totalNetWorth >= 0 ? colors.income : colors.expense },
-            ]}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.8}
-          >
-            {formatRupiah(totalNetWorth)}
-          </Text>
-          <Text style={[styles.walletSub, { color: colors.textMuted }]}>
-            {wallets.length} {isIndonesian ? 'dompet terhubung' : 'wallets linked'}
-          </Text>
-        </Pressable>
-
-        {/* Individual Wallet Cards */}
-        {wallets.map((wallet) => {
-          const stats = getWalletBalance(wallet.id, transactions);
-          const isSelected = selectedWalletId === wallet.id;
-          const cardColor = wallet.color || colors.primary;
-
-          return (
+        <View style={styles.headerActions}>
+          {/* Transfer Button */}
+          {wallets.length > 1 && (
             <Pressable
-              key={wallet.id}
-              onPress={() => handleSelect(wallet.id)}
+              onPress={onOpenTransfer}
               style={({ pressed }) => [
-                styles.walletCard,
+                styles.transferHeaderBtn,
                 {
-                  backgroundColor: isSelected ? colors.surface : colors.surfaceLight,
-                  borderColor: isSelected ? cardColor : colors.border,
-                  borderWidth: isSelected ? 2.5 : 1.5,
-                },
-                isSelected && {
-                  shadowColor: cardColor,
-                  shadowOpacity: 0.25,
-                  shadowRadius: 10,
-                  elevation: 6,
+                  backgroundColor: colors.primaryLight || '#F0FDF4',
+                  borderColor: colors.primary,
                 },
                 pressed && styles.pressed,
               ]}
+              accessibilityLabel="Transfer Antar Dompet"
             >
-              <View style={styles.cardHeader}>
+              <Ionicons name="swap-horizontal" size={13} color={colors.primaryDark} />
+              <Text style={[styles.transferHeaderBtnText, { color: colors.primaryDark }]}>
+                {isIndonesian ? 'Transfer' : 'Transfer'}
+              </Text>
+            </Pressable>
+          )}
+
+          {/* Manage Button */}
+          <Pressable
+            onPress={onOpenManageWallets}
+            style={({ pressed }) => [
+              styles.manageBtn,
+              {
+                backgroundColor: colors.surfaceLight,
+                borderColor: colors.border,
+              },
+              pressed && styles.pressed,
+            ]}
+          >
+            <Ionicons name="settings-outline" size={13} color={colors.textSecondary} />
+            <Text style={[styles.manageBtnText, { color: colors.textSecondary }]}>
+              {isIndonesian ? 'Kelola' : 'Manage'}
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+
+      {/* Full-Card Native Paging Swiper (Apple Wallet / GoPay Style) */}
+      <ScrollView
+        ref={scrollViewRef}
+        horizontal
+        pagingEnabled={true}
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={handleScrollEnd}
+        decelerationRate="fast"
+      >
+        {/* Slide 0: Semua Dompet */}
+        <View style={[styles.slideContainer, { width: windowWidth }]}>
+          <Pressable
+            onPress={() => handleSelect('all', 0)}
+            style={({ pressed }) => [
+              styles.walletCard,
+              {
+                backgroundColor: isAllSelected ? colors.surface : colors.surfaceLight,
+                borderColor: isAllSelected ? colors.primary : colors.border,
+                borderWidth: isAllSelected ? 2 : 1.5,
+              },
+              isAllSelected && {
+                shadowColor: colors.primary,
+                shadowOpacity: 0.2,
+                shadowRadius: 8,
+                elevation: 4,
+              },
+              pressed && styles.pressed,
+            ]}
+          >
+            <View style={styles.cardHeader}>
+              <View style={styles.cardHeaderLeft}>
                 <View
                   style={[
                     styles.iconBadge,
-                    { backgroundColor: cardColor + '20', borderColor: cardColor },
+                    { backgroundColor: colors.primary + '20', borderColor: colors.primary },
                   ]}
                 >
-                  <Ionicons name={wallet.icon || 'wallet-outline'} size={16} color={cardColor} />
+                  <Ionicons name="layers-outline" size={18} color={colors.primary} />
                 </View>
-                <View style={styles.headerRightBadges}>
-                  {stats.balance < 0 && (
-                    <View
-                      style={[
-                        styles.debtBadge,
-                        {
-                          backgroundColor: colors.expenseLight || '#FEF2F2',
-                          borderColor: colors.expense || '#EF4444',
-                        },
-                      ]}
-                    >
-                      <Text style={[styles.debtBadgeText, { color: colors.expense || '#EF4444' }]}>
-                        {isIndonesian ? 'Hutang' : 'Debt'}
-                      </Text>
-                    </View>
-                  )}
-                  {isSelected && (
-                    <View style={[styles.activePill, { backgroundColor: cardColor }]}>
-                      <Text style={styles.activePillText}>
-                        {isIndonesian ? 'AKTIF' : 'ACTIVE'}
-                      </Text>
-                    </View>
-                  )}
+                <View style={styles.headerTitleCol}>
+                  <Text style={[styles.walletName, { color: colors.text }]} numberOfLines={1}>
+                    {isIndonesian ? 'Semua Dompet' : 'All Wallets'}
+                  </Text>
+                  <Text style={[styles.walletTypeLabel, { color: colors.textMuted }]}>
+                    {isIndonesian ? 'Total Keseluruhan' : 'Total Combined'}
+                  </Text>
                 </View>
               </View>
 
-              <Text style={[styles.walletName, { color: colors.text }]} numberOfLines={1}>
-                {wallet.name}
+              <View style={styles.headerRightBadges}>
+                {totalNetWorth < 0 && (
+                  <View
+                    style={[
+                      styles.debtBadge,
+                      {
+                        backgroundColor: colors.expenseLight || '#FEF2F2',
+                        borderColor: colors.expense || '#EF4444',
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.debtBadgeText, { color: colors.expense || '#EF4444' }]}>
+                      {isIndonesian ? 'Hutang' : 'Debt'}
+                    </Text>
+                  </View>
+                )}
+                {isAllSelected && (
+                  <View style={[styles.activePill, { backgroundColor: colors.primary }]}>
+                    <Ionicons name="checkmark-circle" size={11} color="#FFFFFF" />
+                    <Text style={styles.activePillText}>
+                      {isIndonesian ? 'AKTIF' : 'ACTIVE'}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            <View style={styles.cardBody}>
+              <Text style={[styles.balanceLabel, { color: colors.textSecondary }]}>
+                {isIndonesian ? 'TOTAL SALDO BERSIH' : 'TOTAL NET WORTH'}
               </Text>
               <Text
                 style={[
                   styles.walletBalance,
-                  { color: stats.balance >= 0 ? colors.text : colors.expense },
+                  { color: totalNetWorth >= 0 ? colors.income : colors.expense },
                 ]}
                 numberOfLines={1}
                 adjustsFontSizeToFit
                 minimumFontScale={0.8}
               >
-                {formatRupiah(stats.balance)}
+                {formatRupiah(totalNetWorth)}
               </Text>
+            </View>
+
+            <View style={styles.cardFooter}>
               <Text style={[styles.walletSub, { color: colors.textMuted }]}>
-                {stats.txCount} {isIndonesian ? 'transaksi' : (stats.txCount === 1 ? 'transaction' : 'transactions')}
+                <Ionicons name="link-outline" size={12} color={colors.textMuted} /> {wallets.length} {isIndonesian ? 'dompet terhubung' : 'wallets linked'}
               </Text>
-            </Pressable>
+              <Text style={[styles.swipeHint, { color: colors.textMuted }]}>
+                {isIndonesian ? 'Geser untuk ganti dompet ›' : 'Swipe to switch ›'}
+              </Text>
+            </View>
+          </Pressable>
+        </View>
+
+        {/* Individual Wallet Slides */}
+        {wallets.map((wallet, idx) => {
+          const stats = getWalletBalance(wallet.id, transactions);
+          const isSelected = selectedWalletId === wallet.id;
+          const cardColor = wallet.color || colors.primary;
+          const slideIndex = idx + 1;
+
+          return (
+            <View key={wallet.id} style={[styles.slideContainer, { width: windowWidth }]}>
+              <Pressable
+                onPress={() => handleSelect(wallet.id, slideIndex)}
+                style={({ pressed }) => [
+                  styles.walletCard,
+                  {
+                    backgroundColor: isSelected ? colors.surface : colors.surfaceLight,
+                    borderColor: isSelected ? cardColor : colors.border,
+                    borderWidth: isSelected ? 2 : 1.5,
+                  },
+                  isSelected && {
+                    shadowColor: cardColor,
+                    shadowOpacity: 0.2,
+                    shadowRadius: 8,
+                    elevation: 4,
+                  },
+                  pressed && styles.pressed,
+                ]}
+              >
+                <View style={styles.cardHeader}>
+                  <View style={styles.cardHeaderLeft}>
+                    <View
+                      style={[
+                        styles.iconBadge,
+                        { backgroundColor: cardColor + '20', borderColor: cardColor },
+                      ]}
+                    >
+                      <Ionicons name={wallet.icon || 'wallet-outline'} size={18} color={cardColor} />
+                    </View>
+                    <View style={styles.headerTitleCol}>
+                      <Text style={[styles.walletName, { color: colors.text }]} numberOfLines={1}>
+                        {wallet.name}
+                      </Text>
+                      <Text style={[styles.walletTypeLabel, { color: colors.textMuted }]}>
+                        {wallet.type === 'bank'
+                          ? (isIndonesian ? 'Rekening Bank' : 'Bank Account')
+                          : wallet.type === 'ewallet'
+                          ? (isIndonesian ? 'Dompet Digital' : 'E-Wallet')
+                          : wallet.type === 'cash'
+                          ? (isIndonesian ? 'Uang Tunai' : 'Cash')
+                          : (isIndonesian ? 'Dompet Kustom' : 'Custom Wallet')}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.headerRightBadges}>
+                    {stats.balance < 0 && (
+                      <View
+                        style={[
+                          styles.debtBadge,
+                          {
+                            backgroundColor: colors.expenseLight || '#FEF2F2',
+                            borderColor: colors.expense || '#EF4444',
+                          },
+                        ]}
+                      >
+                        <Text style={[styles.debtBadgeText, { color: colors.expense || '#EF4444' }]}>
+                          {isIndonesian ? 'Hutang' : 'Debt'}
+                        </Text>
+                      </View>
+                    )}
+                    {isSelected && (
+                      <View style={[styles.activePill, { backgroundColor: cardColor }]}>
+                        <Ionicons name="checkmark-circle" size={11} color="#FFFFFF" />
+                        <Text style={styles.activePillText}>
+                          {isIndonesian ? 'AKTIF' : 'ACTIVE'}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+
+                <View style={styles.cardBody}>
+                  <Text style={[styles.balanceLabel, { color: colors.textSecondary }]}>
+                    {isIndonesian ? 'SALDO TERSEDIA' : 'AVAILABLE BALANCE'}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.walletBalance,
+                      { color: stats.balance >= 0 ? colors.text : colors.expense },
+                    ]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.8}
+                  >
+                    {formatRupiah(stats.balance)}
+                  </Text>
+                </View>
+
+                <View style={styles.cardFooter}>
+                  <Text style={[styles.walletSub, { color: colors.textMuted }]}>
+                    <Ionicons name="receipt-outline" size={12} color={colors.textMuted} /> {stats.txCount} {isIndonesian ? 'transaksi tercatat' : 'transactions recorded'}
+                  </Text>
+                  <Text style={[styles.swipeHint, { color: colors.textMuted }]}>
+                    {isIndonesian ? 'Geser untuk ganti dompet ›' : 'Swipe to switch ›'}
+                  </Text>
+                </View>
+              </Pressable>
+            </View>
           );
         })}
 
-        {/* Card: Tambah Dompet Baru */}
-        <Pressable
-          onPress={onAddNewWallet}
-          style={({ pressed }) => [
-            styles.walletCard,
-            styles.addCard,
-            {
-              borderColor: colors.borderLight,
-              backgroundColor: isDark ? '#131D2A' : '#F8FAFC',
-            },
-            pressed && styles.pressed,
-          ]}
-        >
-          <View
-            style={[
-              styles.addIconCircle,
-              { backgroundColor: colors.surface, borderColor: colors.border },
+        {/* Slide N+1: Tambah Dompet Baru */}
+        <View style={[styles.slideContainer, { width: windowWidth }]}>
+          <Pressable
+            onPress={onAddNewWallet}
+            style={({ pressed }) => [
+              styles.walletCard,
+              styles.addCard,
+              {
+                borderColor: colors.primary,
+                borderWidth: 2,
+                backgroundColor: isDark ? '#131D2A' : '#F8FAFC',
+              },
+              pressed && styles.pressed,
             ]}
           >
-            <Ionicons name="add" size={20} color={colors.primary} />
-          </View>
-          <Text style={[styles.addCardText, { color: colors.textSecondary }]}>
-            {isIndonesian ? '+ Tambah' : '+ Add'}
-          </Text>
-          <Text style={[styles.addCardSub, { color: colors.textMuted }]}>
-            {isIndonesian ? 'Dompet Baru' : 'New Wallet'}
-          </Text>
-        </Pressable>
+            <View style={styles.addCardContent}>
+              <View
+                style={[
+                  styles.addIconCircle,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                ]}
+              >
+                <Ionicons name="add" size={26} color={colors.primary} />
+              </View>
+              <Text style={[styles.addCardText, { color: colors.text }]}>
+                {isIndonesian ? 'Tambah Dompet Baru' : 'Add New Wallet'}
+              </Text>
+              <Text style={[styles.addCardSub, { color: colors.textMuted }]}>
+                {isIndonesian
+                  ? 'Hubungkan rekening bank, e-wallet, atau kas fisik'
+                  : 'Link a bank account, e-wallet, or physical cash'}
+              </Text>
+            </View>
+          </Pressable>
+        </View>
       </ScrollView>
+
+      {/* Pagination Dots Indicator (Apple Wallet / GoPay style) */}
+      <View style={styles.paginationRow}>
+        {slideKeys.map((slideKey, idx) => {
+          const isActive = idx === activeIndex;
+          return (
+            <Pressable
+              key={`page-dot-${slideKey}`}
+              onPress={() => scrollToIndex(idx, true)}
+              hitSlop={8}
+            >
+              <View
+                style={[
+                  styles.dot,
+                  isActive
+                    ? [styles.activeDot, { backgroundColor: colors.primary }]
+                    : [styles.inactiveDot, { backgroundColor: isDark ? '#334155' : '#CBD5E1' }],
+                ]}
+              />
+            </Pressable>
+          );
+        })}
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
+    marginHorizontal: -16,
     marginBottom: 16,
   },
   headerRow: {
@@ -279,6 +459,24 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
     textTransform: 'uppercase',
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  transferHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  transferHeaderBtnText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
   manageBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -292,39 +490,53 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
-  scrollContent: {
+  slideContainer: {
     paddingHorizontal: 16,
-    gap: 12,
-    paddingVertical: 4,
   },
   walletCard: {
-    width: 190,
     borderRadius: 18,
-    padding: 14,
+    padding: 16,
+    minHeight: 140,
     justifyContent: 'space-between',
-    minHeight: 128,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
+  },
+  cardHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  headerTitleCol: {
+    flex: 1,
   },
   iconBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 11,
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  walletName: {
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+  walletTypeLabel: {
+    fontSize: 11,
+    marginTop: 1,
+  },
   headerRightBadges: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
   },
   debtBadge: {
-    paddingHorizontal: 5,
+    paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
     borderWidth: 1,
@@ -335,8 +547,11 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   activePill: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
     borderRadius: 6,
   },
   activePillText: {
@@ -345,47 +560,85 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     letterSpacing: 0.5,
   },
-  walletName: {
-    fontSize: 12,
-    fontWeight: '700',
+  cardBody: {
+    marginVertical: 8,
+  },
+  balanceLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
     marginBottom: 2,
   },
   walletBalance: {
-    fontSize: 15,
+    fontSize: 22,
     fontWeight: '900',
-    letterSpacing: -0.3,
+    letterSpacing: -0.5,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(150, 150, 150, 0.2)',
+    paddingTop: 8,
   },
   walletSub: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '600',
-    marginTop: 4,
+  },
+  swipeHint: {
+    fontSize: 11,
+    fontStyle: 'italic',
   },
   addCard: {
-    borderStyle: 'dashed',
     borderWidth: 2,
+    borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: 140,
+  },
+  addCardContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
   },
   addIconCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   addCardText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '800',
   },
   addCardSub: {
-    fontSize: 10,
-    fontWeight: '600',
+    fontSize: 11,
+    textAlign: 'center',
+  },
+  paginationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 10,
+  },
+  dot: {
+    height: 6,
+    borderRadius: 3,
+  },
+  activeDot: {
+    width: 22,
+  },
+  inactiveDot: {
+    width: 6,
   },
   pressed: {
-    opacity: 0.75,
-    transform: [{ scale: 0.97 }],
+    opacity: 0.8,
+    transform: [{ scale: 0.98 }],
   },
 });
 

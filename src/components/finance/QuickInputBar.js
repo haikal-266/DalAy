@@ -7,6 +7,7 @@ import { NeoButton } from '../neo/NeoButton';
 import { NeoSegmented } from '../neo/NeoSegmented';
 import { NeoTag } from '../neo/NeoTag';
 import { ConfirmModal } from '../neo/ConfirmModal';
+import { QuickWalletSelectModal } from './QuickWalletSelectModal';
 import { useTheme } from '../../stores/themeStore';
 import { useLanguage } from '../../stores/languageStore';
 import { parseFinancialInput } from '../../utils/parser';
@@ -24,6 +25,7 @@ export const QuickInputBar = ({
   const [type, setType] = useState('expense'); // 'expense' | 'income'
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
+  const [walletModalVisible, setWalletModalVisible] = useState(false);
   const [alertConfig, setAlertConfig] = useState(null); // { title, message, type }
 
   const handleInputFocus = (e) => {
@@ -41,7 +43,7 @@ export const QuickInputBar = ({
     return parsedPreview.reduce((sum, item) => sum + item.amount, 0);
   }, [parsedPreview]);
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!inputText.trim() || parsedPreview.length === 0) {
       setAlertConfig({
         title: isIndonesian ? 'Format Belum Tepat' : 'Invalid Input Format',
@@ -53,16 +55,32 @@ export const QuickInputBar = ({
       return;
     }
 
+    // Open small popup modal to choose wallet
+    setWalletModalVisible(true);
+  };
+
+  const handleConfirmWallet = async (wallet) => {
+    setWalletModalVisible(false);
     setLoading(true);
-    const result = await onAdd(inputText, type, selectedDate);
+    const result = await onAdd(
+      inputText,
+      type,
+      selectedDate,
+      wallet?.id,
+      wallet?.name
+    );
     setLoading(false);
 
-    if (result.success) {
+    if (result && result.success) {
       setInputText('');
-    } else {
+    } else if (result && !result.success) {
       setAlertConfig({
         title: isIndonesian ? 'Gagal Mencatat' : 'Failed to Record',
-        message: result.message || (isIndonesian ? 'Terjadi kesalahan saat menyimpan transaksi.' : 'An error occurred while saving transaction.'),
+        message:
+          result.message ||
+          (isIndonesian
+            ? 'Terjadi kesalahan saat menyimpan transaksi.'
+            : 'An error occurred while saving transaction.'),
         type: 'danger',
       });
     }
@@ -186,6 +204,16 @@ export const QuickInputBar = ({
           style={styles.manualBtn}
         />
       </View>
+
+      {/* Small Popup Modal to Choose Destination Wallet */}
+      <QuickWalletSelectModal
+        visible={walletModalVisible}
+        onClose={() => setWalletModalVisible(false)}
+        onConfirm={handleConfirmWallet}
+        type={type}
+        parsedItems={parsedPreview}
+        totalAmount={totalPreviewAmount}
+      />
 
       {/* Modern Alert / Confirmation Dialog */}
       {alertConfig && (

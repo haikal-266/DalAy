@@ -15,7 +15,7 @@ export const SUPPORTED_LANGUAGES = [
   },
 ];
 
-export const DEFAULT_LANGUAGE_ID = 'en';
+export const DEFAULT_LANGUAGE_ID = 'id';
 
 export const TRANSLATIONS = {
   en: {
@@ -110,6 +110,11 @@ export const TRANSLATIONS = {
       amountPlaceholder: 'e.g. 25000',
       selectCategory: 'SELECT CATEGORY :',
       saveRecordBtn: 'Save Transaction',
+      selectWalletExpenseTitle: 'Select Expense Wallet',
+      selectWalletIncomeTitle: 'Select Income Wallet',
+      selectWalletSubtitle: 'Choose which wallet to record these transactions to',
+      saveToWallet: 'Save to',
+      detectedItemsLabel: 'DETECTED TRANSACTIONS :',
       tafsirTitle: 'Tafsir QS.',
       tafsirSubtitle: 'Kemenag RI Official Commentary',
       tafsirLoading: 'Loading Tafsir commentary...',
@@ -133,6 +138,25 @@ export const TRANSLATIONS = {
       searchSurahPlaceholder: 'Type surah name or number...',
       backToSurahList: 'Back to Surah List',
       selectAyahHint: 'Select ayah number to start reading:',
+      transferTitle: 'Transfer Between Wallets',
+      transferSubtitle: 'Move balance between your accounts or cash',
+      transferBtn: 'Transfer',
+      fromWallet: 'From Wallet (Source)',
+      toWallet: 'To Wallet (Destination)',
+      transferAmount: 'Transfer Amount',
+      adminFee: 'Admin Fee (Optional)',
+      adminFeeHint: 'Free (Rp 0) or standard bank/e-wallet fee',
+      transferNotes: 'Note / Description (Optional)',
+      transferNotesPlaceholder: 'e.g. Top up GoPay, ATM withdrawal...',
+      confirmTransfer: 'Confirm Transfer',
+      transferSuccess: 'Transfer Successful',
+      insufficientBalance: 'Insufficient Balance',
+      insufficientBalanceDesc: 'Source wallet balance is less than transfer amount.',
+      sameWalletError: 'Source and destination wallets must be different.',
+      zeroAmountError: 'Please enter a valid transfer amount greater than 0.',
+      balancePreview: 'BALANCE IMPACT PREVIEW :',
+      beforeTransfer: 'Before',
+      afterTransfer: 'After',
     },
 
     // Settings
@@ -195,9 +219,9 @@ export const TRANSLATIONS = {
     // Quran Screen
     quran: {
       appName: 'DalAy',
-      subtitle: 'Ayat Inspirasi & Pengingat Harian',
+      subtitle: 'Ayat Untukmu Hari Ini',
       reminderBtn: 'Pengingat',
-      dailyAyahTitle: 'AYAT INSPIRASI HARI INI',
+      dailyAyahTitle: 'AYAT UNTUKMU HARI INI',
       surahPickerBtn: 'Pilih Surah (114)',
       tabAyat: 'Ayat Al-Quran',
       tabHadis: 'Hadits Pilihan',
@@ -276,6 +300,11 @@ export const TRANSLATIONS = {
       amountPlaceholder: 'misal: 25000',
       selectCategory: 'PILIH KATEGORI :',
       saveRecordBtn: 'Simpan Catatan',
+      selectWalletExpenseTitle: 'Pilih Dompet Pengeluaran',
+      selectWalletIncomeTitle: 'Pilih Dompet Pemasukan',
+      selectWalletSubtitle: 'Pilih dompet/rekening untuk transaksi ini',
+      saveToWallet: 'Simpan ke',
+      detectedItemsLabel: 'TRANSAKSI TERDETEKSI :',
       tafsirTitle: 'Tafsir QS.',
       tafsirSubtitle: 'Kementerian Agama RI (Kemenag)',
       tafsirLoading: 'Memuat penjelasan tafsir...',
@@ -299,6 +328,25 @@ export const TRANSLATIONS = {
       searchSurahPlaceholder: 'Ketik nama surah atau nomor...',
       backToSurahList: 'Kembali ke Daftar Surah',
       selectAyahHint: 'Pilih nomor ayat untuk mulai membaca:',
+      transferTitle: 'Transfer Antar Dompet',
+      transferSubtitle: 'Pindahkan saldo antar rekening, e-wallet, atau kas',
+      transferBtn: 'Transfer',
+      fromWallet: 'Dari Dompet (Sumber)',
+      toWallet: 'Ke Dompet (Tujuan)',
+      transferAmount: 'Jumlah Transfer',
+      adminFee: 'Biaya Admin (Opsional)',
+      adminFeeHint: 'Gratis (Rp 0) atau biaya admin bank/e-wallet',
+      transferNotes: 'Catatan / Keterangan (Opsional)',
+      transferNotesPlaceholder: 'misal: Top up GoPay, Tarik tunai ATM...',
+      confirmTransfer: 'Konfirmasi Transfer',
+      transferSuccess: 'Transfer Berhasil',
+      insufficientBalance: 'Saldo Tidak Mencukupi',
+      insufficientBalanceDesc: 'Saldo dompet asal lebih kecil dari jumlah transfer.',
+      sameWalletError: 'Dompet asal dan tujuan tidak boleh sama.',
+      zeroAmountError: 'Masukkan nominal transfer lebih dari 0.',
+      balancePreview: 'SIMULASI DAMPAK SALDO :',
+      beforeTransfer: 'Sebelum',
+      afterTransfer: 'Sesudah',
     },
 
     // Settings

@@ -28,6 +28,7 @@ import { ExportModal } from '../components/finance/ExportModal';
 import { ImportModal } from '../components/finance/ImportModal';
 import { WalletCarousel } from '../components/finance/WalletCarousel';
 import { ManageWalletsModal } from '../components/finance/ManageWalletsModal';
+import { TransferModal } from '../components/finance/TransferModal';
 import { NeoSegmented } from '../components/neo/NeoSegmented';
 import { ConfirmModal } from '../components/neo/ConfirmModal';
 
@@ -48,6 +49,8 @@ export const FinanceScreen = () => {
     setTypeFilter,
     searchQuery,
     setSearchQuery,
+    categoryFilter,
+    setCategoryFilter,
     summary,
     categoryStats,
     addFromNaturalLanguage,
@@ -64,6 +67,7 @@ export const FinanceScreen = () => {
   const [importModalVisible, setImportModalVisible] = useState(false);
   const [manageWalletsVisible, setManageWalletsVisible] = useState(false);
   const [initialWalletAddMode, setInitialWalletAddMode] = useState(false);
+  const [transferModalVisible, setTransferModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [syncFeedback, setSyncFeedback] = useState(null);
   const [modalAlert, setModalAlert] = useState(null);
@@ -144,13 +148,15 @@ export const FinanceScreen = () => {
     );
   };
 
-  const handleQuickAdd = async (text, type, date) => {
-    const res = await addFromNaturalLanguage(text, type, date);
+  const handleQuickAdd = async (text, type, date, walletId, walletName) => {
+    const res = await addFromNaturalLanguage(text, type, date, walletId, walletName);
     if (res.success) {
+      const destinationText = walletName ? ` ke ${walletName}` : '';
+      const destinationTextEn = walletName ? ` to ${walletName}` : '';
       showSyncToast(
         isIndonesian
-          ? `Berhasil mencatat ${res.count || 1} transaksi`
-          : `Recorded ${res.count || 1} transactions`,
+          ? `Berhasil mencatat ${res.count || 1} transaksi${destinationText}`
+          : `Recorded ${res.count || 1} transaction(s)${destinationTextEn}`,
         'checkmark-circle'
       );
     }
@@ -388,6 +394,7 @@ export const FinanceScreen = () => {
             setInitialWalletAddMode(true);
             setManageWalletsVisible(true);
           }}
+          onOpenTransfer={() => setTransferModalVisible(true)}
         />
 
         {/* Financial Summary KPI Cards */}
@@ -444,6 +451,8 @@ export const FinanceScreen = () => {
               transactions={filteredTransactions}
               typeFilter={typeFilter}
               setTypeFilter={setTypeFilter}
+              categoryFilter={categoryFilter}
+              setCategoryFilter={setCategoryFilter}
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
               onEdit={handleOpenEdit}
@@ -546,6 +555,15 @@ export const FinanceScreen = () => {
         onClose={() => setManageWalletsVisible(false)}
         onToast={showSyncToast}
         initialAddMode={initialWalletAddMode}
+      />
+
+      {/* Transfer Between Wallets Modal */}
+      <TransferModal
+        visible={transferModalVisible}
+        onClose={() => setTransferModalVisible(false)}
+        onSuccess={(msg) => {
+          showSyncToast(msg, 'swap-horizontal');
+        }}
       />
 
       {/* Custom Neo Notification / Alert Modal */}

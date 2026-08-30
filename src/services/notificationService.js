@@ -14,20 +14,54 @@ const isExpoGo =
 
 /**
  * Safe dynamic module getter
- * Prevents Expo Go SDK 53+ Android crash by only loading native module in standalone builds
+ * Loads expo-notifications on mobile devices (including Expo Go for local notifications).
+ *
+ * NOTE: In Expo Go SDK 53+, importing root 'expo-notifications' executes
+ * DevicePushTokenAutoRegistration.fx which throws an error on Android.
+ * Importing the local notification submodules directly bypasses that push-token check
+ * and enables local scheduled notifications to work seamlessly in Expo Go.
  */
 export const getNotificationModule = () => {
-  if (Platform.OS === 'web' || isExpoGo) {
+  if (Platform.OS === 'web') {
     return null;
   }
   try {
-    return require('expo-notifications');
-  } catch (e) {
-    return null;
+    const { scheduleNotificationAsync } = require('expo-notifications/build/scheduleNotificationAsync');
+    const { setNotificationHandler } = require('expo-notifications/build/NotificationsHandler');
+    const { getPermissionsAsync, requestPermissionsAsync } = require('expo-notifications/build/NotificationPermissions');
+    const { setNotificationChannelAsync } = require('expo-notifications/build/setNotificationChannelAsync');
+    const { deleteNotificationChannelAsync } = require('expo-notifications/build/deleteNotificationChannelAsync');
+    const { cancelAllScheduledNotificationsAsync } = require('expo-notifications/build/cancelAllScheduledNotificationsAsync');
+    const { dismissAllNotificationsAsync } = require('expo-notifications/build/dismissAllNotificationsAsync');
+    const { addNotificationResponseReceivedListener } = require('expo-notifications/build/NotificationsEmitter');
+    const { AndroidImportance } = require('expo-notifications/build/NotificationChannelManager.types');
+    const { AndroidNotificationPriority, SchedulableTriggerInputTypes } = require('expo-notifications/build/Notifications.types');
+
+    return {
+      scheduleNotificationAsync,
+      setNotificationHandler,
+      getPermissionsAsync,
+      requestPermissionsAsync,
+      setNotificationChannelAsync,
+      deleteNotificationChannelAsync,
+      cancelAllScheduledNotificationsAsync,
+      dismissAllNotificationsAsync,
+      addNotificationResponseReceivedListener,
+      AndroidImportance: AndroidImportance || { HIGH: 4, DEFAULT: 3 },
+      AndroidNotificationPriority: AndroidNotificationPriority || { HIGH: 'high', DEFAULT: 'default' },
+      SchedulableTriggerInputTypes,
+    };
+  } catch (subErr) {
+    try {
+      return require('expo-notifications');
+    } catch (rootErr) {
+      console.log('expo-notifications not available:', rootErr?.message || subErr?.message);
+      return null;
+    }
   }
 };
 
-// Safe top-level configuration in standalone builds
+// Safe top-level configuration for foreground notification presentation
 try {
   const Notifications = getNotificationModule();
   if (Notifications && typeof Notifications.setNotificationHandler === 'function') {
@@ -303,10 +337,14 @@ export const purgeAllLegacyReminders = async () => {
   if (!Notifications) return;
 
   try {
-    await Notifications.cancelAllScheduledNotificationsAsync().catch(() => {});
-    await Notifications.dismissAllNotificationsAsync().catch(() => {});
+    if (typeof Notifications.cancelAllScheduledNotificationsAsync === 'function') {
+      await Notifications.cancelAllScheduledNotificationsAsync().catch(() => {});
+    }
+    if (typeof Notifications.dismissAllNotificationsAsync === 'function') {
+      await Notifications.dismissAllNotificationsAsync().catch(() => {});
+    }
 
-    if (Platform.OS === 'android') {
+    if (Platform.OS === 'android' && typeof Notifications.deleteNotificationChannelAsync === 'function') {
       for (const ch of LEGACY_CHANNELS) {
         try {
           await Notifications.deleteNotificationChannelAsync(ch);
@@ -324,10 +362,22 @@ export const purgeAllLegacyReminders = async () => {
 export const requestNotificationPermission = async () => {
   const Notifications = getNotificationModule();
   if (!Notifications) {
-    return true; // Simulation for web & Expo Go
+    return false;
   }
 
   try {
+    // Ensure foreground presentation handler is active
+    if (typeof Notifications.setNotificationHandler === 'function') {
+      Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowBanner: true,
+          shouldShowList: true,
+          shouldPlaySound: true,
+          shouldSetBadge: false,
+        }),
+      });
+    }
+
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
 
@@ -344,6 +394,8 @@ export const requestNotificationPermission = async () => {
           vibrationPattern: [0, 250, 250, 250],
           lightColor: '#0D9488',
           sound: 'default',
+          enableVibrate: true,
+          showBadge: true,
         });
       } catch (err) {}
     }
@@ -355,6 +407,10 @@ export const requestNotificationPermission = async () => {
   }
 };
 
+let currentSchedulingSession = 0;
+let lastSyncedLanguage = null;
+let lastSyncedInterval = null;
+
 /**
  * Schedule a fresh batch of DISTINCT Quran reminders
  * Each upcoming notification in the batch has a DIFFERENT Surah and Ayah!
@@ -363,6 +419,8 @@ export const scheduleQuranReminder = async (intervalId = '4h', lang = 'id') => {
   const Notifications = getNotificationModule();
   const selectedInterval =
     REMINDER_INTERVALS.find((i) => i.id === intervalId) || REMINDER_INTERVALS[2];
+
+  const thisSession = ++currentSchedulingSession;
 
   try {
     if (Notifications) {
@@ -379,12 +437,21 @@ export const scheduleQuranReminder = async (intervalId = '4h', lang = 'id') => {
       // Purge old schedules and stale Android repeating alarms
       await purgeAllLegacyReminders();
 
+      // If another schedule request arrived while purging, abort immediately
+      if (thisSession !== currentSchedulingSession) {
+        return { success: false, aborted: true };
+      }
+
       const isIndo = lang === 'id';
       const numSlots = selectedInterval.slots || 24;
       const sequence = getDistinctAyatSequence(numSlots);
 
       // Schedule individual one-shot timers into the future
       for (let i = 0; i < sequence.length; i++) {
+        if (thisSession !== currentSchedulingSession) {
+          return { success: false, aborted: true };
+        }
+
         const item = sequence[i];
         const delaySeconds = selectedInterval.seconds * (i + 1);
 
@@ -442,6 +509,9 @@ export const scheduleQuranReminder = async (intervalId = '4h', lang = 'id') => {
  */
 export const cancelAllReminders = async () => {
   try {
+    ++currentSchedulingSession;
+    lastSyncedLanguage = null;
+    lastSyncedInterval = null;
     await purgeAllLegacyReminders();
 
     const settings = {
@@ -467,53 +537,84 @@ export const triggerTestNotification = async (lang = 'id') => {
   const item = INSPIRING_AYAT_POOL[randIndex];
 
   try {
-    if (Notifications) {
-      const hasPermission = await requestNotificationPermission();
-      if (!hasPermission) {
-        return {
-          success: false,
-          message: isIndo
-            ? 'Izin notifikasi diperlukan. Silakan aktifkan izin notifikasi di Pengaturan HP.'
-            : 'Notification permission required. Please enable it in device settings.',
-        };
-      }
+    if (!Notifications) {
+      return {
+        success: false,
+        message: isIndo
+          ? 'Modul notifikasi tidak tersedia di platform web.'
+          : 'Notification module is not available on web.',
+      };
+    }
 
-      const title = isIndo
-        ? `Ayat Hari Ini: ${item.surahName} : ${item.ayah}`
-        : `Daily Ayah: ${item.surahName} : ${item.ayah}`;
+    const hasPermission = await requestNotificationPermission();
+    if (!hasPermission) {
+      return {
+        success: false,
+        message: isIndo
+          ? 'Izin notifikasi diperlukan. Silakan aktifkan izin notifikasi DalAy di Pengaturan HP Anda.'
+          : 'Notification permission is required. Please enable DalAy notification permission in device settings.',
+      };
+    }
 
-      const body = isIndo
-        ? `"${item.quoteId}" (Ketuk untuk membaca & merenungkan)`
-        : `"${item.quoteEn}" (Tap to read & reflect)`;
+    const title = isIndo
+      ? `Ayat Hari Ini: ${item.surahName} : ${item.ayah}`
+      : `Daily Ayah: ${item.surahName} : ${item.ayah}`;
 
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title,
-          body,
-          data: {
-            type: 'daily_ayah',
-            surah: item.surahNumber,
-            ayah: item.ayah,
-          },
-          sound: true,
-          channelId: CHANNEL_ID,
-        },
-        trigger: {
-          type: 'timeInterval',
-          seconds: 1,
-          repeats: false,
-          channelId: CHANNEL_ID,
-        },
+    const body = isIndo
+      ? `"${item.quoteId}" (Ketuk untuk membaca & merenungkan)`
+      : `"${item.quoteEn}" (Tap to read & reflect)`;
+
+    // Ensure Android channel exists before presenting
+    if (Platform.OS === 'android') {
+      try {
+        await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
+          name: 'DalAy Reminders',
+          importance: Notifications.AndroidImportance.HIGH,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#0D9488',
+          sound: 'default',
+          enableVibrate: true,
+          showBadge: true,
+        });
+      } catch (err) {}
+    }
+
+    // Ensure foreground presentation handler is active
+    if (typeof Notifications.setNotificationHandler === 'function') {
+      Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowBanner: true,
+          shouldShowList: true,
+          shouldPlaySound: true,
+          shouldSetBadge: false,
+        }),
       });
     }
 
+    // Immediate notification: trigger: null presents instantly
+    const notificationId = await Notifications.scheduleNotificationAsync({
+      content: {
+        title,
+        body,
+        data: {
+          type: 'daily_ayah',
+          surah: item.surahNumber,
+          ayah: item.ayah,
+        },
+        sound: true,
+        channelId: CHANNEL_ID,
+        priority: Notifications.AndroidNotificationPriority ? Notifications.AndroidNotificationPriority.HIGH : undefined,
+      },
+      trigger: null,
+    });
+
     return {
       success: true,
+      notificationId,
       surahInfo: { name_latin: item.surahName, number: item.surahNumber },
       ayah: item.ayah,
-      messageTitle: isIndo ? `Ayat Hari Ini: ${item.surahName} : ${item.ayah}` : `Daily Ayah: ${item.surahName} : ${item.ayah}`,
+      messageTitle: title,
       messageBody: isIndo ? item.quoteId : item.quoteEn,
-      isExpoGo,
     };
   } catch (error) {
     console.log('Test notification error:', error);
@@ -526,13 +627,18 @@ export const triggerTestNotification = async (lang = 'id') => {
  * Ensures legacy repeating alarms from previous versions are purged,
  * and if reminder is enabled, tops up the schedule with fresh unique verses.
  */
-export const initNotificationSync = async (lang = 'id') => {
+export const initNotificationSync = async (lang = 'id', force = false) => {
   try {
     const Notifications = getNotificationModule();
     if (!Notifications) return;
 
     const settings = await getReminderSettings();
     if (settings.enabled) {
+      if (!force && lastSyncedLanguage === lang && lastSyncedInterval === settings.intervalId) {
+        return;
+      }
+      lastSyncedLanguage = lang;
+      lastSyncedInterval = settings.intervalId || '4h';
       await scheduleQuranReminder(settings.intervalId || '4h', lang);
     } else {
       await purgeAllLegacyReminders();

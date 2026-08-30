@@ -139,7 +139,7 @@ export const QuranScreen = () => {
                     numberOfLines={1}
                     ellipsizeMode="tail"
                   >
-                    {t('quran.dailyAyahTitle', 'AYAT INSPIRASI HARI INI')}
+                    {t('quran.dailyAyahTitle', 'AYAT UNTUKMU HARI INI')}
                   </Text>
                 </View>
                 <NeoButton
