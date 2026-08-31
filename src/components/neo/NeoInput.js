@@ -28,6 +28,9 @@ export const NeoInput = ({
   const [isFocused, setIsFocused] = useState(false);
   const { colors, isDark } = useTheme();
 
+  const resolvedLeftIconName = leftIconName || (typeof leftIcon === 'string' ? leftIcon : null);
+  const resolvedRightIconName = rightIconName || (typeof rightIcon === 'string' ? rightIcon : null);
+
   return (
     <View style={[styles.wrapper, style]}>
       {label && <Text style={[styles.label, { color: colors.text }]}>{label}</Text>}
@@ -45,15 +48,15 @@ export const NeoInput = ({
           isDark && { shadowOpacity: 0 },
         ]}
       >
-        {leftIconName ? (
+        {resolvedLeftIconName ? (
           <View style={styles.leftIconWrapper}>
             <Ionicons
-              name={leftIconName}
+              name={resolvedLeftIconName}
               size={18}
               color={isFocused ? colors.primary : colors.textMuted}
             />
           </View>
-        ) : leftIcon ? (
+        ) : leftIcon && typeof leftIcon !== 'string' ? (
           <View style={styles.leftIconWrapper}>{leftIcon}</View>
         ) : null}
 
@@ -85,15 +88,15 @@ export const NeoInput = ({
           {...props}
         />
 
-        {rightIconName ? (
+        {resolvedRightIconName ? (
           <View style={styles.rightIconWrapper}>
             <Ionicons
-              name={rightIconName}
+              name={resolvedRightIconName}
               size={18}
               color={isFocused ? colors.primary : colors.textMuted}
             />
           </View>
-        ) : rightIcon ? (
+        ) : rightIcon && typeof rightIcon !== 'string' ? (
           <View style={styles.rightIconWrapper}>{rightIcon}</View>
         ) : null}
       </View>

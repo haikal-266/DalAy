@@ -16,6 +16,7 @@ import { formatRupiah } from '../../utils/formatters';
 export const QuickInputBar = ({
   onAdd,
   onOpenManual,
+  onOpenReceipt,
   onFocus,
   onFocusInput,
   selectedDate = new Date(),
@@ -71,7 +72,7 @@ export const QuickInputBar = ({
     );
     setLoading(false);
 
-    if (result && result.success) {
+    if (result?.success) {
       setInputText('');
     } else if (result && !result.success) {
       setAlertConfig({
@@ -179,30 +180,44 @@ export const QuickInputBar = ({
         </View>
       )}
 
-      {/* Action Buttons */}
-      <View style={styles.actionRow}>
-        <NeoButton
-          title={
-            parsedPreview.length > 1
-              ? `${t('finance.saveTransactions', 'Simpan')} (${parsedPreview.length})`
-              : t('finance.saveRecord', 'Simpan Catatan')
-          }
-          iconName="checkmark-circle"
-          variant={type === 'expense' ? 'expense' : 'income'}
-          size="md"
-          loading={loading}
-          disabled={!inputText.trim() || parsedPreview.length === 0}
-          onPress={handleSubmit}
-          style={styles.submitBtn}
-        />
-        <NeoButton
-          title={t('finance.manualBtn', 'Manual')}
-          iconName="create-outline"
-          variant="secondary"
-          size="md"
-          onPress={onOpenManual}
-          style={styles.manualBtn}
-        />
+      {/* Action Buttons: Save Note on left, Scan + Manual stacked on right */}
+      <View style={styles.actionGrid}>
+        <View style={styles.leftCol}>
+          <NeoButton
+            title={
+              parsedPreview.length > 1
+                ? `${t('finance.saveTransactions', 'Simpan')} (${parsedPreview.length})`
+                : t('finance.saveRecord', 'Simpan Catatan')
+            }
+            iconName="checkmark-circle"
+            variant={type === 'expense' ? 'expense' : 'income'}
+            size="sm"
+            loading={loading}
+            disabled={!inputText.trim() || parsedPreview.length === 0}
+            onPress={handleSubmit}
+            style={styles.saveNoteBtn}
+          />
+        </View>
+        <View style={styles.rightCol}>
+          {typeof onOpenReceipt === 'function' && (
+            <NeoButton
+              title={t('finance.scanReceiptBtn', 'Scan Struk')}
+              iconName="receipt-outline"
+              variant="secondary"
+              size="sm"
+              onPress={onOpenReceipt}
+              style={styles.rightBtn}
+            />
+          )}
+          <NeoButton
+            title={t('finance.manualBtn', 'Manual')}
+            iconName="create-outline"
+            variant="secondary"
+            size="sm"
+            onPress={onOpenManual}
+            style={styles.rightBtn}
+          />
+        </View>
       </View>
 
       {/* Small Popup Modal to Choose Destination Wallet */}
@@ -284,17 +299,27 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 6,
   },
-  actionRow: {
+  actionGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginTop: 2,
+    alignItems: 'stretch',
+    gap: 8,
+    marginTop: 4,
   },
-  submitBtn: {
+  leftCol: {
     flex: 1,
   },
-  manualBtn: {
-    width: 95,
+  saveNoteBtn: {
+    flex: 1,
+    height: '100%',
+    justifyContent: 'center',
+  },
+  rightCol: {
+    flex: 1,
+    flexDirection: 'column',
+    gap: 6,
+  },
+  rightBtn: {
+    flex: 1,
   },
 });
 

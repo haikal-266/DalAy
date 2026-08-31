@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { TYPOGRAPHY } from '../../theme/typography';
 import { NeoCard } from '../neo/NeoCard';
@@ -7,6 +7,8 @@ import { NeoInput } from '../neo/NeoInput';
 import { NeoSegmented } from '../neo/NeoSegmented';
 import { ConfirmModal } from '../neo/ConfirmModal';
 import { TransactionCard } from './TransactionCard';
+import { CategoryIcon } from '../common/CategoryIcon';
+import { CategoryPickerModal } from '../common/CategoryPickerModal';
 import { useTheme } from '../../stores/themeStore';
 import { useLanguage } from '../../stores/languageStore';
 import { getRelativeDateLabel, formatRupiah } from '../../utils/formatters';
@@ -44,7 +46,20 @@ export const TransactionList = ({
     const groups = {};
 
     transactions.forEach((tx) => {
-      const dateKey = tx.date ? tx.date.slice(0, 10) : 'unknown';
+      let dateKey = 'unknown';
+      if (typeof tx.date === 'string') {
+        dateKey = tx.date.slice(0, 10);
+      } else if (tx.date instanceof Date && !Number.isNaN(tx.date.getTime())) {
+        dateKey = tx.date.toISOString().slice(0, 10);
+      } else if (tx.date) {
+        try {
+          const parsed = new Date(tx.date);
+          dateKey = !Number.isNaN(parsed.getTime()) ? parsed.toISOString().slice(0, 10) : 'unknown';
+        } catch {
+          dateKey = 'unknown';
+        }
+      }
+
       if (!groups[dateKey]) {
         groups[dateKey] = {
           dateKey,
@@ -81,6 +96,13 @@ export const TransactionList = ({
     });
     return list;
   }, [typeFilter]);
+
+  const [isCategoryPickerOpen, setIsCategoryPickerOpen] = useState(false);
+
+  const activeCategoryObj = useMemo(() => {
+    if (categoryFilter === 'all') return null;
+    return availableCategories.find((c) => c.id === categoryFilter);
+  }, [categoryFilter, availableCategories]);
 
   return (
     <NeoCard variant="white" padding={16} style={styles.cardContainer}>
@@ -138,82 +160,106 @@ export const TransactionList = ({
         style={styles.typeSegmented}
       />
 
-      {/* 4. Category Filter Chips Horizontal Bar */}
-      <View style={styles.categoryFilterWrapper}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoryChipsContent}
-        >
-          <Pressable
-            onPress={() => setCategoryFilter && setCategoryFilter('all')}
-            style={({ pressed }) => [
-              styles.categoryChip,
-              {
-                backgroundColor: categoryFilter === 'all' ? colors.primary : colors.surfaceLight,
-                borderColor: categoryFilter === 'all' ? colors.primaryDark : colors.border,
-              },
-              categoryFilter === 'all' && styles.categoryChipActive,
-              pressed && styles.pressed,
-            ]}
-          >
-            <Ionicons
-              name="pricetags-outline"
-              size={12}
-              color={categoryFilter === 'all' ? '#FFFFFF' : colors.textSecondary}
+      {/* 4. Sleek Category Filter Button */}
+      <Pressable
+        onPress={() => setIsCategoryPickerOpen(true)}
+        style={({ pressed }) => [
+          styles.categoryFilterButton,
+          {
+            backgroundColor: activeCategoryObj
+              ? (activeCategoryObj.color || colors.primary) + '15'
+              : colors.surfaceLight,
+            borderColor: activeCategoryObj
+              ? (activeCategoryObj.color || colors.primary)
+              : colors.borderLight,
+          },
+          pressed && styles.pressed,
+        ]}
+      >
+        <View style={styles.categoryFilterLeft}>
+          {activeCategoryObj ? (
+            <CategoryIcon
+              iconName={activeCategoryObj.iconName || activeCategoryObj.icon}
+              iconFamily={activeCategoryObj.iconFamily}
+              color={activeCategoryObj.color || colors.primary}
+              bgColor={(activeCategoryObj.color || colors.primary) + '25'}
+              size={16}
+              containerSize={32}
+              borderRadius={10}
             />
-            <Text
+          ) : (
+            <View
               style={[
-                styles.categoryChipText,
-                {
-                  color: categoryFilter === 'all' ? '#FFFFFF' : colors.textSecondary,
-                  fontWeight: categoryFilter === 'all' ? '800' : '600',
-                },
+                styles.allCategoryBadgeIcon,
+                { backgroundColor: colors.primary + '20' },
               ]}
             >
-              {isIndonesian ? 'Semua Kategori' : 'All'}
+              <Ionicons name="pricetags" size={15} color={colors.primary} />
+            </View>
+          )}
+
+          <View style={styles.categoryFilterTextCol}>
+            <Text
+              style={[styles.categoryFilterTagLabel, { color: colors.textSecondary }]}
+            >
+              {isIndonesian ? 'FILTER KATEGORI :' : 'CATEGORY FILTER :'}
             </Text>
-          </Pressable>
+            <Text
+              style={[
+                styles.categoryFilterActiveName,
+                {
+                  color: activeCategoryObj
+                    ? (activeCategoryObj.color || colors.text)
+                    : colors.text,
+                },
+              ]}
+              numberOfLines={1}
+            >
+              {activeCategoryObj
+                ? activeCategoryObj.name
+                : isIndonesian
+                ? 'Semua Kategori'
+                : 'All Categories'}
+            </Text>
+          </View>
+        </View>
 
-          {availableCategories.map((cat) => {
-            const isSelected = categoryFilter === cat.id;
-            const catColor = cat.color || colors.primary;
+        <View style={styles.categoryFilterRight}>
+          {categoryFilter !== 'all' && (
+            <Pressable
+              onPress={(e) => {
+                e.stopPropagation();
+                if (setCategoryFilter) setCategoryFilter('all');
+              }}
+              hitSlop={8}
+              style={[
+                styles.clearFilterChip,
+                { backgroundColor: colors.borderLight },
+              ]}
+            >
+              <Ionicons name="close" size={13} color={colors.textSecondary} />
+            </Pressable>
+          )}
 
-            return (
-              <Pressable
-                key={cat.id}
-                onPress={() => setCategoryFilter && setCategoryFilter(isSelected ? 'all' : cat.id)}
-                style={({ pressed }) => [
-                  styles.categoryChip,
-                  {
-                    backgroundColor: isSelected ? catColor : colors.surfaceLight,
-                    borderColor: isSelected ? catColor : colors.border,
-                  },
-                  isSelected && styles.categoryChipActive,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Ionicons
-                  name={cat.iconName || 'pricetag-outline'}
-                  size={12}
-                  color={isSelected ? '#FFFFFF' : catColor}
-                />
-                <Text
-                  style={[
-                    styles.categoryChipText,
-                    {
-                      color: isSelected ? '#FFFFFF' : colors.text,
-                      fontWeight: isSelected ? '800' : '600',
-                    },
-                  ]}
-                >
-                  {cat.name}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      </View>
+          <View
+            style={[
+              styles.dropdownChevronCircle,
+              { backgroundColor: colors.surface },
+            ]}
+          >
+            <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
+          </View>
+        </View>
+      </Pressable>
+
+      <CategoryPickerModal
+        visible={isCategoryPickerOpen}
+        onClose={() => setIsCategoryPickerOpen(false)}
+        selectedCategoryId={categoryFilter}
+        onSelectCategory={(catId) => setCategoryFilter && setCategoryFilter(catId)}
+        typeFilter={typeFilter}
+        allowAll={true}
+      />
 
       {/* 5. Subtle Divider */}
       <View style={[styles.divider, { backgroundColor: colors.borderLight }]} />
@@ -425,37 +471,69 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     maxWidth: 260,
   },
-  categoryFilterWrapper: {
+  categoryFilterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1.5,
     marginTop: 8,
   },
-  categoryChipsContent: {
+  categoryFilterLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  allCategoryBadgeIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryFilterTextCol: {
+    flex: 1,
+    gap: 1,
+  },
+  categoryFilterTagLabel: {
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  categoryFilterActiveName: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  categoryFilterRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingVertical: 2,
   },
-  categoryChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+  clearFilterChip: {
+    width: 24,
+    height: 24,
     borderRadius: 8,
-    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  categoryChipActive: {
-    elevation: 2,
+  dropdownChevronCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.1,
     shadowRadius: 2,
-  },
-  categoryChipText: {
-    fontSize: 11,
+    elevation: 2,
   },
   pressed: {
-    opacity: 0.75,
-    transform: [{ scale: 0.96 }],
+    opacity: 0.8,
+    transform: [{ scale: 0.98 }],
   },
 });
 

@@ -9,6 +9,7 @@ import { QuranProvider, useQuran } from './src/stores/quranStore';
 import { WalletProvider } from './src/stores/walletStore';
 import { FinanceProvider } from './src/stores/financeStore';
 import { SyncProvider } from './src/stores/syncStore';
+import { AiProvider } from './src/stores/aiStore';
 import { QuranScreen } from './src/screens/QuranScreen';
 import { FinanceScreen } from './src/screens/FinanceScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
@@ -156,12 +157,12 @@ const AppContent = () => {
   const renderActiveScreen = () => {
     switch (renderedTab) {
       case 'finance':
-        return <FinanceScreen />;
+        return <FinanceScreen onNavigateTab={handleTabPress} />;
       case 'settings':
-        return <SettingsScreen />;
+        return <SettingsScreen onNavigateTab={handleTabPress} />;
       case 'quran':
       default:
-        return <QuranScreen />;
+        return <QuranScreen onNavigateTab={handleTabPress} />;
     }
   };
 
@@ -201,15 +202,17 @@ export default function App() {
     <SafeAreaProvider>
       <LanguageProvider>
         <ThemeProvider>
-          <QuranProvider>
-            <WalletProvider>
-              <FinanceProvider>
-                <SyncProvider>
-                  <AppContent />
-                </SyncProvider>
-              </FinanceProvider>
-            </WalletProvider>
-          </QuranProvider>
+          <AiProvider>
+            <QuranProvider>
+              <WalletProvider>
+                <FinanceProvider>
+                  <SyncProvider>
+                    <AppContent />
+                  </SyncProvider>
+                </FinanceProvider>
+              </WalletProvider>
+            </QuranProvider>
+          </AiProvider>
         </ThemeProvider>
       </LanguageProvider>
     </SafeAreaProvider>

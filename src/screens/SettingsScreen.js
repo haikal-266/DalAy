@@ -19,9 +19,10 @@ import { exportTransactionsToExcel } from '../services/excelExport';
 import { ReminderModal } from '../components/quran/ReminderModal';
 import { ImportModal } from '../components/finance/ImportModal';
 import { GoogleSyncCard } from '../components/sync/GoogleSyncCard';
+import { GeminiAiCard } from '../components/settings/GeminiAiCard';
 import { APP_INFO } from '../constants/appInfo';
 
-export const SettingsScreen = () => {
+export const SettingsScreen = ({ onNavigateTab }) => {
   const { colors, currentThemeId, setTheme, availableThemes } = useTheme();
   const { currentLanguage, setLanguage, availableLanguages, t, isIndonesian } = useLanguage();
   const { clearHistory, history } = useQuran();
@@ -152,28 +153,19 @@ export const SettingsScreen = () => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={[styles.header, { borderBottomColor: colors.border }]}>
-          <View style={styles.headerLeft}>
-            <View style={styles.logoRow}>
-              <View
-                style={[
-                  styles.logoBadge,
-                  { backgroundColor: colors.accentLight || '#DBEAFE' },
-                ]}
-              >
-                <Ionicons
-                  name="settings"
-                  size={20}
-                  color={colors.accent || '#2563EB'}
-                />
-              </View>
-              <Text style={[styles.headerLogo, { color: colors.text }]}>
-                {t('settings.headerTitle', 'Pengaturan')}
-              </Text>
-            </View>
-            <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
-              {t('settings.headerSubtitle', 'Bahasa, Tema & Opsi Pengingat')}
+        {/* Simple App Name Header */}
+        <View style={styles.appHeaderRow}>
+          <Text style={[styles.appNameText, { color: colors.text }]}>
+            DalAy
+          </Text>
+          <View
+            style={[
+              styles.appVersionTag,
+              { backgroundColor: colors.surfaceLight, borderColor: colors.borderLight },
+            ]}
+          >
+            <Text style={[styles.appVersionText, { color: colors.textSecondary }]}>
+              v3.0.0
             </Text>
           </View>
         </View>
@@ -195,7 +187,7 @@ export const SettingsScreen = () => {
           </View>
         )}
 
-        {/* App Profile Card */}
+        {/* App Profile & Version Card */}
         <NeoCard variant="white" padding={16} style={styles.profileCard}>
           <View style={styles.profileHeader}>
             <View
@@ -211,12 +203,12 @@ export const SettingsScreen = () => {
             </View>
             <View style={styles.appInfo}>
               <Text style={[styles.appName, { color: colors.text }]}>
-                {t('settings.appProfile', 'DalAy (Daily Ayah)')}
+                {t('settings.appProfile', 'DalAy (Daily Ayah & Smart Finance)')}
               </Text>
               <Text style={[styles.appTagline, { color: colors.textSecondary }]}>
                 {t(
                   'settings.appTagline',
-                  'Daily Quran Reminder & Smart Finance Tracker'
+                  'Daily Quran Reminder & Smart AI Finance Tracker'
                 )}
               </Text>
               <View
@@ -240,6 +232,29 @@ export const SettingsScreen = () => {
                 </Text>
               </View>
             </View>
+          </View>
+
+          {/* Features List Section inside Profile Card */}
+          <View style={[styles.featureDivider, { backgroundColor: colors.borderLight }]} />
+          <Text style={[styles.featuresSectionTitle, { color: colors.text }]}>
+            {isIndonesian ? 'Fitur Versi 3.0.0:' : 'Version 3.0.0 Features:'}
+          </Text>
+          <View style={styles.featuresList}>
+            {APP_INFO.features.map((feat) => (
+              <View key={feat.id} style={styles.featureItemRow}>
+                <View style={[styles.featIconCircle, { backgroundColor: colors.primary + '15' }]}>
+                  <Ionicons name={feat.icon} size={15} color={colors.primary} />
+                </View>
+                <View style={styles.featTextCol}>
+                  <Text style={[styles.featTitle, { color: colors.text }]}>
+                    {isIndonesian ? feat.titleId : feat.titleEn}
+                  </Text>
+                  <Text style={[styles.featDesc, { color: colors.textSecondary }]}>
+                    {isIndonesian ? feat.descId : feat.descEn}
+                  </Text>
+                </View>
+              </View>
+            ))}
           </View>
         </NeoCard>
 
@@ -522,6 +537,26 @@ export const SettingsScreen = () => {
 
         <GoogleSyncCard onToast={showToast} />
 
+        {/* Gemini AI Settings Section */}
+        <View style={styles.sectionTitleRow}>
+          <Ionicons
+            name="sparkles-outline"
+            size={16}
+            color={colors.primary}
+          />
+          <Text style={[styles.sectionHeader, { color: colors.text }]}>
+            {t('settings.aiSection', 'GOOGLE GEMINI AI')}
+          </Text>
+        </View>
+        <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
+          {t(
+            'settings.aiSectionSub',
+            'Konfigurasi token untuk scan struk belanja pintar dengan AI Vision'
+          )}
+        </Text>
+
+        <GeminiAiCard onToast={showToast} />
+
         {/* Data & Storage Management */}
         <View style={styles.sectionTitleRow}>
           <Ionicons name="server-outline" size={16} color={colors.primary} />
@@ -703,39 +738,28 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 48,
   },
-  header: {
+  appHeaderRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-    paddingBottom: 12,
+    marginBottom: 14,
     paddingTop: 4,
-    borderBottomWidth: 1,
+    paddingBottom: 8,
   },
-  headerLeft: {
-    flex: 1,
-  },
-  logoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  logoBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerLogo: {
-    fontSize: 21,
+  appNameText: {
+    fontSize: 22,
     fontWeight: '900',
-    letterSpacing: -0.3,
+    letterSpacing: -0.5,
   },
-  headerSubtitle: {
-    fontSize: TYPOGRAPHY.size.xs,
-    marginTop: 3,
-    fontWeight: '500',
+  appVersionTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  appVersionText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   toastBox: {
     flexDirection: 'row',
@@ -794,6 +818,44 @@ const styles = StyleSheet.create({
   versionText: {
     fontSize: 10,
     fontWeight: '700',
+  },
+  featureDivider: {
+    height: 1,
+    width: '100%',
+    marginVertical: 12,
+  },
+  featuresSectionTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    marginBottom: 8,
+    letterSpacing: -0.2,
+  },
+  featuresList: {
+    gap: 8,
+  },
+  featureItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  featIconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  featTextCol: {
+    flex: 1,
+  },
+  featTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  featDesc: {
+    fontSize: 10.5,
+    fontWeight: '500',
+    marginTop: 1,
   },
   sectionTitleRow: {
     flexDirection: 'row',

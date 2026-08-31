@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
 import { formatDateIndo, formatTimeIndo } from '../utils/formatters';
 
 /**
- * Generate and Export Excel Spreadsheet for Financial Transactions
+ * Generate and Export Excel Spreadsheet for Financial Transactions with Hierarchical Receipt Items
  * 
  * @param {Array} transactions - Array of transaction objects
  * @param {Object} summary - { totalIncome, totalExpense, balance }
@@ -29,17 +29,58 @@ export const exportTransactionsToExcel = async (
       return t.type === 'income' ? 'Pemasukan' : 'Pengeluaran';
     };
 
-    // 1. Sheet 1: Detail Transaksi
-    const txRows = transactions.map((t, index) => ({
-      'No': index + 1,
-      'Tanggal': formatDateIndo(t.date, false, false),
-      'Waktu': formatTimeIndo(t.date),
-      'Jenis': getJenisLabel(t),
-      'Kategori': `${t.categoryIcon || ''} ${t.categoryName || '-'}`,
-      'Keterangan': t.name || '-',
-      'Nominal (Rp)': t.amount || 0,
-      'Catatan Asli': t.rawText || '',
-    }));
+    // 1. Sheet 1: Hierarchical Transaction List ("Beranak")
+    const txRows = [];
+    const receiptItemRows = [];
+
+    transactions.forEach((t, index) => {
+      const rowNumber = index + 1;
+      const isReceipt = Boolean(t.items && t.items.length > 0);
+
+      // Parent row
+      txRows.push({
+        'No': rowNumber,
+        'Tanggal': formatDateIndo(t.date, false, false),
+        'Waktu': formatTimeIndo(t.date),
+        'Jenis': getJenisLabel(t),
+        'Kategori': `${t.categoryIcon || ''} ${t.categoryName || '-'}`,
+        'Dompet': t.walletName || 'Tunai',
+        'Keterangan / Merchant': isReceipt ? `${t.name || '-'} (${t.items.length} Item)` : (t.name || '-'),
+        'Nominal (Rp)': t.amount || 0,
+        'Tipe': isReceipt ? 'Struk Belanja' : 'Manual',
+      });
+
+      // Child rows for receipt items
+      if (isReceipt) {
+        t.items.forEach((item, itIdx) => {
+          const itemSubtotal = (item.price || 0) * (item.qty || 1);
+          txRows.push({
+            'No': '',
+            'Tanggal': '',
+            'Waktu': '',
+            'Jenis': '↳ Item',
+            'Kategori': '',
+            'Dompet': '',
+            'Keterangan / Merchant': `   ↳ ${item.name || `Item ${itIdx + 1}`} (Qty: ${item.qty || 1} @ Rp ${(item.price || 0).toLocaleString('id-ID')})`,
+            'Nominal (Rp)': itemSubtotal,
+            'Tipe': 'Rincian Struk',
+          });
+
+          // Dedicated table entries
+          receiptItemRows.push({
+            'No Transaksi': rowNumber,
+            'Nama Toko': t.name || 'Struk Belanja',
+            'Tanggal': formatDateIndo(t.date, false, false),
+            'Dompet': t.walletName || 'Tunai',
+            'No Item': itIdx + 1,
+            'Nama Item': item.name || `Item ${itIdx + 1}`,
+            'Qty': item.qty || 1,
+            'Harga Satuan (Rp)': item.price || 0,
+            'Subtotal Item (Rp)': itemSubtotal,
+          });
+        });
+      }
+    });
 
     // 2. Sheet 2: Rekap Per Kategori
     const categoryMap = {};
@@ -75,6 +116,11 @@ export const exportTransactionsToExcel = async (
 
     const wsTx = XLSX.utils.json_to_sheet(txRows);
     XLSX.utils.book_append_sheet(wb, wsTx, 'Daftar Transaksi');
+
+    if (receiptItemRows.length > 0) {
+      const wsItems = XLSX.utils.json_to_sheet(receiptItemRows);
+      XLSX.utils.book_append_sheet(wb, wsItems, 'Detail Item Struk');
+    }
 
     const wsCat = XLSX.utils.json_to_sheet(categoryRows);
     XLSX.utils.book_append_sheet(wb, wsCat, 'Rekap Kategori');

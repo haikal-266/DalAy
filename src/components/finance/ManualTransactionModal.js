@@ -6,6 +6,7 @@ import { NeoInput } from '../neo/NeoInput';
 import { NeoButton } from '../neo/NeoButton';
 import { NeoSegmented } from '../neo/NeoSegmented';
 import { CategoryIcon } from '../common/CategoryIcon';
+import { CategoryPickerModal } from '../common/CategoryPickerModal';
 import { ConfirmModal } from '../neo/ConfirmModal';
 import { useTheme } from '../../stores/themeStore';
 import { useLanguage } from '../../stores/languageStore';
@@ -30,6 +31,7 @@ export const ManualTransactionModal = ({
   const [amount, setAmount] = useState('');
   const [selectedWallet, setSelectedWallet] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [alertConfig, setAlertConfig] = useState(null); // { visible, title, message, type }
 
   const activeTx = initialTransaction || initialData;
@@ -149,9 +151,6 @@ export const ManualTransactionModal = ({
     onClose();
     resetForm();
   };
-
-  const currentCategories =
-    type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
 
   return (
     <>
@@ -274,53 +273,59 @@ export const ManualTransactionModal = ({
           </ScrollView>
         </View>
 
-        {/* Category Picker Grid */}
+        {/* Category Picker Button */}
         <View style={styles.section}>
           <Text style={[styles.label, { color: colors.textSecondary }]}>
             {t('modal.selectCategory', 'PILIH KATEGORI :')}
           </Text>
-          <View style={styles.categoriesGrid}>
-            {currentCategories.map((cat) => {
-              const isSelected = selectedCategory?.id === cat.id;
-              const catColor = cat.color || colors.primary;
+          <Pressable
+            onPress={() => setIsCategoryModalOpen(true)}
+            style={({ pressed }) => [
+              styles.categoryPickerBtn,
+              {
+                backgroundColor: (selectedCategory?.color || colors.primary) + '15',
+                borderColor: selectedCategory?.color || colors.primary,
+              },
+              pressed && styles.pressed,
+            ]}
+          >
+            <View style={styles.catBtnLeft}>
+              <CategoryIcon
+                iconName={selectedCategory?.iconName || selectedCategory?.icon}
+                iconFamily={selectedCategory?.iconFamily}
+                color={selectedCategory?.color || colors.primary}
+                bgColor={(selectedCategory?.color || colors.primary) + '25'}
+                size={18}
+                containerSize={36}
+                borderRadius={10}
+              />
+              <View style={styles.catBtnTextCol}>
+                <Text style={[styles.catBtnName, { color: colors.text }]}>
+                  {selectedCategory?.name || 'Pilih Kategori'}
+                </Text>
+                <Text style={[styles.catBtnSub, { color: colors.textSecondary }]}>
+                  {isIndonesian ? 'Ketuk untuk mengganti kategori' : 'Tap to change category'}
+                </Text>
+              </View>
+            </View>
 
-              return (
-                <Pressable
-                  key={cat.id}
-                  onPress={() => setSelectedCategory(cat)}
-                  style={({ pressed }) => [
-                    styles.categoryCard,
-                    {
-                      backgroundColor: isSelected ? colors.primarySurface : colors.surface,
-                      borderColor: isSelected ? catColor : colors.border,
-                    },
-                    isSelected && styles.categoryCardSelected,
-                    pressed && styles.categoryCardPressed,
-                  ]}
-                >
-                  <CategoryIcon
-                    iconName={cat.iconName || 'cube'}
-                    iconFamily={cat.iconFamily || 'Ionicons'}
-                    color={catColor}
-                    bgColor={cat.bgColor || colors.surfaceLight}
-                    size={16}
-                    containerSize={36}
-                    borderRadius={10}
-                  />
-                  <Text
-                    style={[
-                      styles.categoryName,
-                      { color: isSelected ? colors.text : colors.textSecondary },
-                      isSelected && styles.categoryNameSelected,
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {cat.name}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+            <View style={[styles.catChevronCircle, { backgroundColor: colors.surface }]}>
+              <Ionicons name="chevron-down" size={18} color={colors.textSecondary} />
+            </View>
+          </Pressable>
+
+          <CategoryPickerModal
+            visible={isCategoryModalOpen}
+            onClose={() => setIsCategoryModalOpen(false)}
+            selectedCategoryId={selectedCategory?.id}
+            onSelectCategory={(catId) => {
+              const categories = type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+              const found = categories.find((c) => c.id === catId);
+              if (found) setSelectedCategory(found);
+            }}
+            typeFilter={type}
+            allowAll={false}
+          />
         </View>
       </NeoModal>
 
@@ -351,34 +356,48 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
     marginBottom: 6,
   },
-  categoriesGrid: {
+  categoryPickerBtn: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  categoryCard: {
-    width: '31%',
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 8,
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  categoryCardSelected: {
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
     borderWidth: 1.5,
   },
-  categoryCardPressed: {
-    opacity: 0.8,
-    transform: [{ scale: 0.95 }],
+  catBtnLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
   },
-  categoryName: {
-    fontSize: 10,
-    marginTop: 4,
-    textAlign: 'center',
-    fontWeight: '600',
+  catBtnTextCol: {
+    flex: 1,
+    gap: 2,
   },
-  categoryNameSelected: {
+  catBtnName: {
+    fontSize: 14,
     fontWeight: '800',
+  },
+  catBtnSub: {
+    fontSize: 10,
+    fontWeight: '500',
+  },
+  catChevronCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  pressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.98 }],
   },
   walletsRow: {
     gap: 8,

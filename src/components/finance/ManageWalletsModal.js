@@ -178,13 +178,18 @@ export const ManageWalletsModal = ({ visible, onClose, onToast, initialAddMode =
           message: res.message,
           type: 'danger',
         });
-      } else if (onToast) {
-        onToast(
-          isIndonesian
-            ? `Dompet "${targetName}" berhasil dihapus`
-            : `Wallet "${targetName}" deleted`,
-          'trash-outline'
-        );
+      } else {
+        if (mode === 'edit') {
+          setMode('list');
+        }
+        if (onToast) {
+          onToast(
+            isIndonesian
+              ? `Dompet "${targetName}" berhasil dihapus`
+              : `Wallet "${targetName}" deleted`,
+            'trash-outline'
+          );
+        }
       }
       setDeleteTarget(null);
     }
@@ -230,6 +235,22 @@ export const ManageWalletsModal = ({ visible, onClose, onToast, initialAddMode =
             />
           ) : (
             <View style={styles.formFooterRow}>
+              {mode === 'edit' && !editingWallet?.isDefault && (
+                <Pressable
+                  onPress={() => setDeleteTarget(editingWallet)}
+                  style={[
+                    styles.iconActionBtn,
+                    {
+                      backgroundColor: (colors.expense || '#EF4444') + '15',
+                      borderColor: colors.expense || '#EF4444',
+                      paddingHorizontal: 12,
+                      marginRight: 4,
+                    },
+                  ]}
+                >
+                  <Ionicons name="trash-outline" size={16} color={colors.expense || '#EF4444'} />
+                </Pressable>
+              )}
               <Pressable
                 onPress={() => setMode('list')}
                 style={[
@@ -251,6 +272,40 @@ export const ManageWalletsModal = ({ visible, onClose, onToast, initialAddMode =
               </View>
             </View>
           )
+        }
+        overlay={
+          <>
+            {Boolean(deleteTarget) && (
+              <ConfirmModal
+                insideModal={true}
+                visible={Boolean(deleteTarget)}
+                title={isIndonesian ? 'Hapus Dompet?' : 'Delete Wallet?'}
+                message={
+                  isIndonesian
+                    ? `Apakah Anda yakin ingin menghapus dompet "${deleteTarget?.name}"? Transaksi yang terkait akan dialihkan ke dompet utama.`
+                    : `Are you sure you want to delete "${deleteTarget?.name}"? Transactions will be reassigned to the default wallet.`
+                }
+                confirmText={isIndonesian ? 'Ya, Hapus' : 'Yes, Delete'}
+                cancelText={isIndonesian ? 'Batal' : 'Cancel'}
+                onConfirm={handleDeleteConfirm}
+                onClose={() => setDeleteTarget(null)}
+              />
+            )}
+
+            {Boolean(walletAlert) && (
+              <ConfirmModal
+                insideModal={true}
+                visible={Boolean(walletAlert)}
+                title={walletAlert.title}
+                message={walletAlert.message}
+                type={walletAlert.type || 'warning'}
+                iconName={walletAlert.iconName}
+                showCancel={false}
+                confirmText={isIndonesian ? 'Tutup' : 'Close'}
+                onClose={() => setWalletAlert(null)}
+              />
+            )}
+          </>
         }
       >
         {mode === 'list' ? (
@@ -594,37 +649,6 @@ export const ManageWalletsModal = ({ visible, onClose, onToast, initialAddMode =
           </View>
         )}
       </NeoModal>
-
-      {/* Delete Confirmation Modal */}
-      <ConfirmModal
-        insideModal={true}
-        visible={Boolean(deleteTarget)}
-        title={isIndonesian ? 'Hapus Dompet?' : 'Delete Wallet?'}
-        message={
-          isIndonesian
-            ? `Apakah Anda yakin ingin menghapus dompet "${deleteTarget?.name}"? Transaksi yang terkait akan dialihkan ke dompet utama.`
-            : `Are you sure you want to delete "${deleteTarget?.name}"? Transactions will be reassigned to the default wallet.`
-        }
-        confirmText={isIndonesian ? 'Ya, Hapus' : 'Yes, Delete'}
-        cancelText={isIndonesian ? 'Batal' : 'Cancel'}
-        onConfirm={handleDeleteConfirm}
-        onClose={() => setDeleteTarget(null)}
-      />
-
-      {/* In-Modal Alert Dialog */}
-      {walletAlert && (
-        <ConfirmModal
-          insideModal={true}
-          visible={Boolean(walletAlert)}
-          title={walletAlert.title}
-          message={walletAlert.message}
-          type={walletAlert.type || 'warning'}
-          iconName={walletAlert.iconName}
-          showCancel={false}
-          confirmText={isIndonesian ? 'Tutup' : 'Close'}
-          onClose={() => setWalletAlert(null)}
-        />
-      )}
     </>
   );
 };

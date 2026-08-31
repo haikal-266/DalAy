@@ -623,6 +623,60 @@ export const triggerTestNotification = async (lang = 'id') => {
 };
 
 /**
+ * Send an immediate push notification to device
+ */
+export const sendLocalNotification = async ({ title, body, data = {} }) => {
+  const Notifications = getNotificationModule();
+  if (!Notifications) return false;
+  try {
+    const hasPermission = await requestNotificationPermission();
+    if (!hasPermission) return false;
+
+    if (Platform.OS === 'android') {
+      try {
+        await Notifications.setNotificationChannelAsync(CHANNEL_ID, {
+          name: 'DalAy Notifications',
+          importance: Notifications.AndroidImportance.HIGH,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#0D9488',
+          sound: 'default',
+          enableVibrate: true,
+          showBadge: true,
+        });
+      } catch (err) {}
+    }
+
+    if (typeof Notifications.setNotificationHandler === 'function') {
+      Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowBanner: true,
+          shouldShowList: true,
+          shouldPlaySound: true,
+          shouldSetBadge: false,
+        }),
+      });
+    }
+
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title,
+        body,
+        data,
+        sound: true,
+        channelId: CHANNEL_ID,
+        priority: Notifications.AndroidNotificationPriority ? Notifications.AndroidNotificationPriority.HIGH : undefined,
+      },
+      trigger: null,
+    });
+    return true;
+  } catch (err) {
+    console.log('Error sending local notification:', err);
+    return false;
+  }
+};
+
+
+/**
  * Sync / replenish reminders on app startup
  * Ensures legacy repeating alarms from previous versions are purged,
  * and if reminder is enabled, tops up the schedule with fresh unique verses.

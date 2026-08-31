@@ -7,16 +7,13 @@ import {
   RefreshControl,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
-  ActivityIndicator,
   Keyboard,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { TYPOGRAPHY } from '../theme/typography';
 import { isSameDay, isThisWeek, isThisMonth } from '../utils/formatters';
 import { useFinance } from '../stores/financeStore';
-import { useQuran } from '../stores/quranStore';
-import { useSync } from '../stores/syncStore';
 import { useTheme } from '../stores/themeStore';
 import { useLanguage } from '../stores/languageStore';
 import { SummaryCards } from '../components/finance/SummaryCards';
@@ -30,22 +27,22 @@ import { ImportModal } from '../components/finance/ImportModal';
 import { WalletCarousel } from '../components/finance/WalletCarousel';
 import { ManageWalletsModal } from '../components/finance/ManageWalletsModal';
 import { TransferModal } from '../components/finance/TransferModal';
+import { ReceiptSourceModal } from '../components/finance/ReceiptSourceModal';
+import { ReceiptReviewModal } from '../components/finance/ReceiptReviewModal';
+import { ReceiptDetailModal } from '../components/finance/ReceiptDetailModal';
 import { useWallet } from '../stores/walletStore';
 import { NeoSegmented } from '../components/neo/NeoSegmented';
 import { ConfirmModal } from '../components/neo/ConfirmModal';
 
-export const FinanceScreen = () => {
+export const FinanceScreen = ({ onNavigateTab }) => {
   const scrollViewRef = useRef(null);
   const { colors } = useTheme();
   const { t, isIndonesian } = useLanguage();
-  const { isConnected, isSyncing, performSync, backupToGoogleDriveFile } = useSync();
-  const { favorites, history, replaceFavoritesAndHistory } = useQuran();
 
-  const { getTotalNetWorth } = useWallet();
+  const { getTotalNetWorth, wallets } = useWallet();
 
   const {
     transactions,
-    replaceTransactions,
     filteredTransactions,
     periodFilter,
     setPeriodFilter,
@@ -105,6 +102,10 @@ export const FinanceScreen = () => {
   const [activeViewTab, setActiveViewTab] = useState('list'); // 'list' | 'chart'
   const [manualModalVisible, setManualModalVisible] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
+  const [receiptSourceModalVisible, setReceiptSourceModalVisible] = useState(false);
+  const [receiptReviewModalVisible, setReceiptReviewModalVisible] = useState(false);
+  const [scannedReceiptData, setScannedReceiptData] = useState(null);
+  const [scannedReceiptImageUri, setScannedReceiptImageUri] = useState(null);
   const [exportModalVisible, setExportModalVisible] = useState(false);
   const [importModalVisible, setImportModalVisible] = useState(false);
   const [manageWalletsVisible, setManageWalletsVisible] = useState(false);
@@ -113,6 +114,29 @@ export const FinanceScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [syncFeedback, setSyncFeedback] = useState(null);
   const [modalAlert, setModalAlert] = useState(null);
+  const [bgScanStatus, setBgScanStatus] = useState(null);
+
+  const [receiptDetailModalVisible, setReceiptDetailModalVisible] = useState(false);
+  const [selectedReceiptDetail, setSelectedReceiptDetail] = useState(null);
+
+  const handleOpenReceiptScanner = () => {
+    setReceiptSourceModalVisible(true);
+  };
+
+  const handleReceiptScanned = (data, imageUri) => {
+    setBgScanStatus(null);
+    setScannedReceiptData(data);
+    setScannedReceiptImageUri(imageUri);
+    setReceiptReviewModalVisible(true);
+  };
+
+  const handleSaveReceiptTransaction = async (txData) => {
+    await addTransaction(txData);
+    showSyncToast(
+      isIndonesian ? 'Struk belanja berhasil dicatat!' : 'Receipt transaction logged!',
+      'checkmark-circle'
+    );
+  };
 
   const showSyncToast = (msg, icon = 'checkmark-circle') => {
     const toastObj = typeof msg === 'string' ? { text: msg, icon } : msg;
@@ -120,40 +144,7 @@ export const FinanceScreen = () => {
     setTimeout(() => setSyncFeedback(null), 3000);
   };
 
-  const getLocalSnapshot = () => ({
-    transactions: transactions || [],
-    quranFavorites: favorites || [],
-    quranHistory: history || [],
-  });
 
-  const applyMerged = async (mergeResult) => {
-    if (mergeResult.transactions) {
-      await replaceTransactions(mergeResult.transactions);
-    }
-    if (mergeResult.quranFavorites || mergeResult.quranHistory) {
-      await replaceFavoritesAndHistory(
-        mergeResult.quranFavorites || [],
-        mergeResult.quranHistory || []
-      );
-    }
-  };
-
-  const handleQuickSync = async () => {
-    if (!isConnected) {
-      const res = await backupToGoogleDriveFile(getLocalSnapshot);
-      if (res.success) {
-        showSyncToast(
-          isIndonesian ? 'Pilih Drive untuk menyimpan data' : 'Select Drive to save backup',
-          'cloud-upload-outline'
-        );
-      }
-    } else {
-      const res = await performSync(getLocalSnapshot, applyMerged);
-      if (res.success) {
-        showSyncToast(res.message, 'sync-outline');
-      }
-    }
-  };
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -161,8 +152,13 @@ export const FinanceScreen = () => {
   };
 
   const handleOpenEdit = (tx) => {
-    setEditingTransaction(tx);
-    setManualModalVisible(true);
+    if (tx?.items && tx.items.length > 0) {
+      setSelectedReceiptDetail(tx);
+      setReceiptDetailModalVisible(true);
+    } else {
+      setEditingTransaction(tx);
+      setManualModalVisible(true);
+    }
   };
 
   const handleSaveManual = async (txData) => {
@@ -308,104 +304,58 @@ export const FinanceScreen = () => {
           />
         }
       >
-        {/* Header Bar */}
-        <View style={[styles.header, { borderBottomColor: colors.border }]}>
-          <View style={styles.headerLeft}>
-            <View style={styles.logoRow}>
+        {/* Sleek Hero Header Card */}
+        <View
+          style={[
+            styles.headerHeroCard,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}
+        >
+          <View style={styles.headerLeftCol}>
+            <View style={styles.headerTitleRow}>
               <View
                 style={[
-                  styles.logoBadge,
-                  { backgroundColor: colors.brandGoldLight || '#FEF3C7' },
+                  styles.glowingIconBadge,
+                  { backgroundColor: colors.primary + '20' },
                 ]}
               >
-                <Ionicons
-                  name="wallet"
-                  size={18}
-                  color={colors.brandGold || '#D97706'}
+                <Ionicons name="stats-chart" size={20} color={colors.primary} />
+                <View
+                  style={[
+                    styles.pulseDot,
+                    { backgroundColor: colors.accent || '#8B5CF6' },
+                  ]}
                 />
               </View>
-              <Text
-                style={[styles.headerLogo, { color: colors.text }]}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.75}
-              >
-                {t('finance.headerTitle', 'Catatan Keuangan')}
-              </Text>
+              <View style={styles.headerTitleTextGroup}>
+                <View style={styles.titleWithTagRow}>
+                  <Text style={[styles.heroHeaderTitle, { color: colors.text }]}>
+                    {isIndonesian ? 'Manajemen Keuangan' : 'Finance Dashboard'}
+                  </Text>
+                  <View
+                    style={[
+                      styles.liveTagBadge,
+                      { backgroundColor: colors.income + '25' },
+                    ]}
+                  >
+                    <Text style={[styles.liveTagText, { color: colors.income }]}>
+                      LIVE
+                    </Text>
+                  </View>
+                </View>
+                <Text
+                  style={[
+                    styles.heroHeaderSubtitle,
+                    { color: colors.textSecondary },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {isIndonesian
+                    ? 'Catat Pengeluaranmu'
+                    : 'Record Your Expenses'}
+                </Text>
+              </View>
             </View>
-            <Text
-              style={[styles.headerSubtitle, { color: colors.textSecondary }]}
-              numberOfLines={1}
-              ellipsizeMode="tail"
-            >
-              {t('finance.headerSubtitle', 'Pencatatan Cepat & Rekap Otomatis')}
-            </Text>
-          </View>
-
-          <View style={styles.headerButtons}>
-            {/* Google Drive Cloud Sync Quick Button */}
-            <Pressable
-              onPress={handleQuickSync}
-              style={({ pressed }) => [
-                styles.actionIconBtn,
-                {
-                  backgroundColor: isConnected ? colors.accentLight || '#DBEAFE' : colors.surface,
-                  borderColor: isConnected ? colors.accent : colors.border,
-                },
-                pressed ? styles.actionIconBtnPressed : null,
-              ]}
-              accessibilityLabel="Sync Google Drive"
-            >
-              {isSyncing ? (
-                <ActivityIndicator size="small" color={colors.accent} />
-              ) : (
-                <Ionicons
-                  name={isConnected ? 'cloud-done' : 'cloud-upload-outline'}
-                  size={17}
-                  color={isConnected ? colors.accent : colors.textSecondary}
-                />
-              )}
-            </Pressable>
-
-            {/* Import Button */}
-            <Pressable
-              onPress={() => setImportModalVisible(true)}
-              style={({ pressed }) => [
-                styles.actionIconBtn,
-                {
-                  backgroundColor: colors.surface,
-                  borderColor: colors.border,
-                },
-                pressed ? styles.actionIconBtnPressed : null,
-              ]}
-              accessibilityLabel={isIndonesian ? 'Impor Excel' : 'Import Excel'}
-            >
-              <Ionicons
-                name="download-outline"
-                size={17}
-                color={colors.primary}
-              />
-            </Pressable>
-
-            {/* Export Button */}
-            <Pressable
-              onPress={() => setExportModalVisible(true)}
-              style={({ pressed }) => [
-                styles.actionIconBtn,
-                {
-                  backgroundColor: colors.surface,
-                  borderColor: colors.border,
-                },
-                pressed ? styles.actionIconBtnPressed : null,
-              ]}
-              accessibilityLabel={t('finance.exportBtn', 'Ekspor ke Excel')}
-            >
-              <Ionicons
-                name="document-text-outline"
-                size={17}
-                color={colors.incomeDark || '#16A34A'}
-              />
-            </Pressable>
           </View>
         </View>
 
@@ -423,6 +373,21 @@ export const FinanceScreen = () => {
               color="#FFFFFF"
             />
             <Text style={styles.syncToastText}>{syncFeedback.text}</Text>
+          </View>
+        )}
+
+        {/* Floating Background Scan Status Banner */}
+        {bgScanStatus && (
+          <View
+            style={[
+              styles.syncToastBox,
+              { backgroundColor: (colors.accent || '#8B5CF6') + '25', borderColor: colors.accent || '#8B5CF6' },
+            ]}
+          >
+            <ActivityIndicator size="small" color={colors.accent || '#8B5CF6'} />
+            <Text style={[styles.syncToastText, { color: colors.text }]}>
+              {bgScanStatus.statusMsg || (isIndonesian ? 'Memproses struk di background...' : 'Processing receipt in background...')}
+            </Text>
           </View>
         )}
 
@@ -461,6 +426,7 @@ export const FinanceScreen = () => {
               setEditingTransaction(null);
               setManualModalVisible(true);
             }}
+            onOpenReceipt={handleOpenReceiptScanner}
             selectedDate={selectedInputDate}
             onFocus={handleFocusInput}
             onFocusInput={handleFocusInput}
@@ -618,6 +584,66 @@ export const FinanceScreen = () => {
         />
       )}
 
+      {/* Receipt Scanner Source / Method Modal */}
+      <ReceiptSourceModal
+        visible={receiptSourceModalVisible}
+        onClose={() => setReceiptSourceModalVisible(false)}
+        onReceiptScanned={handleReceiptScanned}
+        onScanStarted={(info) => {
+          setBgScanStatus(info);
+        }}
+        onScanError={(err) => {
+          setBgScanStatus(null);
+          setModalAlert({
+            title: isIndonesian ? 'Pemindaian Struk Gagal' : 'Scan Failed',
+            message: err.message || (isIndonesian ? 'Terjadi kesalahan saat membaca struk.' : 'Error reading receipt.'),
+            type: 'danger',
+          });
+        }}
+        onNavigateSettings={() => {
+          if (typeof onNavigateTab === 'function') {
+            onNavigateTab('settings');
+          }
+        }}
+      />
+
+      {/* Receipt Review & Edit Modal */}
+      {receiptReviewModalVisible && (
+        <ReceiptReviewModal
+          visible={receiptReviewModalVisible}
+          onClose={() => {
+            setReceiptReviewModalVisible(false);
+            setScannedReceiptData(null);
+            setScannedReceiptImageUri(null);
+          }}
+          scannedData={scannedReceiptData}
+          imageUri={scannedReceiptImageUri}
+          onSave={handleSaveReceiptTransaction}
+          defaultWalletId={wallets[0]?.id}
+        />
+      )}
+
+      {/* Receipt Item Breakdown & Validation Modal */}
+      {receiptDetailModalVisible && (
+        <ReceiptDetailModal
+          visible={receiptDetailModalVisible}
+          onClose={() => {
+            setReceiptDetailModalVisible(false);
+            setSelectedReceiptDetail(null);
+          }}
+          transaction={selectedReceiptDetail}
+          onEdit={(tx) => {
+            setReceiptDetailModalVisible(false);
+            setEditingTransaction(tx);
+            setManualModalVisible(true);
+          }}
+          onDelete={(tx) => {
+            setReceiptDetailModalVisible(false);
+            handleDeleteTransaction(tx.id);
+          }}
+        />
+      )}
+
       {/* Custom Neo Notification / Alert Modal */}
       {modalAlert && (
         <ConfirmModal
@@ -651,44 +677,70 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 220,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  headerHeroCard: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 20,
+    borderWidth: 1.5,
     marginBottom: 14,
-    paddingBottom: 12,
-    paddingTop: 4,
-    borderBottomWidth: 1,
-    gap: 8,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
   },
-  headerLeft: {
+  headerLeftCol: {
     flex: 1,
-    minWidth: 0,
-    marginRight: 6,
   },
-  logoRow: {
+  headerTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    flexShrink: 1,
+    gap: 12,
   },
-  logoBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
+  glowingIconBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    flexShrink: 0,
+    position: 'relative',
   },
-  headerLogo: {
-    fontSize: 19,
+  pulseDot: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  },
+  headerTitleTextGroup: {
+    flex: 1,
+    gap: 2,
+  },
+  titleWithTagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  heroHeaderTitle: {
+    fontSize: 18,
     fontWeight: '900',
-    letterSpacing: -0.3,
-    flexShrink: 1,
+    letterSpacing: -0.4,
   },
-  headerSubtitle: {
+  liveTagBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  liveTagText: {
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  heroHeaderSubtitle: {
     fontSize: TYPOGRAPHY.size.xs,
-    marginTop: 2,
     fontWeight: '500',
   },
   headerButtons: {

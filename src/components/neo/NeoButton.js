@@ -149,6 +149,9 @@ export const NeoButton = ({
   const vStyle = getVariantStyles();
   const sStyle = getSizeStyles();
 
+  const resolvedIconName = iconName || (typeof icon === 'string' ? icon : null);
+  const resolvedRightIconName = rightIconName || (typeof rightIcon === 'string' ? rightIcon : null);
+
   return (
     <Pressable
       onPress={onPress}
@@ -172,27 +175,27 @@ export const NeoButton = ({
           <ActivityIndicator color={vStyle.text.color} size="small" style={styles.loader} />
         ) : (
           <>
-            {iconName ? (
+            {resolvedIconName ? (
               <View style={styles.iconLeft}>
-                <Ionicons name={iconName} size={sStyle.iconSize} color={vStyle.iconColor} />
+                <Ionicons name={resolvedIconName} size={sStyle.iconSize} color={vStyle.iconColor} />
               </View>
-            ) : icon ? (
+            ) : icon && typeof icon !== 'string' ? (
               <View style={styles.iconLeft}>{icon}</View>
             ) : null}
 
             {title ? (
-              <Text style={[styles.text, vStyle.text, sStyle.text, textStyle]}>
+              <Text style={[styles.text, vStyle.text, sStyle.text, textStyle]} numberOfLines={1}>
                 {title}
               </Text>
             ) : (
               children
             )}
 
-            {rightIconName ? (
+            {resolvedRightIconName ? (
               <View style={styles.iconRight}>
-                <Ionicons name={rightIconName} size={sStyle.iconSize} color={vStyle.iconColor} />
+                <Ionicons name={resolvedRightIconName} size={sStyle.iconSize} color={vStyle.iconColor} />
               </View>
-            ) : rightIcon ? (
+            ) : rightIcon && typeof rightIcon !== 'string' ? (
               <View style={styles.iconRight}>{rightIcon}</View>
             ) : null}
           </>

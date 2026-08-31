@@ -27,6 +27,7 @@ export const NeoModal = ({
   children,
   headerRight,
   footer,
+  overlay,
   maxHeight = '88%',
   width = '92%',
 }) => {
@@ -164,6 +165,9 @@ export const NeoModal = ({
               {footer}
             </View>
           )}
+
+          {/* In-Modal Overlay / Sub-dialog */}
+          {overlay}
         </View>
       </KeyboardAvoidingView>
     </Modal>
@@ -236,11 +240,11 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.92 }],
   },
   body: {
-    flexGrow: 0,
+    flexShrink: 1,
   },
   bodyContent: {
     padding: 16,
-    paddingBottom: 32,
+    paddingBottom: 24,
   },
   footer: {
     padding: 14,

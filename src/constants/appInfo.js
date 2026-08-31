@@ -5,20 +5,58 @@ import packageJson from '../../package.json';
  */
 export const APP_INFO = {
   name: 'DalAy',
-  fullName: 'DalAy (Daily Ayah)',
+  fullName: 'DalAy (Daily Ayah & Finance)',
   slug: 'dalay',
-  version: packageJson.version || '2.0.0',
-  buildLabel: 'Multi Wallet',
-  tagline: 'Daily Quran Reminder & Smart Finance Tracker',
+  version: packageJson.version || '3.0.0',
+  buildLabel: 'AI Vision & Multi-Wallet',
+  tagline: 'Quran Reminder & Smart Finance',
 
-  /**
-   * Helper to format localized version text badge
-   * @param {boolean} isIndonesian
-   * @returns {string} e.g. "Versi 2.0.0 • Multi Wallet"
-   */
+  features: [
+    {
+      id: 'ai_vision_receipt',
+      titleId: 'Scan Struk AI 3.6',
+      titleEn: 'AI Receipt Scanner 3.6',
+      descId: 'Ekstrak total & rincian instan.',
+      descEn: 'Instant total & item extraction.',
+      icon: 'sparkles-outline',
+    },
+    {
+      id: 'bg_process_notif',
+      titleId: 'Background & Push Notif',
+      titleEn: 'Background & Push Notif',
+      descId: 'Proses di latar belakang & HP.',
+      descEn: 'Background processing & alerts.',
+      icon: 'notifications-outline',
+    },
+    {
+      id: 'slick_category_modal',
+      titleId: 'Pop-Up Kategori',
+      titleEn: 'Category Pop-Up',
+      descId: 'Pilih & cari kategori cepat.',
+      descEn: 'Quick category search & select.',
+      icon: 'grid-outline',
+    },
+    {
+      id: 'multi_wallet',
+      titleId: 'Multi Dompet',
+      titleEn: 'Multi-Wallet',
+      descId: 'Kelola kas, bank & e-wallet.',
+      descEn: 'Manage cash, bank & e-wallets.',
+      icon: 'wallet-outline',
+    },
+    {
+      id: 'daily_quran',
+      titleId: 'Daily Ayah & Auto Boot',
+      titleEn: 'Daily Ayah & Auto Boot',
+      descId: 'Pengingat berkala otomatis HP.',
+      descEn: 'Auto restored Quran reminders.',
+      icon: 'book-outline',
+    },
+  ],
+
   getVersionBadgeText: (isIndonesian = true) => {
     const prefix = isIndonesian ? 'Versi' : 'Version';
-    return `${prefix} ${packageJson.version || '2.0.0'} • Multi Wallet`;
+    return `${prefix} ${packageJson.version || '3.0.0'} • Pro`;
   },
 };
 
