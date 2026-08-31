@@ -26,9 +26,23 @@ export const FinanceProvider = ({ children }) => {
       const raw = await AsyncStorage.getItem(STORAGE_KEY_TRANSACTIONS);
       if (raw) {
         const parsed = JSON.parse(raw);
-        // Filter out any legacy dummy samples
+        // Filter out any legacy dummy samples and auto-heal adjustment flags if missing
         const cleaned = Array.isArray(parsed)
-          ? parsed.filter((t) => t && !String(t.id).startsWith('tx_sample_'))
+          ? parsed
+              .filter((t) => t && !String(t.id).startsWith('tx_sample_'))
+              .map((t) => {
+                if (t && (t.type === 'adjustment' || t.categoryId === 'cat_adjustment')) {
+                  if (t.isIncrease === undefined && t.adjustmentDiff === undefined) {
+                    const isPositive = t.rawText ? t.rawText.includes('+') : false;
+                    return {
+                      ...t,
+                      isIncrease: isPositive,
+                      adjustmentDiff: isPositive ? (t.amount || 0) : -(t.amount || 0),
+                    };
+                  }
+                }
+                return t;
+              })
           : [];
         setTransactions(cleaned);
         await AsyncStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(cleaned));
@@ -86,6 +100,7 @@ export const FinanceProvider = ({ children }) => {
    */
   const addTransaction = async (txData) => {
     const newTx = {
+      ...txData,
       id: txData.id || `tx_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
       type: txData.type || 'expense',
       name: txData.name || 'Transaksi Baru',

@@ -26,10 +26,12 @@ const QUICK_AMOUNTS = [
 ];
 
 const ADMIN_FEES = [
-  { label: 'Gratis (Rp 0)', value: 0 },
-  { label: 'Rp 1.000', value: 1000 },
-  { label: 'Rp 2.500', value: 2500 },
-  { label: 'Rp 6.500', value: 6500 },
+  { label: '0k (Gratis)', value: 0 },
+  { label: '1k', value: 1000 },
+  { label: '2k', value: 2000 },
+  { label: '3k', value: 3000 },
+  { label: '6k', value: 6000 },
+  { label: '10k', value: 10000 },
 ];
 
 export const TransferModal = ({
@@ -173,27 +175,35 @@ export const TransferModal = ({
       maxHeight="92%"
       footer={
         <View style={styles.footerRow}>
-          <NeoButton
-            title={t('modal.cancel', 'Batal')}
-            variant="secondary"
+          <Pressable
             onPress={onClose}
-            style={styles.footerBtn}
-          />
-          <NeoButton
-            title={
-              isSubmitting
-                ? isIndonesian
-                  ? 'Memproses...'
-                  : 'Processing...'
-                : t('modal.confirmTransfer', 'Konfirmasi Transfer')
-            }
-            variant="primary"
-            onPress={handleConfirmTransfer}
-            disabled={!isValidAmount || isSameWallet || isSubmitting}
-            loading={isSubmitting}
-            iconName="swap-horizontal"
-            style={styles.footerBtn}
-          />
+            style={({ pressed }) => [
+              styles.cancelBtn,
+              { backgroundColor: colors.surfaceLight, borderColor: colors.border },
+              pressed && styles.pressed,
+            ]}
+          >
+            <Text style={[styles.cancelBtnText, { color: colors.textSecondary }]}>
+              {t('modal.cancel', 'Batal')}
+            </Text>
+          </Pressable>
+          <View style={styles.confirmBtnWrapper}>
+            <NeoButton
+              title={
+                isSubmitting
+                  ? isIndonesian
+                    ? 'Memproses...'
+                    : 'Processing...'
+                  : t('modal.confirmTransfer', 'Konfirmasi Transfer')
+              }
+              variant="primary"
+              onPress={handleConfirmTransfer}
+              disabled={!isValidAmount || isSameWallet || isSubmitting}
+              loading={isSubmitting}
+              iconName="swap-horizontal"
+              fullWidth
+            />
+          </View>
         </View>
       }
     >
@@ -772,9 +782,23 @@ const styles = StyleSheet.create({
   },
   footerRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
+    width: '100%',
   },
-  footerBtn: {
+  cancelBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  confirmBtnWrapper: {
     flex: 1,
   },
   pressed: {

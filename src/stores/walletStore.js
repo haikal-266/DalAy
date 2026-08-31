@@ -256,7 +256,9 @@ export const WalletProvider = ({ children }) => {
       .reduce((sum, t) => {
         if (t.adjustmentDiff !== undefined) return sum + t.adjustmentDiff;
         if (t.isIncrease !== undefined) return sum + (t.isIncrease ? (t.amount || 0) : -(t.amount || 0));
-        return sum + (t.type === 'income' ? (t.amount || 0) : -(t.amount || 0));
+        if (t.rawText?.includes('+')) return sum + (t.amount || 0);
+        if (t.rawText?.includes('-')) return sum - (t.amount || 0);
+        return sum + (t.isIncrease ? (t.amount || 0) : -(t.amount || 0));
       }, 0);
 
     return {

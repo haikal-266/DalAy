@@ -24,7 +24,7 @@ export const WalletCarousel = ({ onOpenManageWallets, onAddNewWallet, onOpenTran
     selectWallet,
     getWalletBalance,
   } = useWallet();
-  const { transactions, setWalletFilter } = useFinance();
+  const { transactions } = useFinance();
 
   const scrollViewRef = useRef(null);
 
@@ -73,12 +73,11 @@ export const WalletCarousel = ({ onOpenManageWallets, onAddNewWallet, onOpenTran
     const newIndex = Math.round(offsetX / windowWidth);
     if (newIndex >= 0 && newIndex < totalSlides && newIndex !== activeIndex) {
       setActiveIndex(newIndex);
-      // Auto-select wallet corresponding to this slide
+      // Auto-select wallet corresponding to this slide for default input context
       if (newIndex < wallets.length) {
         const targetWallet = wallets[newIndex];
         if (targetWallet) {
           selectWallet(targetWallet.id);
-          setWalletFilter(targetWallet.id);
         }
       }
     }
@@ -90,7 +89,6 @@ export const WalletCarousel = ({ onOpenManageWallets, onAddNewWallet, onOpenTran
       return;
     }
     selectWallet(id);
-    setWalletFilter(id);
     scrollToIndex(index, true);
   };
 

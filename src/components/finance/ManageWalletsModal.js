@@ -478,11 +478,6 @@ export const ManageWalletsModal = ({ visible, onClose, onToast, initialAddMode =
                     setBalanceDigits('');
                     return;
                   }
-                  if (val.includes('-')) {
-                    setIsNegative(true);
-                  } else if (val.includes('+')) {
-                    setIsNegative(false);
-                  }
                   const digits = val.replace(/\D/g, '');
                   setBalanceDigits(digits);
                 }}

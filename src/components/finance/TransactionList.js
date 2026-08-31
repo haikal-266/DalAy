@@ -1,10 +1,11 @@
-import React, { useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { TYPOGRAPHY } from '../../theme/typography';
 import { NeoCard } from '../neo/NeoCard';
 import { NeoInput } from '../neo/NeoInput';
 import { NeoSegmented } from '../neo/NeoSegmented';
+import { ConfirmModal } from '../neo/ConfirmModal';
 import { TransactionCard } from './TransactionCard';
 import { useTheme } from '../../stores/themeStore';
 import { useLanguage } from '../../stores/languageStore';
@@ -25,6 +26,18 @@ export const TransactionList = ({
 }) => {
   const { colors } = useTheme();
   const { t, isIndonesian } = useLanguage();
+  const [deleteTarget, setDeleteTarget] = useState(null);
+
+  const handleDeleteConfirm = useCallback(() => {
+    if (deleteTarget && onDelete) {
+      onDelete(deleteTarget.id);
+    }
+    setDeleteTarget(null);
+  }, [deleteTarget, onDelete]);
+
+  const handleDeleteRequest = useCallback((tx) => {
+    setDeleteTarget(tx);
+  }, []);
 
   // Group transactions by date
   const groupedTransactions = useMemo(() => {
@@ -241,7 +254,11 @@ export const TransactionList = ({
             <View key={group.dateKey} style={styles.groupWrapper}>
               {/* Date Section Header */}
               <View style={styles.dateHeader}>
-                <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>
+                <Text
+                  style={[styles.dateLabel, { color: colors.textSecondary }]}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
                   {group.label}
                 </Text>
                 <View style={styles.dateTotals}>
@@ -265,7 +282,7 @@ export const TransactionList = ({
                     key={tx.id}
                     transaction={tx}
                     onEdit={onEdit}
-                    onDelete={onDelete}
+                    onDelete={handleDeleteRequest}
                   />
                 ))}
               </View>
@@ -273,6 +290,24 @@ export const TransactionList = ({
           ))}
         </View>
       )}
+
+      {/* Global Shared Delete Confirmation Dialog for Entire List */}
+      <ConfirmModal
+        visible={Boolean(deleteTarget)}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDeleteConfirm}
+        title={isIndonesian ? 'Hapus Transaksi' : 'Delete Transaction'}
+        message={
+          deleteTarget
+            ? (isIndonesian
+              ? `Yakin ingin menghapus catatan "${deleteTarget.name}" (${formatRupiah(deleteTarget.amount)})?`
+              : `Are you sure you want to delete "${deleteTarget.name}" (${formatRupiah(deleteTarget.amount)})?`)
+            : ''
+        }
+        type="danger"
+        confirmText={t('modal.delete', 'Hapus')}
+        cancelText={t('modal.cancel', 'Batal')}
+      />
     </NeoCard>
   );
 };
@@ -324,39 +359,43 @@ const styles = StyleSheet.create({
     marginVertical: 14,
   },
   groupsContainer: {
-    gap: 16,
+    gap: 14,
   },
   groupWrapper: {
-    marginBottom: 4,
+    marginBottom: 2,
   },
   dateHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 4,
-    paddingHorizontal: 2,
+    paddingHorizontal: 4,
     marginBottom: 6,
   },
   dateLabel: {
-    fontSize: 11,
+    flex: 1,
+    flexShrink: 1,
+    marginRight: 8,
+    fontSize: 12,
     fontWeight: '800',
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
   dateTotals: {
+    flexShrink: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   groupIncome: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   groupExpense: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   cardsList: {
-    gap: 6,
+    gap: 2,
   },
   emptyState: {
     padding: 24,

@@ -516,98 +516,107 @@ export const FinanceScreen = () => {
       </ScrollView>
 
       {/* Manual Input / Edit Modal */}
-      <ManualTransactionModal
-        visible={manualModalVisible}
-        onClose={() => {
-          setManualModalVisible(false);
-          setEditingTransaction(null);
-        }}
-        onSave={handleSaveManual}
-        initialTransaction={editingTransaction}
-        initialData={editingTransaction}
-        defaultDate={selectedInputDate}
-      />
+      {manualModalVisible && (
+        <ManualTransactionModal
+          visible={manualModalVisible}
+          onClose={() => {
+            setManualModalVisible(false);
+            setEditingTransaction(null);
+          }}
+          onSave={handleSaveManual}
+          initialTransaction={editingTransaction}
+          initialData={editingTransaction}
+          defaultDate={selectedInputDate}
+        />
+      )}
 
       {/* Export to Excel Modal */}
-      {/* Export to Excel Modal */}
-      <ExportModal
-        visible={exportModalVisible}
-        onClose={() => setExportModalVisible(false)}
-        onSuccess={(fileName) => {
-          showSyncToast(
-            isIndonesian ? `Rekap ${fileName} siap dibagikan` : `Exported ${fileName}`,
-            'document-text-outline'
-          );
-          setModalAlert({
-            title: isIndonesian ? 'Ekspor Berhasil' : 'Export Successful',
-            message: isIndonesian
-              ? `Laporan Excel (${fileName}) telah selesai dibuat dan siap disimpan atau dibagikan.`
-              : `Excel report (${fileName}) is ready to download or share.`,
-            type: 'success',
-            iconName: 'document-text-outline',
-            confirmText: isIndonesian ? 'Selesai' : 'Done',
-          });
-        }}
-        onError={(err) => {
-          setModalAlert({
-            title: isIndonesian ? 'Gagal Ekspor' : 'Export Failed',
-            message: err,
-            type: 'danger',
-            confirmText: isIndonesian ? 'Tutup' : 'Close',
-          });
-        }}
-        transactions={filteredTransactions}
-        summary={summary}
-        periodLabel={getPeriodLabel()}
-      />
+      {exportModalVisible && (
+        <ExportModal
+          visible={exportModalVisible}
+          onClose={() => setExportModalVisible(false)}
+          onSuccess={(fileName) => {
+            showSyncToast(
+              isIndonesian ? `Rekap ${fileName} siap dibagikan` : `Exported ${fileName}`,
+              'document-text-outline'
+            );
+            setModalAlert({
+              title: isIndonesian ? 'Ekspor Berhasil' : 'Export Successful',
+              message: isIndonesian
+                ? `Laporan Excel (${fileName}) telah selesai dibuat dan siap disimpan atau dibagikan.`
+                : `Excel report (${fileName}) is ready to download or share.`,
+              type: 'success',
+              iconName: 'document-text-outline',
+              confirmText: isIndonesian ? 'Selesai' : 'Done',
+            });
+          }}
+          onError={(err) => {
+            setModalAlert({
+              title: isIndonesian ? 'Gagal Ekspor' : 'Export Failed',
+              message: err,
+              type: 'danger',
+              confirmText: isIndonesian ? 'Tutup' : 'Close',
+            });
+          }}
+          transactions={filteredTransactions}
+          summary={summary}
+          periodLabel={getPeriodLabel()}
+        />
+      )}
 
       {/* Import from Excel / CSV Modal */}
-      <ImportModal
-        visible={importModalVisible}
-        onClose={() => setImportModalVisible(false)}
-        onSuccess={(count) => {
-          showSyncToast(
-            isIndonesian
-              ? `Berhasil mengimpor ${count} transaksi`
-              : `Successfully imported ${count} transactions`,
-            'cloud-download-outline'
-          );
-          setModalAlert({
-            title: isIndonesian ? 'Impor Berhasil' : 'Import Successful',
-            message: isIndonesian
-              ? `Berhasil memasukkan ${count} catatan transaksi ke dalam pembukuan Anda.`
-              : `Successfully imported ${count} transaction records into your financial bookkeeping.`,
-            type: 'success',
-            iconName: 'cloud-download-outline',
-            confirmText: isIndonesian ? 'Selesai' : 'Done',
-          });
-        }}
-        onError={(err) => {
-          setModalAlert({
-            title: isIndonesian ? 'Gagal Mengimpor Data' : 'Import Failed',
-            message: err,
-            type: 'danger',
-            confirmText: isIndonesian ? 'Tutup' : 'Close',
-          });
-        }}
-      />
+      {importModalVisible && (
+        <ImportModal
+          visible={importModalVisible}
+          onClose={() => setImportModalVisible(false)}
+          onSuccess={(count) => {
+            showSyncToast(
+              isIndonesian
+                ? `Berhasil mengimpor ${count} transaksi`
+                : `Successfully imported ${count} transactions`,
+              'cloud-download-outline'
+            );
+            setModalAlert({
+              title: isIndonesian ? 'Impor Berhasil' : 'Import Successful',
+              message: isIndonesian
+                ? `Berhasil memasukkan ${count} catatan transaksi ke dalam pembukuan Anda.`
+                : `Successfully imported ${count} transaction records into your financial bookkeeping.`,
+              type: 'success',
+              iconName: 'cloud-download-outline',
+              confirmText: isIndonesian ? 'Selesai' : 'Done',
+            });
+          }}
+          onError={(err) => {
+            setModalAlert({
+              title: isIndonesian ? 'Gagal Mengimpor Data' : 'Import Failed',
+              message: err,
+              type: 'danger',
+              confirmText: isIndonesian ? 'Tutup' : 'Close',
+            });
+          }}
+        />
+      )}
 
       {/* Manage Custom Wallets Modal */}
-      <ManageWalletsModal
-        visible={manageWalletsVisible}
-        onClose={() => setManageWalletsVisible(false)}
-        onToast={showSyncToast}
-        initialAddMode={initialWalletAddMode}
-      />
+      {manageWalletsVisible && (
+        <ManageWalletsModal
+          visible={manageWalletsVisible}
+          onClose={() => setManageWalletsVisible(false)}
+          onToast={showSyncToast}
+          initialAddMode={initialWalletAddMode}
+        />
+      )}
 
       {/* Transfer Between Wallets Modal */}
-      <TransferModal
-        visible={transferModalVisible}
-        onClose={() => setTransferModalVisible(false)}
-        onSuccess={(msg) => {
-          showSyncToast(msg, 'swap-horizontal');
-        }}
-      />
+      {transferModalVisible && (
+        <TransferModal
+          visible={transferModalVisible}
+          onClose={() => setTransferModalVisible(false)}
+          onSuccess={(msg) => {
+            showSyncToast(msg, 'swap-horizontal');
+          }}
+        />
+      )}
 
       {/* Custom Neo Notification / Alert Modal */}
       {modalAlert && (

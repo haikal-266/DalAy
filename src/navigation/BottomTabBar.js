@@ -1,8 +1,95 @@
-import React from 'react';
-import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
+import React, { useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, Pressable, Platform, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../stores/themeStore';
 import { useLanguage } from '../stores/languageStore';
+
+const TabButton = ({ tab, isActive, onPress, colors }) => {
+  const scaleAnim = useRef(new Animated.Value(isActive ? 1 : 0.95)).current;
+  const pillAnim = useRef(new Animated.Value(isActive ? 1 : 0)).current;
+
+  useEffect(() => {
+    if (isActive) {
+      Animated.parallel([
+        Animated.sequence([
+          Animated.timing(scaleAnim, {
+            toValue: 1.14,
+            duration: 110,
+            useNativeDriver: true,
+          }),
+          Animated.spring(scaleAnim, {
+            toValue: 1,
+            friction: 5,
+            tension: 100,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.timing(pillAnim, {
+          toValue: 1,
+          duration: 160,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pillAnim, {
+          toValue: 0,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [isActive, scaleAnim, pillAnim]);
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.tabItem,
+        pressed && styles.tabItemPressed,
+      ]}
+      accessibilityRole="button"
+      accessibilityState={{ selected: isActive }}
+      accessibilityLabel={tab.label}
+    >
+      {/* Sleek Capsule Badge around the Icon */}
+      <Animated.View
+        style={[
+          styles.iconCapsule,
+          {
+            backgroundColor: isActive ? `${tab.activeColor}1A` : 'transparent',
+            borderColor: isActive ? `${tab.activeColor}35` : 'transparent',
+            transform: [{ scale: scaleAnim }],
+          },
+        ]}
+      >
+        <Ionicons
+          name={isActive ? tab.iconActive : tab.iconInactive}
+          size={20}
+          color={isActive ? tab.activeColor : colors.textMuted}
+        />
+      </Animated.View>
+
+      {/* Tab Label */}
+      <Text
+        style={[
+          styles.tabLabel,
+          isActive
+            ? [styles.activeTabLabel, { color: tab.activeColor }]
+            : [styles.inactiveTabLabel, { color: colors.textMuted }],
+        ]}
+        numberOfLines={1}
+      >
+        {tab.label}
+      </Text>
+    </Pressable>
+  );
+};
 
 export const BottomTabBar = ({ activeTab, onTabPress }) => {
   const { colors } = useTheme();
@@ -38,42 +125,20 @@ export const BottomTabBar = ({ activeTab, onTabPress }) => {
         styles.wrapper,
         {
           backgroundColor: colors.surface,
-          borderTopColor: colors.border,
+          borderTopColor: colors.borderLight,
         },
       ]}
     >
       <View style={styles.container}>
-        {tabs.map((tab) => {
-          const isActive = activeTab === tab.id;
-
-          return (
-            <Pressable
-              key={tab.id}
-              onPress={() => onTabPress(tab.id)}
-              style={({ pressed }) => [
-                styles.tabItem,
-                pressed && styles.tabItemPressed,
-              ]}
-            >
-              <Ionicons
-                name={isActive ? tab.iconActive : tab.iconInactive}
-                size={23}
-                color={isActive ? tab.activeColor : colors.textMuted}
-                style={styles.icon}
-              />
-              <Text
-                style={[
-                  styles.tabLabel,
-                  isActive
-                    ? [styles.activeTabLabel, { color: tab.activeColor }]
-                    : [styles.inactiveTabLabel, { color: colors.textMuted }],
-                ]}
-              >
-                {tab.label}
-              </Text>
-            </Pressable>
-          );
-        })}
+        {tabs.map((tab) => (
+          <TabButton
+            key={tab.id}
+            tab={tab}
+            isActive={activeTab === tab.id}
+            onPress={() => onTabPress(tab.id)}
+            colors={colors}
+          />
+        ))}
       </View>
     </View>
   );
@@ -82,14 +147,14 @@ export const BottomTabBar = ({ activeTab, onTabPress }) => {
 const styles = StyleSheet.create({
   wrapper: {
     borderTopWidth: 1,
-    paddingTop: 8,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 8,
+    paddingTop: 5,
+    paddingBottom: Platform.OS === 'ios' ? 22 : 6,
     paddingHorizontal: 16,
     shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 8,
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 6,
   },
   container: {
     flexDirection: 'row',
@@ -98,19 +163,26 @@ const styles = StyleSheet.create({
   },
   tabItem: {
     flex: 1,
-    paddingVertical: 4,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 2,
+    minHeight: 46,
+  },
+  iconCapsule: {
+    width: 48,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 3,
   },
   tabItemPressed: {
     opacity: 0.7,
     transform: [{ scale: 0.94 }],
   },
-  icon: {
-    marginBottom: 4,
-  },
   tabLabel: {
-    fontSize: 11,
+    fontSize: 10.5,
     letterSpacing: 0.1,
   },
   activeTabLabel: {
