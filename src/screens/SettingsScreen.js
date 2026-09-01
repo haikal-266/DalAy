@@ -233,29 +233,6 @@ export const SettingsScreen = ({ onNavigateTab }) => {
               </View>
             </View>
           </View>
-
-          {/* Features List Section inside Profile Card */}
-          <View style={[styles.featureDivider, { backgroundColor: colors.borderLight }]} />
-          <Text style={[styles.featuresSectionTitle, { color: colors.text }]}>
-            {isIndonesian ? 'Fitur Versi 3.0.0:' : 'Version 3.0.0 Features:'}
-          </Text>
-          <View style={styles.featuresList}>
-            {APP_INFO.features.map((feat) => (
-              <View key={feat.id} style={styles.featureItemRow}>
-                <View style={[styles.featIconCircle, { backgroundColor: colors.primary + '15' }]}>
-                  <Ionicons name={feat.icon} size={15} color={colors.primary} />
-                </View>
-                <View style={styles.featTextCol}>
-                  <Text style={[styles.featTitle, { color: colors.text }]}>
-                    {isIndonesian ? feat.titleId : feat.titleEn}
-                  </Text>
-                  <Text style={[styles.featDesc, { color: colors.textSecondary }]}>
-                    {isIndonesian ? feat.descId : feat.descEn}
-                  </Text>
-                </View>
-              </View>
-            ))}
-          </View>
         </NeoCard>
 
         {/* Language Selector Section */}
@@ -818,44 +795,6 @@ const styles = StyleSheet.create({
   versionText: {
     fontSize: 10,
     fontWeight: '700',
-  },
-  featureDivider: {
-    height: 1,
-    width: '100%',
-    marginVertical: 12,
-  },
-  featuresSectionTitle: {
-    fontSize: 12,
-    fontWeight: '800',
-    marginBottom: 8,
-    letterSpacing: -0.2,
-  },
-  featuresList: {
-    gap: 8,
-  },
-  featureItemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  featIconCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  featTextCol: {
-    flex: 1,
-  },
-  featTitle: {
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  featDesc: {
-    fontSize: 10.5,
-    fontWeight: '500',
-    marginTop: 1,
   },
   sectionTitleRow: {
     flexDirection: 'row',

@@ -13,11 +13,13 @@ import { useLanguage } from '../../stores/languageStore';
 import { useWallet } from '../../stores/walletStore';
 import { useFinance } from '../../stores/financeStore';
 import { formatRupiah } from '../../utils/formatters';
+import { useSwipeNavigation } from '../../stores/swipeNavigationStore';
 
 export const WalletCarousel = ({ onOpenManageWallets, onAddNewWallet, onOpenTransfer }) => {
   const { colors, isDark } = useTheme();
   const { isIndonesian } = useLanguage();
   const { width: windowWidth } = useWindowDimensions();
+  const { setSwipeEnabled } = useSwipeNavigation();
   const {
     wallets,
     selectedWalletId,
@@ -155,7 +157,14 @@ export const WalletCarousel = ({ onOpenManageWallets, onAddNewWallet, onOpenTran
         horizontal
         pagingEnabled={true}
         showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={handleScrollEnd}
+        onTouchStart={() => setSwipeEnabled(false)}
+        onTouchEnd={() => setSwipeEnabled(true)}
+        onTouchCancel={() => setSwipeEnabled(true)}
+        onScrollBeginDrag={() => setSwipeEnabled(false)}
+        onMomentumScrollEnd={(e) => {
+          setSwipeEnabled(true);
+          handleScrollEnd(e);
+        }}
         decelerationRate="fast"
       >
         {/* Individual Wallet Slides */}

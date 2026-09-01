@@ -56,7 +56,7 @@ export const APP_INFO = {
 
   getVersionBadgeText: (isIndonesian = true) => {
     const prefix = isIndonesian ? 'Versi' : 'Version';
-    return `${prefix} ${packageJson.version || '3.0.0'} • Pro`;
+    return `${prefix} ${packageJson.version || '3.0.0'}`;
   },
 };
 

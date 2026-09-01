@@ -13,11 +13,13 @@ import { TYPOGRAPHY } from '../../theme/typography';
 import { NeoCard } from '../neo/NeoCard';
 import { useTheme } from '../../stores/themeStore';
 import { useLanguage } from '../../stores/languageStore';
+import { useSwipeNavigation } from '../../stores/swipeNavigationStore';
 import { PERAWI_LIST, fetchRandomHadith } from '../../services/hadisApi';
 
 export const RandomHadithCard = ({ onToast }) => {
   const { colors } = useTheme();
   const { isIndonesian } = useLanguage();
+  const { setSwipeEnabled } = useSwipeNavigation();
   const [selectedPerawi, setSelectedPerawi] = useState('all');
   const [hadith, setHadith] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -95,6 +97,11 @@ export const RandomHadithCard = ({ onToast }) => {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        onTouchStart={() => setSwipeEnabled(false)}
+        onTouchEnd={() => setSwipeEnabled(true)}
+        onTouchCancel={() => setSwipeEnabled(true)}
+        onScrollBeginDrag={() => setSwipeEnabled(false)}
+        onMomentumScrollEnd={() => setSwipeEnabled(true)}
         contentContainerStyle={styles.chipsScroll}
       >
         {PERAWI_LIST.map((p) => {

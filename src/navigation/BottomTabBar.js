@@ -5,46 +5,16 @@ import { useTheme } from '../stores/themeStore';
 import { useLanguage } from '../stores/languageStore';
 
 const TabButton = ({ tab, isActive, onPress, colors }) => {
-  const scaleAnim = useRef(new Animated.Value(isActive ? 1 : 0.95)).current;
-  const pillAnim = useRef(new Animated.Value(isActive ? 1 : 0)).current;
+  const scaleAnim = useRef(new Animated.Value(isActive ? 1 : 0.94)).current;
 
   useEffect(() => {
-    if (isActive) {
-      Animated.parallel([
-        Animated.sequence([
-          Animated.timing(scaleAnim, {
-            toValue: 1.14,
-            duration: 110,
-            useNativeDriver: true,
-          }),
-          Animated.spring(scaleAnim, {
-            toValue: 1,
-            friction: 5,
-            tension: 100,
-            useNativeDriver: true,
-          }),
-        ]),
-        Animated.timing(pillAnim, {
-          toValue: 1,
-          duration: 160,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } else {
-      Animated.parallel([
-        Animated.timing(scaleAnim, {
-          toValue: 1,
-          duration: 100,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pillAnim, {
-          toValue: 0,
-          duration: 100,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
-  }, [isActive, scaleAnim, pillAnim]);
+    Animated.spring(scaleAnim, {
+      toValue: isActive ? 1.05 : 0.94,
+      tension: 300,
+      friction: 18,
+      useNativeDriver: true,
+    }).start();
+  }, [isActive, scaleAnim]);
 
   return (
     <Pressable

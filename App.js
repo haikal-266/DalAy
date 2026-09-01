@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, View, Text, Animated, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { StyleSheet, View, Animated, PanResponder, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { Ionicons } from '@expo/vector-icons';
 import { LanguageProvider, useLanguage } from './src/stores/languageStore';
 import { ThemeProvider, useTheme } from './src/stores/themeStore';
 import { QuranProvider, useQuran } from './src/stores/quranStore';
@@ -10,125 +9,127 @@ import { WalletProvider } from './src/stores/walletStore';
 import { FinanceProvider } from './src/stores/financeStore';
 import { SyncProvider } from './src/stores/syncStore';
 import { AiProvider } from './src/stores/aiStore';
+import { SwipeNavigationProvider, useSwipeNavigation } from './src/stores/swipeNavigationStore';
 import { QuranScreen } from './src/screens/QuranScreen';
 import { FinanceScreen } from './src/screens/FinanceScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { BottomTabBar } from './src/navigation/BottomTabBar';
 import { getNotificationModule, initNotificationSync } from './src/services/notificationService';
 
-// Modern Branded Screen Loading View (Replaces old page immediately)
-const ScreenLoadingView = ({ activeTab, colors, isIndonesian }) => {
-  const pulseAnim = useRef(new Animated.Value(0.9)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 120,
-      useNativeDriver: true,
-    }).start();
-
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.08,
-          duration: 450,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 0.9,
-          duration: 450,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-  }, [fadeAnim, pulseAnim]);
-
-  const getTabDetails = () => {
-    switch (activeTab) {
-      case 'finance':
-        return {
-          icon: 'wallet-outline',
-          color: colors.brandGold || '#D97706',
-          label: isIndonesian ? 'Memuat Keuangan...' : 'Loading Finance...',
-        };
-      case 'settings':
-        return {
-          icon: 'settings-outline',
-          color: colors.accent || '#2563EB',
-          label: isIndonesian ? 'Memuat Pengaturan...' : 'Loading Settings...',
-        };
-      case 'quran':
-      default:
-        return {
-          icon: 'book-outline',
-          color: colors.primary,
-          label: isIndonesian ? 'Memuat Al-Quran...' : 'Loading Quran...',
-        };
-    }
-  };
-
-  const { icon, color, label } = getTabDetails();
-
-  return (
-    <Animated.View
-      style={[
-        styles.screenLoaderContainer,
-        { backgroundColor: colors.background, opacity: fadeAnim },
-      ]}
-    >
-      {/* Glowing Pulsing Icon Circle */}
-      <Animated.View
-        style={[
-          styles.loaderIconCircle,
-          {
-            backgroundColor: `${color}18`,
-            borderColor: `${color}35`,
-            transform: [{ scale: pulseAnim }],
-          },
-        ]}
-      >
-        <Ionicons name={icon} size={34} color={color} />
-      </Animated.View>
-
-      {/* Loading Spinner & Label */}
-      <ActivityIndicator size="small" color={color} style={styles.loaderSpinner} />
-      <Text style={[styles.loaderText, { color: colors.textSecondary }]}>
-        {label}
-      </Text>
-    </Animated.View>
-  );
-};
+const TABS = ['quran', 'finance', 'settings'];
 
 const AppContent = () => {
   const [activeTab, setActiveTab] = useState('quran');
-  const [renderedTab, setRenderedTab] = useState('quran');
-  const [isLoading, setIsLoading] = useState(false);
+  const { width: windowWidth } = useWindowDimensions();
+  const [containerWidth, setContainerWidth] = useState(Math.min(windowWidth, 960));
 
   const { colors, isDark } = useTheme();
-  const { currentLanguage, isIndonesian, loading: langLoading } = useLanguage();
+  const { currentLanguage, loading: langLoading } = useLanguage();
   const { selectSpecificAyah } = useQuran();
+  const { swipeEnabledRef } = useSwipeNavigation();
 
-  const handleTabPress = (tabId) => {
-    if (tabId === activeTab) return;
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
 
-    // 1. Instant Active Tab Switch (0ms response, bottom bar highlights and animates immediately)
+  const containerWidthRef = useRef(containerWidth);
+  containerWidthRef.current = containerWidth;
+
+  const scrollX = useRef(new Animated.Value(0)).current;
+  const gestureStartScrollX = useRef(0);
+
+  const handleTabPress = useCallback((tabId) => {
+    const targetIndex = TABS.indexOf(tabId);
+    if (targetIndex === -1) return;
+
+    activeTabRef.current = tabId;
     setActiveTab(tabId);
 
-    // 2. Clear old screen immediately by triggering clean loading state
-    setIsLoading(true);
+    Animated.spring(scrollX, {
+      toValue: -targetIndex * containerWidthRef.current,
+      tension: 200,
+      friction: 20,
+      useNativeDriver: true,
+    }).start();
+  }, [scrollX]);
 
-    // 3. Mount destination screen cleanly on the very next frame
-    setTimeout(() => {
-      setRenderedTab(tabId);
-      setIsLoading(false);
-    }, 45);
-  };
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onStartShouldSetPanResponderCapture: () => false,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        if (swipeEnabledRef?.current === false) return false;
+        return (
+          Math.abs(gestureState.dx) > 12 &&
+          Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.6
+        );
+      },
+      onMoveShouldSetPanResponderCapture: () => false,
+      onPanResponderGrant: () => {
+        const currentIndex = TABS.indexOf(activeTabRef.current);
+        gestureStartScrollX.current = -currentIndex * containerWidthRef.current;
+      },
+      onPanResponderMove: (_, gestureState) => {
+        if (swipeEnabledRef?.current === false) return;
+
+        const currentIndex = TABS.indexOf(activeTabRef.current);
+        let dx = gestureState.dx;
+
+        // Resistensi saat ditarik di ujung kiri atau kanan layar
+        if ((currentIndex === 0 && dx > 0) || (currentIndex === TABS.length - 1 && dx < 0)) {
+          dx = dx * 0.25;
+        }
+
+        scrollX.setValue(gestureStartScrollX.current + dx);
+      },
+      onPanResponderTerminationRequest: () => true,
+      onPanResponderRelease: (_, gestureState) => {
+        const width = containerWidthRef.current || 1;
+        const currentIndex = TABS.indexOf(activeTabRef.current);
+
+        if (swipeEnabledRef?.current === false) {
+          scrollX.setValue(-currentIndex * width);
+          return;
+        }
+
+        const { dx, vx } = gestureState;
+        let targetIndex = currentIndex;
+
+        // Geser ke tab kanan (swipe kiri) jika jarak > 18% lebar layar atau flick cepat
+        if ((dx < -width * 0.18 || (dx < -20 && vx < -0.3)) && currentIndex < TABS.length - 1) {
+          targetIndex = currentIndex + 1;
+        }
+        // Geser ke tab kiri (swipe kanan) jika jarak > 18% lebar layar atau flick cepat
+        else if ((dx > width * 0.18 || (dx > 20 && vx > 0.3)) && currentIndex > 0) {
+          targetIndex = currentIndex - 1;
+        }
+
+        const targetTab = TABS[targetIndex];
+        activeTabRef.current = targetTab;
+        setActiveTab(targetTab);
+
+        Animated.spring(scrollX, {
+          toValue: -targetIndex * width,
+          tension: 220,
+          friction: 22,
+          useNativeDriver: true,
+        }).start();
+      },
+    })
+  ).current;
+
+  const onContainerLayout = useCallback((event) => {
+    const { width } = event.nativeEvent.layout;
+    if (width > 0 && Math.abs(width - containerWidth) > 1) {
+      setContainerWidth(width);
+      containerWidthRef.current = width;
+      const currentIndex = TABS.indexOf(activeTabRef.current);
+      scrollX.setValue(-currentIndex * width);
+    }
+  }, [containerWidth, scrollX]);
 
   useEffect(() => {
     if (langLoading) return;
 
-    // Purge any stale repeating alarms and top up fresh distinct reminders in active language
     initNotificationSync(currentLanguage);
 
     let subscription = null;
@@ -152,19 +153,7 @@ const AppContent = () => {
         subscription.remove();
       }
     };
-  }, [currentLanguage, langLoading, selectSpecificAyah]);
-
-  const renderActiveScreen = () => {
-    switch (renderedTab) {
-      case 'finance':
-        return <FinanceScreen onNavigateTab={handleTabPress} />;
-      case 'settings':
-        return <SettingsScreen onNavigateTab={handleTabPress} />;
-      case 'quran':
-      default:
-        return <QuranScreen onNavigateTab={handleTabPress} />;
-    }
-  };
+  }, [currentLanguage, langLoading, selectSpecificAyah, handleTabPress]);
 
   return (
     <View style={[styles.outerContainer, { backgroundColor: colors.background }]}>
@@ -177,17 +166,32 @@ const AppContent = () => {
           backgroundColor={colors.background}
         />
 
-        <View style={[styles.contentContainer, { backgroundColor: colors.background }]}>
-          {isLoading ? (
-            <ScreenLoadingView
-              activeTab={activeTab}
-              colors={colors}
-              isIndonesian={isIndonesian}
-            />
-          ) : (
-            renderActiveScreen()
-          )}
+        <View
+          style={[styles.contentContainer, { backgroundColor: colors.background }]}
+          onLayout={onContainerLayout}
+          {...panResponder.panHandlers}
+        >
+          <Animated.View
+            style={[
+              styles.screensRow,
+              {
+                width: containerWidth * 3,
+                transform: [{ translateX: scrollX }],
+              },
+            ]}
+          >
+            <View style={{ width: containerWidth, flex: 1 }}>
+              <QuranScreen onNavigateTab={handleTabPress} />
+            </View>
+            <View style={{ width: containerWidth, flex: 1 }}>
+              <FinanceScreen onNavigateTab={handleTabPress} />
+            </View>
+            <View style={{ width: containerWidth, flex: 1 }}>
+              <SettingsScreen onNavigateTab={handleTabPress} />
+            </View>
+          </Animated.View>
         </View>
+
         <BottomTabBar
           activeTab={activeTab}
           onTabPress={handleTabPress}
@@ -207,7 +211,9 @@ export default function App() {
               <WalletProvider>
                 <FinanceProvider>
                   <SyncProvider>
-                    <AppContent />
+                    <SwipeNavigationProvider>
+                      <AppContent />
+                    </SwipeNavigationProvider>
                   </SyncProvider>
                 </FinanceProvider>
               </WalletProvider>
@@ -232,28 +238,10 @@ const styles = StyleSheet.create({
   contentContainer: {
     flex: 1,
     position: 'relative',
+    overflow: 'hidden',
   },
-  screenLoaderContainer: {
+  screensRow: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingBottom: 40,
-  },
-  loaderIconCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 24,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  loaderSpinner: {
-    marginBottom: 8,
-  },
-  loaderText: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.2,
+    flexDirection: 'row',
   },
 });

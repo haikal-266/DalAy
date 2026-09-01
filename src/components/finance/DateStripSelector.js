@@ -10,6 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../stores/themeStore';
 import { useLanguage } from '../../stores/languageStore';
+import { useSwipeNavigation } from '../../stores/swipeNavigationStore';
 import { CalendarDatePickerModal } from './CalendarDatePickerModal';
 
 const DAYS_SHORT_ID = ['MIN', 'SEN', 'SEL', 'RAB', 'KAM', 'JUM', 'SAB'];
@@ -34,6 +35,7 @@ export const DateStripSelector = ({ selectedDate, onSelectDate }) => {
   const { colors } = useTheme();
   const { isIndonesian, t } = useLanguage();
   const { width: windowWidth } = useWindowDimensions();
+  const { setSwipeEnabled } = useSwipeNavigation();
   const [calendarModalVisible, setCalendarModalVisible] = useState(false);
 
   const daysShort = isIndonesian ? DAYS_SHORT_ID : DAYS_SHORT_EN;
@@ -225,6 +227,11 @@ export const DateStripSelector = ({ selectedDate, onSelectDate }) => {
           horizontal
           pagingEnabled={true}
           showsHorizontalScrollIndicator={false}
+          onTouchStart={() => setSwipeEnabled(false)}
+          onTouchEnd={() => setSwipeEnabled(true)}
+          onTouchCancel={() => setSwipeEnabled(true)}
+          onScrollBeginDrag={() => setSwipeEnabled(false)}
+          onMomentumScrollEnd={() => setSwipeEnabled(true)}
           decelerationRate="fast"
           style={{ width: effectiveWidth }}
         >
