@@ -8,66 +8,80 @@
 ![Design](https://img.shields.io/badge/UI_Design-Neo--Brutalism-F59E0B?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)
 
-**Aplikasi Mobile Produktivitas Muslim & Manajemen Keuangan Pribadi dengan Desain Neo-Brutalist yang Modern, Bersih, dan Cepat.**
+**Aplikasi Mobile Produktivitas Muslim & Manajemen Keuangan Pribadi Berbasis AI dengan Desain Neo-Brutalism yang Modern, Responsif, dan Cepat.**
 
-[Fitur Utama](#fitur-utama) • [Instalasi Cepat](#langkah-cepat-setup--menjalankan) • [Cara Build APK](#cara-build-apk-release-hemat-ukuran--18-mb) • [Struktur Proyek](#struktur-folder)
+[Fitur Utama](#-fitur-utama) • [Tech Stack](#-tech-stack) • [Instalasi Cepat](#-langkah-cepat-setup--menjalankan) • [Cara Build APK](#-cara-build-apk-release-hemat-ukuran--18-mb) • [Struktur Folder](#-struktur-folder)
 
 </div>
 
 ---
 
-## Fitur Utama
+## 🌟 Fitur Utama
 
-### 1. Al-Quran & Spiritual (100% Offline)
-- **Akses Offline Lengkap:** 114 Surah (6.236 Ayat) lengkap dengan teks Arab (Rasm Utsmani), transliterasi Latin, dan terjemahan Bahasa Indonesia & Inggris.
-- **Tafsir Ringkas / Wajiz Kemenag RI:** Tafsir ringkas resmi dari Kementerian Agama RI dapat dibaca instan tanpa memerlukan kuota internet.
-- **Pemuatan On-Demand (*Lazy Loading*):** Setiap surah dimuat secara modular ke RAM (~150 KB), menjamin aplikasi sangat ringan dan efisien.
-- **Pemutar Murottal:** Audio streaming ayat per ayat (Syekh Misyari Rasyid Al-Afasi).
-- **Pengingat Harian & Notifikasi:** Pengingat bacaan ayat harian yang dijadwalkan langsung ke notification tray sistem Android/iOS.
-- **Hadits Pilihan & Penanda Favorit:** Kumpulan hadits shahih tematik dan fitur bookmark ayat favorit.
+### 1. 📖 Al-Quran & Spiritual (100% Offline)
+- **Akses Offline Penuh:** 114 Surah (6.236 Ayat) lengkap dengan teks Arab (Rasm Utsmani), transliterasi Latin, dan terjemahan resmi Bahasa Indonesia & Inggris.
+- **Tafsir Ringkas / Wajiz Kemenag RI:** Tafsir ringkas resmi dari Kementerian Agama RI dapat diakses instan tanpa membutuhkan kuota internet.
+- **Modular Lazy Loading:** Setiap surah dimuat secara modular on-demand (~150 KB per surah), menjaga konsumsi RAM tetap sangat ringan dan bebas lag.
+- **Pemutar Audio Murottal:** Streaming audio tilawah ayat per ayat dengan lantunan merdu Syekh Misyari Rasyid Al-Afasi.
+- **Pengingat Harian (Notification Service):** Pengingat bacaan ayat harian terjadwal langsung ke sistem notifikasi Android/iOS.
+- **Kumpulan Hadits Shahih:** Koleksi hadits pilihan tematik untuk inspirasi ibadah harian serta fitur penanda/bookmark ayat favorit.
 
-### 2. Keuangan Pribadi (Finance Manager)
-- **Smart Quick Input:** Deteksi otomatis pencatatan transaksi dari teks bebas (contoh: *"makan siang 25k, bensin 15rb"*).
-- **Multi-Wallet:** Kelola berbagai jenis dompet (Tunai, Rekening Bank, E-Wallet, atau Dompet Kustom).
-- **Transfer Antar Dompet:** Pindahkan saldo antar dompet/rekening secara fleksibel dengan live simulasi saldo dan opsi biaya admin.
-- **Filter Kategori & Kalender Carousel:** Navigasi tanggal per 5 hari dan penyaringan transaksi berdasarkan kategori pengeluaran/pemasukan.
-- **Export Laporan ke Excel (`.xlsx`):** Unduh riwayat keuangan ke format spreadsheet Excel untuk pembukuan lebih lanjut.
-- **Visual & Statistik:** Grafik ringkasan pengeluaran, persentase kategori, dan total kekayaan bersih.
+### 2. 💳 Keuangan Pribadi & AI Receipt Scanner
+- **AI Scan Struk Belanja (OCR & Gemini AI):** Pindai bukti nota/struk belanja fisik melalui kamera atau galeri foto. Sistem AI otomatis mengekstrak nama merchant, tanggal, total nominal, kategori, hingga rincian item belanja satuan (*itemized breakdown*).
+- **Smart Quick Input Bar:** Deteksi otomatis pencatatan transaksi dari teks bebas (contoh: *"makan siang 25k, bensin 15rb ke bca"*).
+- **Multi-Wallet & Rekening:** Kelola saldo tunai, rekening bank, e-wallet, atau dompet kustom dengan fitur penyesuaian saldo (*balance adjustment*) dan pencatatan riwayat audit.
+- **Transfer Antar Dompet:** Pindahkan saldo antar rekening/dompet dengan simulasi live saldo dan opsi biaya admin transaksi.
+- **Kategori Kustom & Icon Picker:** Buat kategori pengeluaran dan pemasukan sendiri dengan puluhan pilihan ikon vektor dan palet warna modern.
+- **Rincian Struk & Edit Interaktif:** Validasi item struk belanja, zoom foto bukti nota, dan ubah kategori transaksi langsung dengan satu ketukan (*interactive category badge*).
+- **Import & Export Excel (`.xlsx`):** Unduh pembukuan laporan keuangan ke spreadsheet Excel atau impor riwayat transaksi secara massal.
+- **Visual Donut Chart & Statistik:** Grafik donat interaktif per kategori pengeluaran dan pemasukan dengan rincian persentase dan total kekayaan bersih.
+- **Navigasi Tanggal 5-Hari (Date Strip):** Filter transaksi berdasarkan periode harian, mingguan, bulanan, atau rentang tanggal kustom.
 
-### 3. Tampilan & Pengalaman Pengguna (UX)
-- **Neo-Brutalism Style:** Estetika berkarakter dengan garis tepi kontras, bayangan tegas, dan tipografi modern.
-- **Dark Mode & Light Mode:** Mendukung tema gelap dan terang secara konsisten.
-- **Bilingual:** Dukungan penuh untuk Bahasa Indonesia dan Bahasa Inggris.
+### 3. ☁️ Cloud Sync & Google Drive Backup
+- **Pencadangan Google Drive:** Backup dan restore seluruh data transaksi keuangan, dompet, dan preferensi aplikasi secara aman ke akun Google Drive pribadi pengguna.
+- **Pengaturan API Key AI:** Opsi memasukkan Google Gemini API Key sendiri untuk pemindaian struk AI berkecepatan tinggi tanpa batasan.
 
----
-
-## Tech Stack
-
-- **Framework:** [React Native](https://reactnative.dev/) (v0.86) + [Expo](https://expo.dev/) (SDK 57)
-- **Language:** JavaScript (ESNext)
-- **State Management:** React Context API + [AsyncStorage](https://github.com/react-native-async-storage/async-storage)
-- **Data Persistence:** File JSON offline lokal (114 Surah Kemenag RI) + AsyncStorage
-- **Notification:** [expo-notifications](https://docs.expo.dev/versions/latest/sdk/notifications/) (Local notifications)
-- **Audio:** [expo-audio](https://docs.expo.dev/versions/latest/sdk/audio/)
-- **Spreadsheet Engine:** [xlsx](https://www.npmjs.com/package/xlsx)
-- **Vector Icons:** `@expo/vector-icons` (Ionicons)
+### 4. 🎨 Tampilan & Pengalaman Pengguna (UX)
+- **Neo-Brutalism Style:** Estetika berkarakter dengan batas kontras (*bold borders*), bayangan tegas (*hard shadows*), dan tipografi modern yang memanjakan mata.
+- **Swipe Navigation:** Navigasi horizontal antar layar utama (Al-Quran, Keuangan, dan Pengaturan) secara halus melalui gestur swipe.
+- **Dark Mode & Light Mode:** Tema visual konsisten untuk kenyamanan membaca di berbagai kondisi pencahayaan.
+- **Dukungan Bilingual:** Bahasa Indonesia dan Bahasa Inggris secara menyeluruh.
 
 ---
 
-## Langkah Cepat Setup & Menjalankan
+## 🛠️ Tech Stack
+
+| Komponen | Teknologi |
+|---|---|
+| **Framework** | [React Native](https://reactnative.dev/) (v0.86) + [Expo](https://expo.dev/) (SDK 57) |
+| **Language** | JavaScript (ESNext) |
+| **UI Design** | Neo-Brutalism Vanilla Styling + [react-native-svg](https://github.com/software-mansion/react-native-svg) |
+| **State Management** | React Context API + Custom Hooks (`useFinance`, `useWallet`, `useCategories`, `useQuran`, dll) |
+| **Storage Lokal** | [@react-native-async-storage/async-storage](https://github.com/react-native-async-storage/async-storage) |
+| **AI / OCR Service** | Google Gemini Vision API + Custom Regex Heuristics Parser |
+| **Cloud Sync** | Google Drive REST API v3 via `expo-auth-session` |
+| **Kamera & Gambar** | `expo-image-picker` & `expo-file-system` |
+| **Audio Player** | `expo-audio` |
+| **Notifikasi** | `expo-notifications` (Local System Notifications) |
+| **Spreadsheet Engine** | [xlsx](https://www.npmjs.com/package/xlsx) + `expo-sharing` & `expo-document-picker` |
+| **Ikon Vektor** | `@expo/vector-icons` (Ionicons, MaterialCommunityIcons, Feather) |
+
+---
+
+## 🚀 Langkah Cepat Setup & Menjalankan
 
 ### Prasyarat
 Pastikan komputer Anda sudah terinstal:
-- [Node.js](https://nodejs.org/) (Versi 18 LTS atau lebih baru)
+- [Node.js](https://nodejs.org/) (Versi 18 LTS atau 20 LTS disarankan)
 - Git
-- Ponsel Android dengan aplikasi **Expo Go** (download dari Google Play Store) atau Android Emulator.
+- Ponsel Android dengan aplikasi **Expo Go** atau Android Emulator
 
 ---
 
 ### 1. Clone Repository
 ```bash
-git clone https://github.com/username/dalay.git
-cd dalay
+git clone https://github.com/haikal-266/MY-APPS.git
+cd "MY APPS"
 ```
 
 ### 2. Install Dependencies
@@ -91,75 +105,78 @@ npx expo start
 
 ---
 
-## Cara Build APK Release (Hemat Ukuran ~18 MB)
+## 📦 Cara Build APK Release (Hemat Ukuran ~18 MB)
 
-Proyek ini telah dikonfigurasi dengan **R8 Code Minification**, **Resource Shrinker**, dan **ABI Splits**. Ukuran APK untuk smartphone modern adalah sekitar **15 – 19 MB** (bukan 70 MB fat APK).
+Proyek ini telah dikonfigurasi dengan optimasi **R8 Code Minification**, **Resource Shrinking**, dan **ABI Splits**, menghasilkan ukuran file APK sekitar **15 – 19 MB** (bukan 70+ MB fat bundle).
 
-### Langkah Build APK Standalone:
+### Langkah Build Standalone APK:
 
-1. Buka folder `android/`:
+1. Masuk ke direktori `android/`:
    ```bash
    cd android
    ```
 
-2. Jalankan perintah build Gradle:
+2. Jalankan perintah kompilasi Gradle:
+   - **Windows (PowerShell / CMD):**
+     ```powershell
+     .\gradlew assembleRelease
+     ```
    - **Linux / macOS:**
      ```bash
      ./gradlew assembleRelease
      ```
-   - **Windows (PowerShell / Command Prompt):**
-     ```bash
-     .\gradlew assembleRelease
-     ```
 
-3. Temukan file APK siap pakai di:
+3. File APK siap install berada di:
    ```
    android/app/build/outputs/apk/release/
    ```
-   - **`app-arm64-v8a-release.apk`** (**~18 MB**): Gunakan file ini untuk di-install ke 99% smartphone Android masa kini.
-   - **`app-universal-release.apk`**: Versi universal untuk seluruh arsitektur perangkat.
+   - **`app-arm64-v8a-release.apk`** (**~18 MB**): Direkomendasikan untuk 99% smartphone Android modern.
+   - **`app-armeabi-v7a-release.apk`**: Untuk perangkat Android 32-bit.
+   - **`app-universal-release.apk`**: Paket universal untuk seluruh jenis arsitektur.
 
 ---
 
-## Struktur Folder
+## 📁 Struktur Folder
 
 ```text
-├── android/                    # Konfigurasi native Android (Gradle, Proguard, Manifest)
-├── assets/                     # Ikon aplikasi, splash screen, dan gambar
-├── scripts/                    # Skrip utilitas developer (dataset generator)
+├── android/                    # Konfigurasi native Android (Gradle, Proguard, ABI splits)
+├── assets/                     # Ikon aplikasi, splash screen, dan aset visual
+├── scripts/                    # Skrip generator dataset Al-Quran Kemenag RI
 ├── src/
 │   ├── components/             # Komponen UI modular
-│   │   ├── finance/            # Komponen Keuangan (WalletCarousel, QuickInput, TransferModal, dll)
-│   │   ├── neo/                # Komponen Desain Neo-Brutalist (NeoCard, NeoButton, NeoModal)
-│   │   └── quran/              # Komponen Al-Quran (AyatCard, TafsirModal, ReminderModal, dll)
+│   │   ├── common/             # Komponen umum (CategoryIcon, CategoryPickerModal, dll)
+│   │   ├── finance/            # Modul keuangan (WalletCarousel, ReceiptReview, AddCategory, dll)
+│   │   ├── neo/                # Komponen dasar Neo-Brutalism (NeoCard, NeoButton, NeoModal, NeoInput)
+│   │   └── quran/              # Modul Al-Quran (AyatCard, TafsirModal, ReminderModal, HadisModal)
 │   ├── data/
 │   │   └── quran/
 │   │       ├── surahs/         # 114 File JSON Al-Quran Offline (Arab, Latin, Terjemahan, Tafsir)
-│   │       └── offlineQuran.js # Lazy Loader data Al-Quran
+│   │       └── offlineQuran.js # Modular on-demand lazy loader data surah
 │   ├── i18n/                   # Lokalisasi bahasa (ID & EN)
-│   ├── screens/                # Halaman utama aplikasi (QuranScreen & FinanceScreen)
-│   ├── services/               # Integrasi API & Notifikasi (quranApi, notificationService, exportExcel)
-│   ├── stores/                 # State management (quranStore, financeStore, themeStore, languageStore)
-│   ├── theme/                  # Konfigurasi tema warna & tipografi
-│   └── utils/                  # Data bantu & helper (surahData, currency)
-├── App.js                      # Root component & Navigation provider
-├── app.json                    # Konfigurasi Expo & App Metadata
-└── package.json                # Dependencies & script proyek
+│   ├── navigation/             # BottomTabBar kustom & swipe navigation
+│   ├── screens/                # Halaman utama (QuranScreen, FinanceScreen, SettingsScreen)
+│   ├── services/               # Integrasi eksternal (receiptScanner, excelExport, googleDriveSync, dll)
+│   ├── stores/                 # State management (financeStore, walletStore, categoryStore, syncStore, dll)
+│   ├── theme/                  # Konfigurasi token warna & tipografi Neo-Brutalist
+│   └── utils/                  # Helper fungsi & utilitas (categories, formatters, parser)
+├── App.js                      # Root component, Store Providers, & Navigation Setup
+├── app.json                    # Konfigurasi Expo SDK 57 & Android Metadata
+└── package.json                # Daftar dependencies & script runner
 ```
 
 ---
 
-## Kontribusi
+## 🤝 Kontribusi
 
-Kontribusi, laporan bug, dan saran fitur baru sangat terbuka:
+Kontribusi, laporan bug, dan ide fitur baru sangat diterima:
 1. Fork repository ini
-2. Buat branch fitur baru (`git checkout -b feature/NamaFitur`)
-3. Commit perubahan Anda (`git commit -m 'Menambahkan Fitur Baru'`)
-4. Push ke branch Anda (`git push origin feature/NamaFitur`)
-5. Ajukan **Pull Request**
+2. Buat branch fitur (`git checkout -b feature/FiturKeren`)
+3. Commit perubahan Anda (`git commit -m 'Menambahkan Fitur Keren'`)
+4. Push ke branch (`git push origin feature/FiturKeren`)
+5. Buat **Pull Request**
 
 ---
 
-## Lisensi
+## 📄 Lisensi
 
-Didistribusikan di bawah Lisensi MIT. Lihat file `LICENSE` untuk informasi selengkapnya.
+Didistribusikan di bawah Lisensi MIT. Lihat file `LICENSE` untuk rincian selengkapnya.

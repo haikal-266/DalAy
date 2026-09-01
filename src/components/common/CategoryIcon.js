@@ -13,15 +13,16 @@ export const CategoryIcon = ({
   borderRadius = 12,
   style,
 }) => {
+  const safeIconName = iconName || 'cube';
   const renderIcon = () => {
     switch (iconFamily) {
       case 'MaterialCommunityIcons':
-        return <MaterialCommunityIcons name={iconName} size={size} color={color} />;
+        return <MaterialCommunityIcons name={safeIconName} size={size} color={color} />;
       case 'Feather':
-        return <Feather name={iconName} size={size} color={color} />;
+        return <Feather name={safeIconName} size={size} color={color} />;
       case 'Ionicons':
       default:
-        return <Ionicons name={iconName} size={size} color={color} />;
+        return <Ionicons name={safeIconName} size={size} color={color} />;
     }
   };
 

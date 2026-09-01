@@ -12,7 +12,7 @@ import { useTheme } from '../../stores/themeStore';
 import { useLanguage } from '../../stores/languageStore';
 import { useWallet } from '../../stores/walletStore';
 import { useCategories } from '../../stores/categoryStore';
-import { detectCategory } from '../../utils/categories';
+import { detectCategory, EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../../utils/categories';
 import { formatRupiah } from '../../utils/formatters';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -27,7 +27,7 @@ export const ManualTransactionModal = ({
   const { colors } = useTheme();
   const { t, isIndonesian } = useLanguage();
   const { wallets, selectedWalletId } = useWallet();
-  const { expenseCategories, incomeCategories } = useCategories();
+  const { expenseCategories, incomeCategories, allCategories, getCategoryById } = useCategories();
   const [type, setType] = useState('expense');
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
@@ -45,9 +45,22 @@ export const ManualTransactionModal = ({
       setAmount(activeTx.amount ? formatRupiah(activeTx.amount, true) : '');
       const categories =
         activeTx.type === 'income' ? incomeCategories : expenseCategories;
-      const found = categories.find(
-        (c) => c.id === activeTx.categoryId || c.name.toLowerCase() === (activeTx.categoryName || '').toLowerCase()
-      );
+      const found =
+        categories.find(
+          (c) => c.id === activeTx.categoryId || c.name?.toLowerCase() === (activeTx.categoryName || '').toLowerCase()
+        ) ||
+        (allCategories && allCategories.find((c) => c.id === activeTx.categoryId)) ||
+        (getCategoryById && getCategoryById(activeTx.categoryId, activeTx.type || 'expense')) ||
+        (activeTx.categoryName
+          ? {
+              id: activeTx.categoryId || 'other',
+              name: activeTx.categoryName,
+              iconName: activeTx.iconName || 'cube',
+              iconFamily: activeTx.iconFamily || 'Ionicons',
+              color: activeTx.categoryColor || colors.primary,
+              bgColor: activeTx.categoryBgColor || (colors.primary + '18'),
+            }
+          : categories[0]);
       setSelectedCategory(found || categories[0]);
 
       const foundWallet = wallets.find((w) => w.id === activeTx.walletId);
@@ -55,7 +68,7 @@ export const ManualTransactionModal = ({
     } else if (visible && !activeTx) {
       resetForm();
     }
-  }, [activeTx, visible, expenseCategories, incomeCategories]);
+  }, [activeTx, visible, expenseCategories, incomeCategories, allCategories, wallets]);
 
   const resetForm = () => {
     setType('expense');
@@ -76,9 +89,11 @@ export const ManualTransactionModal = ({
 
   const handleNameChange = (text) => {
     setName(text);
-    const detected = detectCategory(text, type);
-    if (detected) {
-      setSelectedCategory(detected);
+    if (!activeTx) {
+      const detected = detectCategory(text, type);
+      if (detected) {
+        setSelectedCategory(detected);
+      }
     }
   };
 
@@ -115,11 +130,21 @@ export const ManualTransactionModal = ({
       return;
     }
 
-    const category =
-      selectedCategory ||
+    const activeCategoryList = type === 'income' ? incomeCategories : expenseCategories;
+    const fallbackCategory =
+      activeCategoryList[activeCategoryList.length - 1] ||
       (type === 'income'
         ? INCOME_CATEGORIES[INCOME_CATEGORIES.length - 1]
-        : EXPENSE_CATEGORIES[EXPENSE_CATEGORIES.length - 1]);
+        : EXPENSE_CATEGORIES[EXPENSE_CATEGORIES.length - 1]) || {
+        id: 'other',
+        name: 'Lain-lain',
+        iconName: 'cube',
+        iconFamily: 'Ionicons',
+        color: '#64748B',
+        bgColor: '#F1F5F9',
+      };
+
+    const category = selectedCategory || fallbackCategory;
 
     const txDate = activeTx
       ? activeTx.date
@@ -139,12 +164,12 @@ export const ManualTransactionModal = ({
       amount: cleanAmount,
       walletId: activeWallet?.id || 'wallet_cash',
       walletName: activeWallet?.name || 'Tunai',
-      categoryId: category.id,
-      categoryName: category.name,
-      iconName: category.iconName || 'cube',
+      categoryId: category.id || (type === 'income' ? 'cat_income_other' : 'other'),
+      categoryName: category.name || (isIndonesian ? 'Lain-lain' : 'Other'),
+      iconName: category.iconName || category.icon || 'cube',
       iconFamily: category.iconFamily || 'Ionicons',
-      categoryColor: category.color,
-      categoryBgColor: category.bgColor || '#F1F5F9',
+      categoryColor: category.color || (type === 'income' ? colors.income : colors.expense),
+      categoryBgColor: category.bgColor || (type === 'income' ? colors.incomeLight : colors.expenseLight) || '#F1F5F9',
       rawText: `${name} ${cleanAmount}`,
       date: txDate,
     };
@@ -172,7 +197,7 @@ export const ManualTransactionModal = ({
         footer={
           <NeoButton
             title={activeTx ? (isIndonesian ? 'Perbarui Catatan' : 'Update Record') : t('modal.saveRecordBtn', 'Simpan Catatan')}
-            variant={type === 'expense' ? 'expense' : 'income'}
+            variant="primary"
             onPress={handleSubmit}
             fullWidth
           />
@@ -321,8 +346,11 @@ export const ManualTransactionModal = ({
             onClose={() => setIsCategoryModalOpen(false)}
             selectedCategoryId={selectedCategory?.id}
             onSelectCategory={(catId) => {
-              const categories = type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
-              const found = categories.find((c) => c.id === catId);
+              const categories = type === 'income' ? incomeCategories : expenseCategories;
+              const found =
+                categories.find((c) => c.id === catId) ||
+                (allCategories && allCategories.find((c) => c.id === catId)) ||
+                (getCategoryById && getCategoryById(catId, type));
               if (found) setSelectedCategory(found);
             }}
             typeFilter={type}

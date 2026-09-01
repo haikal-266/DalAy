@@ -58,12 +58,20 @@ export const CategoryPickerModal = ({
   }, [visible, typeFilter]);
 
   const toggleExpenseAccordion = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    try {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    } catch {
+      // safe fallback
+    }
     setIsExpenseOpen((prev) => !prev);
   };
 
   const toggleIncomeAccordion = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    try {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    } catch {
+      // safe fallback
+    }
     setIsIncomeOpen((prev) => !prev);
   };
 
@@ -551,8 +559,8 @@ export const CategoryPickerModal = ({
                         style={({ pressed }) => [
                           styles.addCategoryBtn,
                           {
-                            borderColor: (colors.expense || '#EF4444') + '40',
-                            backgroundColor: (colors.expense || '#EF4444') + '08',
+                            borderColor: (colors.primary || '#0D9488') + '40',
+                            backgroundColor: (colors.primary || '#0D9488') + '08',
                           },
                           pressed && styles.pressed,
                         ]}
@@ -560,12 +568,12 @@ export const CategoryPickerModal = ({
                         <View
                           style={[
                             styles.addCatIconBg,
-                            { backgroundColor: (colors.expense || '#EF4444') + '20' },
+                            { backgroundColor: (colors.primary || '#0D9488') + '20' },
                           ]}
                         >
-                          <Ionicons name="add" size={15} color={colors.expense || '#EF4444'} />
+                          <Ionicons name="add" size={15} color={colors.primary || '#0D9488'} />
                         </View>
-                        <Text style={[styles.addCatBtnText, { color: colors.expense || '#EF4444' }]}>
+                        <Text style={[styles.addCatBtnText, { color: colors.primary || '#0D9488' }]}>
                           {isIndonesian ? '+ Tambah Kategori Pengeluaran' : '+ Add Expense Category'}
                         </Text>
                       </Pressable>

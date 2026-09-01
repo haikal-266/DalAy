@@ -67,7 +67,7 @@ export const QuickWalletSelectModal = ({
           <NeoButton
             title={`${t('modal.saveToWallet', 'Simpan ke')} ${selectedWallet?.name ? selectedWallet.name.split(' ')[0] : (isIndonesian ? 'Dompet' : 'Wallet')}`}
             iconName="checkmark-circle"
-            variant={isExpense ? 'expense' : 'income'}
+            variant="primary"
             onPress={handleConfirm}
             style={styles.confirmBtn}
           />

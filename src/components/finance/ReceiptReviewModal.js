@@ -35,7 +35,7 @@ export const ReceiptReviewModal = ({
   const { t, isIndonesian } = useLanguage();
   const { wallets, getWalletBalance } = useWallet();
   const { transactions } = useFinance();
-  const { expenseCategories } = useCategories();
+  const { expenseCategories, allCategories, getCategoryById } = useCategories();
 
   const [merchant, setMerchant] = useState('');
   const [amount, setAmount] = useState('');
@@ -345,7 +345,10 @@ export const ReceiptReviewModal = ({
               onClose={() => setIsCategoryModalOpen(false)}
               selectedCategoryId={selectedCategory?.id}
               onSelectCategory={(catId) => {
-                const found = expenseCategories.find((c) => c.id === catId);
+                const found =
+                  expenseCategories.find((c) => c.id === catId) ||
+                  allCategories?.find((c) => c.id === catId) ||
+                  (getCategoryById && getCategoryById(catId, 'expense'));
                 if (found) setSelectedCategory(found);
               }}
               typeFilter="expense"

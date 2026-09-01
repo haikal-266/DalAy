@@ -473,7 +473,7 @@ export const AddCategoryModal = ({
                 disabled={isSaving}
                 style={[
                   styles.saveBtn,
-                  { backgroundColor: selectedColor || colors.primary },
+                  { backgroundColor: colors.primary },
                   isSaving && { opacity: 0.7 },
                 ]}
               >

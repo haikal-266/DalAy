@@ -133,7 +133,7 @@ export const ConfirmModal = ({
           <View style={styles.buttonWrapper}>
             <NeoButton
               title={resolvedConfirmText}
-              variant={config.btnVariant}
+              variant={isSingleButton ? 'primary' : config.btnVariant}
               size="md"
               loading={loading}
               onPress={handleConfirm}

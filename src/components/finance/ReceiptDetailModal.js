@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,8 +11,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { NeoModal } from '../neo/NeoModal';
 import { NeoButton } from '../neo/NeoButton';
 import { CategoryIcon } from '../common/CategoryIcon';
+import { CategoryPickerModal } from '../common/CategoryPickerModal';
 import { useTheme } from '../../stores/themeStore';
 import { useLanguage } from '../../stores/languageStore';
+import { useFinance } from '../../stores/financeStore';
+import { useCategories } from '../../stores/categoryStore';
 import { formatRupiah, formatDateIndo, formatTimeIndo } from '../../utils/formatters';
 
 export const ReceiptDetailModal = ({
@@ -24,25 +27,60 @@ export const ReceiptDetailModal = ({
 }) => {
   const { colors } = useTheme();
   const { isIndonesian } = useLanguage();
+  const { updateTransaction } = useFinance();
+  const { expenseCategories, incomeCategories, allCategories, getCategoryById } = useCategories();
+
+  const [currentTx, setCurrentTx] = useState(transaction);
   const [previewImageVisible, setPreviewImageVisible] = useState(false);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 
-  if (!transaction) return null;
+  useEffect(() => {
+    if (transaction) {
+      setCurrentTx(transaction);
+    }
+  }, [transaction]);
 
-  const items = Array.isArray(transaction.items) ? transaction.items : [];
+  if (!currentTx) return null;
+
+  const items = Array.isArray(currentTx.items) ? currentTx.items : [];
   const hasItems = items.length > 0;
-  const imageUri = transaction.receiptUri;
+  const imageUri = currentTx.receiptUri;
+
+  const handleSelectCategory = async (catId) => {
+    const categories = currentTx.type === 'income' ? incomeCategories : expenseCategories;
+    const found =
+      categories.find((c) => c.id === catId) ||
+      allCategories?.find((c) => c.id === catId) ||
+      (getCategoryById && getCategoryById(catId, currentTx.type || 'expense'));
+    if (!found) return;
+
+    const updatedFields = {
+      categoryId: found.id,
+      categoryName: found.name,
+      categoryColor: found.color,
+      categoryBgColor: found.bgColor || `${found.color}20`,
+      iconName: found.iconName || found.icon || 'cube',
+      iconFamily: found.iconFamily || 'Ionicons',
+    };
+
+    const newTx = { ...currentTx, ...updatedFields };
+    setCurrentTx(newTx);
+    if (updateTransaction && currentTx.id) {
+      await updateTransaction(currentTx.id, updatedFields);
+    }
+  };
 
   const handleEditPress = () => {
     onClose();
     if (typeof onEdit === 'function') {
-      onEdit(transaction);
+      onEdit(currentTx);
     }
   };
 
   const handleDeletePress = () => {
     onClose();
     if (typeof onDelete === 'function') {
-      onDelete(transaction);
+      onDelete(currentTx);
     }
   };
 
@@ -93,20 +131,20 @@ export const ReceiptDetailModal = ({
           <View style={[styles.overviewCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={styles.merchantHeaderRow}>
               <CategoryIcon
-                iconName={transaction.iconName || 'receipt'}
-                iconFamily={transaction.iconFamily || 'Ionicons'}
-                color={transaction.categoryColor || colors.primary}
-                bgColor={transaction.categoryBgColor || (colors.primary + '15')}
+                iconName={currentTx.iconName || 'receipt'}
+                iconFamily={currentTx.iconFamily || 'Ionicons'}
+                color={currentTx.categoryColor || colors.primary}
+                bgColor={currentTx.categoryBgColor || (colors.primary + '15')}
                 size={22}
                 containerSize={44}
                 borderRadius={12}
               />
               <View style={styles.merchantTextCol}>
                 <Text style={[styles.merchantName, { color: colors.text }]} numberOfLines={1}>
-                  {transaction.name || 'Struk Belanja'}
+                  {currentTx.name || 'Struk Belanja'}
                 </Text>
                 <Text style={[styles.transactionDate, { color: colors.textSecondary }]}>
-                  {formatDateIndo(transaction.date, true)} • {formatTimeIndo(transaction.date)}
+                  {formatDateIndo(currentTx.date, true)} • {formatTimeIndo(currentTx.date)}
                 </Text>
               </View>
             </View>
@@ -119,27 +157,57 @@ export const ReceiptDetailModal = ({
                 {isIndonesian ? 'TOTAL AKHIR' : 'GRAND TOTAL'}
               </Text>
               <Text style={[styles.totalAmount, { color: colors.expense || '#EF4444' }]}>
-                -{formatRupiah(transaction.amount)}
+                -{formatRupiah(currentTx.amount)}
               </Text>
             </View>
 
             {/* Wallet & Category Badges */}
             <View style={styles.metaBadgesRow}>
-              {Boolean(transaction.walletName) && (
+              {Boolean(currentTx.walletName) && (
                 <View style={[styles.metaBadge, { backgroundColor: colors.surfaceLight, borderColor: colors.borderLight }]}>
                   <Ionicons name="wallet-outline" size={12} color={colors.primary} />
                   <Text style={[styles.metaBadgeText, { color: colors.primary }]}>
-                    {transaction.walletName}
+                    {currentTx.walletName}
                   </Text>
                 </View>
               )}
-              {Boolean(transaction.categoryName) && (
-                <View style={[styles.metaBadge, { backgroundColor: colors.surfaceLight, borderColor: colors.borderLight }]}>
-                  <Text style={[styles.metaBadgeText, { color: colors.textSecondary }]}>
-                    {transaction.categoryName}
-                  </Text>
-                </View>
-              )}
+
+              {/* Interactive Category Badge with Icon and Tap-to-Change */}
+              <Pressable
+                onPress={() => setIsCategoryModalOpen(true)}
+                style={({ pressed }) => [
+                  styles.categoryInteractiveBadge,
+                  {
+                    backgroundColor: (currentTx.categoryColor || colors.primary) + '15',
+                    borderColor: currentTx.categoryColor || colors.primary,
+                  },
+                  pressed && styles.pressed,
+                ]}
+              >
+                <CategoryIcon
+                  iconName={currentTx.iconName || 'cube'}
+                  iconFamily={currentTx.iconFamily || 'Ionicons'}
+                  color={currentTx.categoryColor || colors.primary}
+                  bgColor={(currentTx.categoryColor || colors.primary) + '25'}
+                  size={12}
+                  containerSize={20}
+                  borderRadius={6}
+                />
+                <Text
+                  style={[
+                    styles.categoryBadgeName,
+                    { color: currentTx.categoryColor || colors.primary },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {currentTx.categoryName || (isIndonesian ? 'Lain-lain' : 'Other')}
+                </Text>
+                <Ionicons
+                  name="chevron-down"
+                  size={12}
+                  color={currentTx.categoryColor || colors.primary}
+                />
+              </Pressable>
             </View>
           </View>
 
@@ -188,7 +256,7 @@ export const ReceiptDetailModal = ({
                       },
                     ]}
                   >
-                    <View style={styles.itemIndexBadge}>
+                    <View style={[styles.itemIndexBadge, { backgroundColor: colors.surfaceLight, borderColor: colors.borderLight }]}>
                       <Text style={[styles.itemIndexText, { color: colors.textSecondary }]}>
                         {idx + 1}
                       </Text>
@@ -213,18 +281,28 @@ export const ReceiptDetailModal = ({
           )}
 
           {/* Notes (if any) */}
-          {Boolean(transaction.notes) && (
+          {Boolean(currentTx.notes) && (
             <View style={[styles.notesBox, { backgroundColor: colors.surfaceLight, borderColor: colors.borderLight }]}>
               <Text style={[styles.notesLabel, { color: colors.textSecondary }]}>
                 {isIndonesian ? 'Catatan Tambahan :' : 'Notes :'}
               </Text>
               <Text style={[styles.notesContent, { color: colors.text }]}>
-                {transaction.notes}
+                {currentTx.notes}
               </Text>
             </View>
           )}
         </View>
       </NeoModal>
+
+      {/* Category Picker Modal */}
+      <CategoryPickerModal
+        visible={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
+        selectedCategoryId={currentTx.categoryId}
+        onSelectCategory={handleSelectCategory}
+        typeFilter={currentTx.type || 'expense'}
+        allowAll={false}
+      />
 
       {/* Fullscreen Zoom Image Modal */}
       <Modal
@@ -315,6 +393,23 @@ const styles = StyleSheet.create({
   metaBadgeText: {
     fontSize: 11,
     fontWeight: '700',
+  },
+  categoryInteractiveBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1.2,
+  },
+  categoryBadgeName: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  pressed: {
+    opacity: 0.75,
+    transform: [{ scale: 0.97 }],
   },
   photoPill: {
     flexDirection: 'row',

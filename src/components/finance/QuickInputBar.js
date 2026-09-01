@@ -190,7 +190,7 @@ export const QuickInputBar = ({
                 : t('finance.saveRecord', 'Simpan Catatan')
             }
             iconName="checkmark-circle"
-            variant={type === 'expense' ? 'expense' : 'income'}
+            variant="primary"
             size="sm"
             loading={loading}
             disabled={!inputText.trim() || parsedPreview.length === 0}
