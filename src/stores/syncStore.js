@@ -14,6 +14,7 @@ import {
   importBackupFromFile,
 } from '../services/googleDriveSync';
 import { APP_INFO } from '../constants/appInfo';
+import { getFriendlyErrorMessage } from '../utils/errorHandler';
 
 const STORAGE_KEY_ACCOUNT = '@dalay_google_account';
 const STORAGE_KEY_LAST_SYNC = '@dalay_last_sync_timestamp';
@@ -334,7 +335,7 @@ export const SyncProvider = ({ children }) => {
     } catch (err) {
       console.log('Error in handleAccessTokenLogin:', err);
       setIsSyncing(false);
-      return { success: false, message: err.message };
+      return { success: false, message: getFriendlyErrorMessage(err, 'sync', true) };
     }
   };
 
@@ -414,9 +415,10 @@ export const SyncProvider = ({ children }) => {
       };
     } catch (error) {
       console.log('Error in performSync:', error);
+      const friendlyErr = getFriendlyErrorMessage(error, 'sync', true);
       setIsSyncing(false);
-      setSyncError(error.message);
-      return { success: false, message: error.message || 'Sinkronisasi gagal.' };
+      setSyncError(friendlyErr);
+      return { success: false, message: friendlyErr };
     }
   };
 

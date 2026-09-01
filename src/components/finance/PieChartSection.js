@@ -8,6 +8,7 @@ import { NeoSegmented } from '../neo/NeoSegmented';
 import { CategoryIcon } from '../common/CategoryIcon';
 import { useTheme } from '../../stores/themeStore';
 import { useLanguage } from '../../stores/languageStore';
+import { useFinance } from '../../stores/financeStore';
 import { formatRupiah, formatCompact } from '../../utils/formatters';
 
 export const PieChartSection = ({
@@ -19,11 +20,19 @@ export const PieChartSection = ({
 }) => {
   const { colors } = useTheme();
   const { t, isIndonesian } = useLanguage();
+  const { getCategoryStats } = useFinance();
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [chartType, setChartType] = useState(typeFilter === 'income' ? 'income' : 'expense');
 
-  const categories = categoryStats.categories || [];
-  const totalNominal = categoryStats.totalNominal || 0;
-  const isIncome = typeFilter === 'income';
+  const isIncome = chartType === 'income';
+
+  // Compute category statistics strictly for the active chart type (excludes transfers and adjustments)
+  const currentStats = typeof getCategoryStats === 'function'
+    ? getCategoryStats(chartType)
+    : categoryStats;
+
+  const categories = currentStats.categories || [];
+  const totalNominal = currentStats.totalNominal || 0;
 
   // Computed helper strings
   const emptyText = isIndonesian
@@ -115,13 +124,14 @@ export const PieChartSection = ({
             { label: t('finance.today', 'Hari Ini'), value: 'today' },
             { label: t('finance.thisWeek', 'Minggu Ini'), value: 'week' },
             { label: t('finance.thisMonth', 'Bulan Ini'), value: 'month' },
-            { label: t('finance.allPeriods', 'Semua'), value: 'all' },
+            { label: isIndonesian ? 'Semua Periode' : t('finance.allPeriods', 'All Periods'), value: 'all' },
           ]}
           selectedValue={periodFilter}
           onSelect={(val) => {
             setSelectedCategory(null);
             onSelectPeriod(val);
           }}
+          allowMultiLine={true}
           style={styles.periodSegmented}
         />
       </View>
@@ -145,7 +155,10 @@ export const PieChartSection = ({
         selectedValue={isIncome ? 'income' : 'expense'}
         onSelect={(val) => {
           setSelectedCategory(null);
-          onSelectType(val);
+          setChartType(val);
+          if (typeof onSelectType === 'function') {
+            onSelectType(val);
+          }
         }}
         style={styles.typeSegmented}
       />
@@ -223,17 +236,24 @@ export const PieChartSection = ({
                   <Text
                     style={[styles.donutCenterLabel, { color: colors.textSecondary }]}
                     numberOfLines={1}
+                    adjustsFontSizeToFit={true}
+                    minimumFontScale={0.7}
                   >
                     {selectedCategory.name}
                   </Text>
                   <Text
                     style={[styles.donutCenterAmount, { color: colors.text }]}
                     numberOfLines={1}
+                    adjustsFontSizeToFit={true}
+                    minimumFontScale={0.7}
                   >
                     {formatCompact(selectedCategory.amount)}
                   </Text>
                   <Text
                     style={[styles.donutCenterSub, { color: colors.primary }]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit={true}
+                    minimumFontScale={0.7}
                   >
                     {selectedCategory.percentage.toFixed(1)}%
                   </Text>
@@ -242,12 +262,17 @@ export const PieChartSection = ({
                 <>
                   <Text
                     style={[styles.donutCenterLabel, { color: colors.textSecondary }]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit={true}
+                    minimumFontScale={0.7}
                   >
                     TOTAL
                   </Text>
                   <Text
                     style={[styles.donutCenterAmount, { color: colors.text }]}
                     numberOfLines={1}
+                    adjustsFontSizeToFit={true}
+                    minimumFontScale={0.7}
                   >
                     {formatCompact(totalNominal)}
                   </Text>
@@ -258,6 +283,9 @@ export const PieChartSection = ({
                         color: isIncome ? colors.incomeDark : colors.expenseDark,
                       },
                     ]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit={true}
+                    minimumFontScale={0.7}
                   >
                     {typeLabel}
                   </Text>
@@ -412,23 +440,30 @@ const styles = StyleSheet.create({
     position: 'absolute',
     alignItems: 'center',
     justifyContent: 'center',
-    width: 110,
-    height: 110,
-    borderRadius: 55,
+    width: 114,
+    height: 114,
+    borderRadius: 57,
+    paddingHorizontal: 6,
   },
   donutCenterLabel: {
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.5,
+    textAlign: 'center',
+    maxWidth: '100%',
   },
   donutCenterAmount: {
-    fontSize: TYPOGRAPHY.size.sm,
+    fontSize: 14.5,
     fontWeight: '900',
     marginVertical: 1,
+    textAlign: 'center',
+    maxWidth: '100%',
   },
   donutCenterSub: {
     fontSize: 10,
     fontWeight: '700',
+    textAlign: 'center',
+    maxWidth: '100%',
   },
   legendContainer: {
     width: '100%',

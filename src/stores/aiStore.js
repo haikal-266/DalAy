@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { validateGeminiKey } from '../services/receiptScanner';
+import { getFriendlyErrorMessage } from '../utils/errorHandler';
 
 const STORAGE_KEY_GEMINI_KEY = '@dalay_gemini_api_key';
 const STORAGE_KEY_AI_VALIDATED = '@dalay_gemini_is_validated';
@@ -83,7 +84,7 @@ export const AiProvider = ({ children }) => {
       }
     } catch (err) {
       setIsValidated(false);
-      return { success: false, message: err.message || 'Gagal memvalidasi API Key' };
+      return { success: false, message: getFriendlyErrorMessage(err, 'general', true) };
     } finally {
       setIsValidating(false);
     }

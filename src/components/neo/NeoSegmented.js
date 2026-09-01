@@ -11,6 +11,8 @@ export const NeoSegmented = ({
   onValueChange,
   onChange,
   style,
+  allowMultiLine = false,
+  numberOfLines,
 }) => {
   const { colors, isDark } = useTheme();
 
@@ -24,6 +26,8 @@ export const NeoSegmented = ({
       onChange(val);
     }
   };
+
+  const linesCount = numberOfLines !== undefined ? numberOfLines : (allowMultiLine ? 2 : 1);
 
   return (
     <View
@@ -46,6 +50,7 @@ export const NeoSegmented = ({
             onPress={() => handleSelect(opt.value)}
             style={[
               styles.option,
+              allowMultiLine && styles.multiLineOption,
               isSelected && [
                 styles.selectedOption,
                 {
@@ -59,7 +64,7 @@ export const NeoSegmented = ({
               {opt.iconName ? (
                 <Ionicons
                   name={opt.iconName}
-                  size={15}
+                  size={14}
                   color={isSelected ? activeBg : colors.textMuted}
                   style={styles.icon}
                 />
@@ -69,11 +74,14 @@ export const NeoSegmented = ({
               <Text
                 style={[
                   styles.label,
+                  allowMultiLine && styles.multiLineLabel,
                   isSelected
                     ? [styles.selectedLabel, { color: activeBg }]
                     : [styles.unselectedLabel, { color: colors.textSecondary }],
                 ]}
-                numberOfLines={1}
+                numberOfLines={linesCount}
+                adjustsFontSizeToFit={true}
+                minimumFontScale={0.75}
               >
                 {opt.label}
               </Text>
@@ -95,10 +103,15 @@ const styles = StyleSheet.create({
   option: {
     flex: 1,
     paddingVertical: 7,
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
     borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  multiLineOption: {
+    paddingVertical: 6,
+    paddingHorizontal: 2,
+    minHeight: 38,
   },
   selectedOption: {
     shadowColor: '#000',
@@ -110,13 +123,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 1,
+    width: '100%',
   },
   icon: {
-    marginRight: 5,
+    marginRight: 4,
   },
   label: {
     fontSize: TYPOGRAPHY.size.xs,
-    letterSpacing: 0.1,
+    letterSpacing: -0.1,
+    textAlign: 'center',
+    flexShrink: 1,
+  },
+  multiLineLabel: {
+    fontSize: 11,
+    lineHeight: 13.5,
   },
   selectedLabel: {
     fontWeight: '800',

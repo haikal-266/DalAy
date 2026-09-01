@@ -12,7 +12,7 @@ import { CategoryPickerModal } from '../common/CategoryPickerModal';
 import { useTheme } from '../../stores/themeStore';
 import { useLanguage } from '../../stores/languageStore';
 import { getRelativeDateLabel, formatRupiah } from '../../utils/formatters';
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../../utils/categories';
+import { useCategories } from '../../stores/categoryStore';
 
 export const TransactionList = ({
   transactions = [],
@@ -28,6 +28,7 @@ export const TransactionList = ({
 }) => {
   const { colors } = useTheme();
   const { t, isIndonesian } = useLanguage();
+  const { expenseCategories, incomeCategories, allCategories } = useCategories();
   const [deleteTarget, setDeleteTarget] = useState(null);
 
   const handleDeleteConfirm = useCallback(() => {
@@ -84,18 +85,10 @@ export const TransactionList = ({
   }, [transactions]);
 
   const availableCategories = useMemo(() => {
-    if (typeFilter === 'expense') return EXPENSE_CATEGORIES;
-    if (typeFilter === 'income') return INCOME_CATEGORIES;
-    const seen = new Set();
-    const list = [];
-    [...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES].forEach((c) => {
-      if (!seen.has(c.id)) {
-        seen.add(c.id);
-        list.push(c);
-      }
-    });
-    return list;
-  }, [typeFilter]);
+    if (typeFilter === 'expense') return expenseCategories;
+    if (typeFilter === 'income') return incomeCategories;
+    return allCategories;
+  }, [typeFilter, expenseCategories, incomeCategories, allCategories]);
 
   const [isCategoryPickerOpen, setIsCategoryPickerOpen] = useState(false);
 
@@ -214,6 +207,8 @@ export const TransactionList = ({
                 },
               ]}
               numberOfLines={1}
+              adjustsFontSizeToFit={true}
+              minimumFontScale={0.8}
             >
               {activeCategoryObj
                 ? activeCategoryObj.name

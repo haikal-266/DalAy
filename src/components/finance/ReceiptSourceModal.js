@@ -12,6 +12,7 @@ import { useLanguage } from '../../stores/languageStore';
 import { useAi } from '../../stores/aiStore';
 import { scanReceiptWithGemini } from '../../services/receiptScanner';
 import { sendLocalNotification } from '../../services/notificationService';
+import { getFriendlyErrorMessage } from '../../utils/errorHandler';
 
 export const ReceiptSourceModal = ({
   visible,
@@ -95,19 +96,21 @@ export const ReceiptSourceModal = ({
       console.log('Error scanning receipt with AI:', err);
       setIsProcessing(false);
 
+      const friendlyErrMsg = getFriendlyErrorMessage(err, 'receipt_scan', isIndonesian);
+
       // Trigger local Push Notification on error
       await sendLocalNotification({
-        title: isIndonesian ? '❌ Pemindaian Struk Gagal' : '❌ Receipt Scanning Failed',
-        body: err.message || (isIndonesian ? 'Terjadi kesalahan saat memproses gambar.' : 'Error processing receipt image.'),
+        title: isIndonesian ? 'Pemindaian Struk Belum Berhasil' : 'Receipt Scan Incomplete',
+        body: friendlyErrMsg,
         data: { type: 'receipt_error' },
       });
 
       if (typeof onScanError === 'function') {
-        onScanError(err);
+        onScanError(new Error(friendlyErrMsg));
       } else {
         setAlertConfig({
           title: isIndonesian ? 'Gagal Membaca Struk' : 'Scan Failed',
-          message: err.message || (isIndonesian ? 'Terjadi kesalahan saat memproses gambar.' : 'Error processing receipt image.'),
+          message: friendlyErrMsg,
           type: 'danger',
           confirmText: isIndonesian ? 'Coba Lagi' : 'Try Again',
           showCancel: false,
@@ -137,7 +140,7 @@ export const ReceiptSourceModal = ({
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ['images'],
         allowsEditing: true,
-        quality: 0.8,
+        quality: 0.6,
       });
 
       if (!result.canceled && result.assets && result.assets[0]?.uri) {
@@ -147,7 +150,7 @@ export const ReceiptSourceModal = ({
       console.log('Camera error:', err);
       setAlertConfig({
         title: isIndonesian ? 'Gagal Membuka Kamera' : 'Camera Error',
-        message: err.message,
+        message: getFriendlyErrorMessage(err, 'camera', isIndonesian),
         type: 'danger',
         showCancel: false,
         confirmText: 'OK',
@@ -176,7 +179,7 @@ export const ReceiptSourceModal = ({
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsEditing: true,
-        quality: 0.8,
+        quality: 0.6,
       });
 
       if (!result.canceled && result.assets && result.assets[0]?.uri) {
@@ -186,7 +189,7 @@ export const ReceiptSourceModal = ({
       console.log('Gallery error:', err);
       setAlertConfig({
         title: isIndonesian ? 'Gagal Membuka Galeri' : 'Gallery Error',
-        message: err.message,
+        message: getFriendlyErrorMessage(err, 'gallery', isIndonesian),
         type: 'danger',
         showCancel: false,
         confirmText: 'OK',
@@ -212,7 +215,7 @@ export const ReceiptSourceModal = ({
       console.log('Document picker error:', err);
       setAlertConfig({
         title: isIndonesian ? 'Gagal Membuka Dokumen' : 'Document Error',
-        message: err.message,
+        message: getFriendlyErrorMessage(err, 'document', isIndonesian),
         type: 'danger',
         showCancel: false,
         confirmText: 'OK',

@@ -1,10 +1,11 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import { EXPENSE_CATEGORIES, detectCategory } from '../utils/categories';
+import { getFriendlyErrorMessage } from '../utils/errorHandler';
 
 /**
  * Helper to fetch with an AbortController timeout
  */
-const fetchWithTimeout = async (url, options = {}, timeoutMs = 15000) => {
+const fetchWithTimeout = async (url, options = {}, timeoutMs = 30000) => {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -23,23 +24,30 @@ const fetchWithTimeout = async (url, options = {}, timeoutMs = 15000) => {
   }
 };
 
-const CANDIDATE_MODELS = [
+export const CANDIDATE_MODELS = [
+  'gemini-3.6-flash-lite',
   'gemini-3.6-flash',
-  'gemini-3.5-flash',
-  'gemini-3.1-flash-lite',
+  'gemini-2.5-flash-lite',
+  'gemini-2.5-flash',
+  'gemini-2.0-flash-lite',
+  'gemini-2.0-flash',
+  'gemini-1.5-flash-8b',
+  'gemini-1.5-flash',
 ];
 
 /**
- * Dynamically fetch the best available vision model for this specific API key
+ * Dynamically fetch all active generateContent models for this specific API key
  * @param {string} apiKey 
- * @returns {Promise<string>}
+ * @returns {Promise<string[]>}
  */
-export const getBestGeminiModel = async (apiKey) => {
+export const getAvailableGeminiModels = async (apiKey) => {
+  if (!apiKey || !apiKey.trim()) return CANDIDATE_MODELS;
+
   try {
     const res = await fetchWithTimeout(
       `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey.trim()}`,
       { method: 'GET' },
-      5000
+      8000
     );
     if (res.ok) {
       const data = await res.json();
@@ -52,17 +60,30 @@ export const getBestGeminiModel = async (apiKey) => {
           )
           .map((m) => m.name.replace(/^models\//, ''));
 
-        for (const p of ['gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.1-flash-lite']) {
-          const found = generateModels.find((m) => m.toLowerCase().includes(p));
-          if (found) return found;
+        console.log('[Gemini Models] Discovered API models for key:', generateModels);
+        if (generateModels.length > 0) {
+          // Prioritize by candidate precedence (gemini-3.6-flash first)
+          const prioritized = [];
+          for (const cand of CANDIDATE_MODELS) {
+            const match = generateModels.find((m) => m.toLowerCase() === cand.toLowerCase());
+            if (match && !prioritized.includes(match)) {
+              prioritized.push(match);
+            }
+          }
+          // Append any other discovered models
+          generateModels.forEach((m) => {
+            if (!prioritized.includes(m)) {
+              prioritized.push(m);
+            }
+          });
+          return prioritized;
         }
-        if (generateModels.length > 0) return generateModels[0];
       }
     }
   } catch (e) {
-    console.warn('[Gemini Models] Models lookup notice:', e.message);
+    console.warn('[Gemini Models] Models lookup error:', e.message);
   }
-  return 'gemini-3.6-flash';
+  return CANDIDATE_MODELS;
 };
 
 /**
@@ -79,7 +100,7 @@ export const validateGeminiKey = async (apiKey) => {
   try {
     const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey.trim()}`;
     console.log('[Gemini Validation] Querying Google AI models list endpoint...');
-    const response = await fetchWithTimeout(url, { method: 'GET' }, 8000);
+    const response = await fetchWithTimeout(url, { method: 'GET' }, 10000);
     const data = await response.json();
     console.log('[Gemini Validation] HTTP response status:', response.status);
 
@@ -88,13 +109,82 @@ export const validateGeminiKey = async (apiKey) => {
       return { success: true, message: 'API Key valid dan terhubung!' };
     }
 
-    const errMsg = data?.error?.message || 'API Key tidak valid atau dinonaktifkan';
-    console.warn('[Gemini Validation] Key validation FAILED:', errMsg);
-    return { success: false, message: errMsg };
+    const rawErrMsg = data?.error?.message || 'API Key tidak valid atau dinonaktifkan';
+    console.warn('[Gemini Validation] Key validation FAILED:', rawErrMsg);
+    return { success: false, message: getFriendlyErrorMessage(rawErrMsg, 'general', true) };
   } catch (err) {
     console.error('[Gemini Validation] Error validating Gemini key:', err.message);
-    return { success: false, message: 'Gagal terhubung ke server Google AI: ' + err.message };
+    return { success: false, message: getFriendlyErrorMessage(err, 'general', true) };
   }
+};
+
+/**
+ * Resilient JSON Parser & Salvager for AI Receipt Extraction
+ * Recovers core transaction fields even if receipt items are truncated.
+ * @param {string} rawText 
+ * @returns {Object|null}
+ */
+export const repairAndParseReceiptJson = (rawText) => {
+  if (!rawText || typeof rawText !== 'string') return null;
+
+  // 1. Clean markdown code blocks
+  const clean = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+
+  // 2. Direct Parse
+  try {
+    return JSON.parse(clean);
+  } catch (_) {}
+
+  // 3. Attempt structural repair on truncated JSON (e.g. cut off at "items":)
+  try {
+    let fixed = clean;
+    // Remove unclosed trailing key or dangling colon/comma
+    fixed = fixed.replace(/,\s*"[^"]*":?\s*$/g, '');
+    fixed = fixed.replace(/,\s*$/g, '');
+
+    // Close open square brackets
+    const openBrackets = (fixed.match(/\[/g) || []).length;
+    const closeBrackets = (fixed.match(/\]/g) || []).length;
+    if (openBrackets > closeBrackets) {
+      fixed += ']'.repeat(openBrackets - closeBrackets);
+    }
+
+    // Close open curly braces
+    const openBraces = (fixed.match(/\{/g) || []).length;
+    const closeBraces = (fixed.match(/\}/g) || []).length;
+    if (openBraces > closeBraces) {
+      fixed += '}'.repeat(openBraces - closeBraces);
+    }
+
+    const repaired = JSON.parse(fixed);
+    if (repaired && (repaired.merchant || repaired.totalAmount)) {
+      console.log('[Gemini Scan] Structural JSON repair SUCCESS!');
+      return repaired;
+    }
+  } catch (_) {}
+
+  // 4. Regex extraction fallback
+  try {
+    const merchantMatch = clean.match(/"merchant"\s*:\s*"([^"]+)"/i);
+    const dateMatch = clean.match(/"date"\s*:\s*"([^"]+)"/i);
+    const totalMatch = clean.match(/"totalAmount"\s*:\s*(\d+)/i) || clean.match(/"total"\s*:\s*(\d+)/i);
+    const categoryMatch = clean.match(/"categoryId"\s*:\s*"([^"]+)"/i);
+    const typeMatch = clean.match(/"type"\s*:\s*"([^"]+)"/i);
+
+    if (merchantMatch || totalMatch) {
+      console.log('[Gemini Scan] Regex JSON recovery SUCCESS!');
+      return {
+        merchant: merchantMatch ? merchantMatch[1] : 'Struk Belanja',
+        date: dateMatch ? dateMatch[1] : new Date().toISOString().split('T')[0],
+        totalAmount: totalMatch ? parseInt(totalMatch[1], 10) : 0,
+        type: typeMatch ? typeMatch[1] : 'expense',
+        categoryId: categoryMatch ? categoryMatch[1] : 'other_expense',
+        items: [],
+      };
+    }
+  } catch (_) {}
+
+  return null;
 };
 
 /**
@@ -120,7 +210,7 @@ export const scanReceiptWithGemini = async (imageUri, apiKey) => {
     console.log('[Gemini Scan] Base64 conversion successful. Data length:', base64Data.length);
   } catch (err) {
     console.error('[Gemini Scan] Failed to read image as base64:', err);
-    throw new Error('Gagal membaca file gambar struk: ' + err.message);
+    throw new Error('Gagal membaca file gambar struk. Pastikan file gambar dapat diakses.');
   }
 
   // Determine mime type
@@ -163,18 +253,18 @@ Perhatian Khusus:
 - Pastikan totalAmount adalah angka murni (number), bukan string.
 - HANYA kembalikan JSON valid.`;
 
-  // Fetch best vision model dynamically (defaults to gemini-3.6-flash)
-  const bestModel = await getBestGeminiModel(apiKey);
-  console.log('[Gemini Scan] Selected bestModel:', bestModel);
-
-  const modelsToTry = [bestModel];
+  // 3. Dynamically discover supported models for this user's API key
+  const availableModels = await getAvailableGeminiModels(apiKey);
+  const modelsToTry = Array.from(new Set([...availableModels, ...CANDIDATE_MODELS]));
+  console.log('[Gemini Scan] Final models to try queue:', modelsToTry);
 
   let responseJson = null;
   let lastError = null;
 
+  const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+
   for (const modelName of modelsToTry) {
-    const versions = ['v1beta'];
-    let fatalErrorEncountered = false;
+    const versions = ['v1beta', 'v1'];
 
     for (const ver of versions) {
       try {
@@ -197,18 +287,31 @@ Perhatian Khusus:
           ],
           generationConfig: {
             temperature: 0.1,
+            maxOutputTokens: 4096,
             responseMimeType: 'application/json',
           },
         };
 
-        // Strict 15s timeout
+        // Reliable 30s timeout
         let response = await fetchWithTimeout(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(reqBody),
-        }, 15000);
+        }, 30000);
 
         console.log(`[Gemini Scan] ${modelName} (${ver}) Response HTTP status:`, response.status);
+
+        // Handle Rate Limit (HTTP 429) with Exponential Backoff Retry
+        if (response.status === 429) {
+          console.warn(`[Gemini Scan] Model ${modelName} (${ver}) hit Rate Limit (429). Retrying after backoff delay...`);
+          await sleep(2500);
+          response = await fetchWithTimeout(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(reqBody),
+          }, 30000);
+          console.log(`[Gemini Scan] ${modelName} (${ver}) Backoff retry HTTP status:`, response.status);
+        }
 
         // If responseMimeType fails with 400 Bad Request, retry without responseMimeType
         if (!response.ok && response.status === 400) {
@@ -229,13 +332,14 @@ Perhatian Khusus:
             ],
             generationConfig: {
               temperature: 0.1,
+              maxOutputTokens: 4096,
             },
           };
           response = await fetchWithTimeout(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(reqBody),
-          }, 15000);
+          }, 30000);
           console.log(`[Gemini Scan] Retry status without responseMimeType:`, response.status);
         }
 
@@ -249,40 +353,35 @@ Perhatian Khusus:
           const apiErr = resData?.error;
           console.warn(`[Gemini Scan] Model ${modelName} (${ver}) failed:`, apiErr || resData);
           lastError = apiErr?.message || `Model ${modelName} status ${response.status}`;
-          fatalErrorEncountered = true;
-          break;
+          // Continue to try next model in loop
         }
       } catch (err) {
         console.error(`[Gemini Scan] Fetch exception for ${modelName} (${ver}):`, err.message);
         lastError = err.message;
-        fatalErrorEncountered = true;
-        break;
+        // Continue to try next model in loop
       }
     }
 
-    if (responseJson || fatalErrorEncountered) {
+    if (responseJson) {
       break;
     }
   }
 
   if (!responseJson) {
-    throw new Error(`AI Error: ${lastError || 'Gagal memproses gambar dengan AI. Periksa kembali API Key Anda.'}`);
+    const friendlyMsg = getFriendlyErrorMessage(lastError, 'receipt_scan', true);
+    throw new Error(friendlyMsg);
   }
 
   const rawText = responseJson?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!rawText) {
-    throw new Error('AI tidak memberikan respon hasil scan');
+    throw new Error('AI tidak dapat membaca teks struk. Pastikan foto struk terang dan jelas.');
   }
 
-  // Parse JSON response
-  let parsedData = null;
-  try {
-    // Clean any markdown formatting if present
-    const cleanJson = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
-    parsedData = JSON.parse(cleanJson);
-  } catch (err) {
+  // Parse JSON response with robust recovery
+  const parsedData = repairAndParseReceiptJson(rawText);
+  if (!parsedData) {
     console.log('JSON Parse error from Gemini response:', rawText);
-    throw new Error('Format respon AI tidak dapat dibaca');
+    throw new Error('AI belum dapat menyusun data struk. Pastikan foto struk terlihat jelas.');
   }
 
   // Validate and normalize fields

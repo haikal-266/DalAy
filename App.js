@@ -6,6 +6,7 @@ import { LanguageProvider, useLanguage } from './src/stores/languageStore';
 import { ThemeProvider, useTheme } from './src/stores/themeStore';
 import { QuranProvider, useQuran } from './src/stores/quranStore';
 import { WalletProvider } from './src/stores/walletStore';
+import { CategoryProvider } from './src/stores/categoryStore';
 import { FinanceProvider } from './src/stores/financeStore';
 import { SyncProvider } from './src/stores/syncStore';
 import { AiProvider } from './src/stores/aiStore';
@@ -209,13 +210,15 @@ export default function App() {
           <AiProvider>
             <QuranProvider>
               <WalletProvider>
-                <FinanceProvider>
-                  <SyncProvider>
-                    <SwipeNavigationProvider>
-                      <AppContent />
-                    </SwipeNavigationProvider>
-                  </SyncProvider>
-                </FinanceProvider>
+                <CategoryProvider>
+                  <FinanceProvider>
+                    <SyncProvider>
+                      <SwipeNavigationProvider>
+                        <AppContent />
+                      </SwipeNavigationProvider>
+                    </SyncProvider>
+                  </FinanceProvider>
+                </CategoryProvider>
               </WalletProvider>
             </QuranProvider>
           </AiProvider>

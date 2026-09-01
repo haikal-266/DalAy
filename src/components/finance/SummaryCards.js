@@ -9,12 +9,20 @@ import { formatRupiah } from '../../utils/formatters';
 export const SummaryCards = ({
   summary = { totalIncome: 0, totalExpense: 0, balance: 0, transactionCount: 0 },
   periodLabel,
+  periodFilter,
   totalNetWorth,
 }) => {
   const { colors } = useTheme();
   const { t, isIndonesian } = useLanguage();
 
-  const resolvedPeriodLabel = periodLabel || t('finance.allPeriods', 'Semua Periode');
+  const resolvedPeriodLabel = React.useMemo(() => {
+    if (periodLabel) return periodLabel;
+    if (periodFilter === 'today') return t('finance.today', 'Hari Ini');
+    if (periodFilter === 'week') return t('finance.thisWeek', 'Minggu Ini');
+    if (periodFilter === 'month') return t('finance.thisMonth', 'Bulan Ini');
+    return t('finance.allPeriods', 'Semua Periode');
+  }, [periodLabel, periodFilter, t]);
+
   const displayBalance = totalNetWorth !== undefined ? totalNetWorth : summary.balance;
 
   return (
@@ -37,7 +45,12 @@ export const SummaryCards = ({
             },
           ]}
         >
-          <Text style={[styles.periodText, { color: colors.text }]}>
+          <Text
+            style={[styles.periodText, { color: colors.text }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit={true}
+            minimumFontScale={0.8}
+          >
             {resolvedPeriodLabel}
           </Text>
         </View>

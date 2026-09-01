@@ -33,6 +33,7 @@ import { ReceiptDetailModal } from '../components/finance/ReceiptDetailModal';
 import { useWallet } from '../stores/walletStore';
 import { NeoSegmented } from '../components/neo/NeoSegmented';
 import { ConfirmModal } from '../components/neo/ConfirmModal';
+import { getFriendlyErrorMessage } from '../utils/errorHandler';
 
 export const FinanceScreen = ({ onNavigateTab }) => {
   const scrollViewRef = useRef(null);
@@ -395,6 +396,7 @@ export const FinanceScreen = ({ onNavigateTab }) => {
         <SummaryCards
           summary={allWalletsSummary}
           periodFilter={periodFilter}
+          periodLabel={getPeriodLabel()}
           onPeriodChange={setPeriodFilter}
           totalNetWorth={totalNetWorth}
         />
@@ -519,7 +521,7 @@ export const FinanceScreen = ({ onNavigateTab }) => {
           onError={(err) => {
             setModalAlert({
               title: isIndonesian ? 'Gagal Ekspor' : 'Export Failed',
-              message: err,
+              message: getFriendlyErrorMessage(err, 'excel_export', isIndonesian),
               type: 'danger',
               confirmText: isIndonesian ? 'Tutup' : 'Close',
             });
@@ -555,7 +557,7 @@ export const FinanceScreen = ({ onNavigateTab }) => {
           onError={(err) => {
             setModalAlert({
               title: isIndonesian ? 'Gagal Mengimpor Data' : 'Import Failed',
-              message: err,
+              message: getFriendlyErrorMessage(err, 'excel_import', isIndonesian),
               type: 'danger',
               confirmText: isIndonesian ? 'Tutup' : 'Close',
             });
@@ -596,8 +598,9 @@ export const FinanceScreen = ({ onNavigateTab }) => {
           setBgScanStatus(null);
           setModalAlert({
             title: isIndonesian ? 'Pemindaian Struk Gagal' : 'Scan Failed',
-            message: err.message || (isIndonesian ? 'Terjadi kesalahan saat membaca struk.' : 'Error reading receipt.'),
+            message: getFriendlyErrorMessage(err, 'receipt_scan', isIndonesian),
             type: 'danger',
+            confirmText: isIndonesian ? 'Tutup' : 'Close',
           });
         }}
         onNavigateSettings={() => {

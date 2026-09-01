@@ -15,12 +15,13 @@ import { NeoInput } from '../neo/NeoInput';
 import { NeoButton } from '../neo/NeoButton';
 import { ConfirmModal } from '../neo/ConfirmModal';
 import { CategoryIcon } from '../common/CategoryIcon';
-import { EXPENSE_CATEGORIES } from '../../utils/categories';
+import { CategoryPickerModal } from '../common/CategoryPickerModal';
 import { formatRupiah } from '../../utils/formatters';
 import { useTheme } from '../../stores/themeStore';
 import { useLanguage } from '../../stores/languageStore';
 import { useWallet } from '../../stores/walletStore';
 import { useFinance } from '../../stores/financeStore';
+import { useCategories } from '../../stores/categoryStore';
 
 export const ReceiptReviewModal = ({
   visible,
@@ -34,16 +35,18 @@ export const ReceiptReviewModal = ({
   const { t, isIndonesian } = useLanguage();
   const { wallets, getWalletBalance } = useWallet();
   const { transactions } = useFinance();
+  const { expenseCategories } = useCategories();
 
   const [merchant, setMerchant] = useState('');
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState(EXPENSE_CATEGORIES[0]);
+  const [selectedCategory, setSelectedCategory] = useState(expenseCategories[0]);
   const [selectedWallet, setSelectedWallet] = useState(null);
   const [notes, setNotes] = useState('');
   const [items, setItems] = useState([]);
   const [alertConfig, setAlertConfig] = useState(null);
   const [previewImageVisible, setPreviewImageVisible] = useState(false);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 
   // Edit / Add Item state
   const [itemModalVisible, setItemModalVisible] = useState(false);
@@ -60,11 +63,11 @@ export const ReceiptReviewModal = ({
       );
       setDate(scannedData.date || new Date().toISOString().split('T')[0]);
 
-      // Category matching
-      const foundCat = EXPENSE_CATEGORIES.find(
+      // Category matching with custom categories
+      const foundCat = expenseCategories.find(
         (c) => c.id === scannedData.categoryId
       );
-      setSelectedCategory(foundCat || EXPENSE_CATEGORIES[0]);
+      setSelectedCategory(foundCat || expenseCategories[0]);
 
       // Wallet matching
       const foundWallet =
@@ -75,7 +78,7 @@ export const ReceiptReviewModal = ({
       setNotes(scannedData.notes || '');
       setItems(Array.isArray(scannedData.items) ? [...scannedData.items] : []);
     }
-  }, [visible, scannedData, defaultWalletId, wallets]);
+  }, [visible, scannedData, defaultWalletId, wallets, expenseCategories]);
 
   const itemsSubtotal = useMemo(() => {
     return items.reduce((sum, it) => sum + ((it.price || 0) * (it.qty || 1)), 0);
@@ -296,52 +299,58 @@ export const ReceiptReviewModal = ({
             />
           </View>
 
-          {/* Category Selector */}
+          {/* Category Selector (Modern Button + CategoryPickerModal) */}
           <View style={styles.section}>
             <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>
-              {t('receipt.categoryLabel') || 'KATEGORI PENGELUARAN :'}
+              {t('receipt.categoryLabel') || (isIndonesian ? 'KATEGORI PENGELUARAN :' : 'EXPENSE CATEGORY :')}
             </Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.categoryScrollList}
+            <Pressable
+              onPress={() => setIsCategoryModalOpen(true)}
+              style={({ pressed }) => [
+                styles.categoryPickerBtn,
+                {
+                  backgroundColor: (selectedCategory?.color || colors.primary) + '15',
+                  borderColor: selectedCategory?.color || colors.primary,
+                },
+                pressed && styles.pressed,
+              ]}
             >
-              {EXPENSE_CATEGORIES.map((cat) => {
-                const isSelected = selectedCategory.id === cat.id;
-                return (
-                  <Pressable
-                    key={cat.id}
-                    onPress={() => setSelectedCategory(cat)}
-                    style={[
-                      styles.categoryChip,
-                      {
-                        backgroundColor: isSelected
-                          ? cat.color
-                          : colors.surface,
-                        borderColor: isSelected ? cat.color : colors.border,
-                      },
-                    ]}
-                  >
-                    <CategoryIcon
-                      iconName={cat.iconName}
-                      iconFamily={cat.iconFamily}
-                      color={isSelected ? '#FFFFFF' : cat.color}
-                      bgColor={isSelected ? 'transparent' : cat.bgColor}
-                      size={14}
-                      containerSize={24}
-                    />
-                    <Text
-                      style={[
-                        styles.categoryChipText,
-                        { color: isSelected ? '#FFFFFF' : colors.text },
-                      ]}
-                    >
-                      {cat.name}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
+              <View style={styles.catBtnLeft}>
+                <CategoryIcon
+                  iconName={selectedCategory?.iconName || selectedCategory?.icon || 'cube'}
+                  iconFamily={selectedCategory?.iconFamily || 'Ionicons'}
+                  color={selectedCategory?.color || colors.primary}
+                  bgColor={(selectedCategory?.color || colors.primary) + '25'}
+                  size={18}
+                  containerSize={36}
+                  borderRadius={10}
+                />
+                <View style={styles.catBtnTextCol}>
+                  <Text style={[styles.catBtnName, { color: colors.text }]}>
+                    {selectedCategory?.name || (isIndonesian ? 'Pilih Kategori' : 'Select Category')}
+                  </Text>
+                  <Text style={[styles.catBtnSub, { color: colors.textSecondary }]}>
+                    {isIndonesian ? 'Ketuk untuk mengganti kategori' : 'Tap to change category'}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={[styles.catChevronCircle, { backgroundColor: colors.surface }]}>
+                <Ionicons name="chevron-down" size={18} color={colors.textSecondary} />
+              </View>
+            </Pressable>
+
+            <CategoryPickerModal
+              visible={isCategoryModalOpen}
+              onClose={() => setIsCategoryModalOpen(false)}
+              selectedCategoryId={selectedCategory?.id}
+              onSelectCategory={(catId) => {
+                const found = expenseCategories.find((c) => c.id === catId);
+                if (found) setSelectedCategory(found);
+              }}
+              typeFilter="expense"
+              allowAll={false}
+            />
           </View>
 
           {/* Wallet Selector */}
@@ -689,23 +698,38 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.5,
   },
-  categoryScrollList: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingVertical: 4,
-  },
-  categoryChip: {
+  categoryPickerBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
+    justifyContent: 'space-between',
+    padding: 10,
+    borderRadius: 14,
     borderWidth: 1.5,
   },
-  categoryChipText: {
-    fontSize: 12,
-    fontWeight: '700',
+  catBtnLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  catBtnTextCol: {
+    flex: 1,
+    gap: 2,
+  },
+  catBtnName: {
+    fontSize: 13.5,
+    fontWeight: '800',
+  },
+  catBtnSub: {
+    fontSize: 10.5,
+  },
+  catChevronCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 6,
   },
   walletGrid2Col: {
     flexDirection: 'row',

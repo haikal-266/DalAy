@@ -11,7 +11,8 @@ import { ConfirmModal } from '../neo/ConfirmModal';
 import { useTheme } from '../../stores/themeStore';
 import { useLanguage } from '../../stores/languageStore';
 import { useWallet } from '../../stores/walletStore';
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, detectCategory } from '../../utils/categories';
+import { useCategories } from '../../stores/categoryStore';
+import { detectCategory } from '../../utils/categories';
 import { formatRupiah } from '../../utils/formatters';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -26,6 +27,7 @@ export const ManualTransactionModal = ({
   const { colors } = useTheme();
   const { t, isIndonesian } = useLanguage();
   const { wallets, selectedWalletId } = useWallet();
+  const { expenseCategories, incomeCategories } = useCategories();
   const [type, setType] = useState('expense');
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
@@ -42,7 +44,7 @@ export const ManualTransactionModal = ({
       setName(activeTx.name || '');
       setAmount(activeTx.amount ? formatRupiah(activeTx.amount, true) : '');
       const categories =
-        activeTx.type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+        activeTx.type === 'income' ? incomeCategories : expenseCategories;
       const found = categories.find(
         (c) => c.id === activeTx.categoryId || c.name.toLowerCase() === (activeTx.categoryName || '').toLowerCase()
       );
@@ -53,13 +55,13 @@ export const ManualTransactionModal = ({
     } else if (visible && !activeTx) {
       resetForm();
     }
-  }, [activeTx, visible]);
+  }, [activeTx, visible, expenseCategories, incomeCategories]);
 
   const resetForm = () => {
     setType('expense');
     setName('');
     setAmount('');
-    setSelectedCategory(EXPENSE_CATEGORIES[0]);
+    setSelectedCategory(expenseCategories[0]);
     const defaultW =
       wallets.find((w) => w.id === selectedWalletId && selectedWalletId !== 'all') ||
       wallets[0];
@@ -68,7 +70,7 @@ export const ManualTransactionModal = ({
 
   const handleTypeChange = (newType) => {
     setType(newType);
-    const categories = newType === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+    const categories = newType === 'income' ? incomeCategories : expenseCategories;
     setSelectedCategory(categories[0]);
   };
 

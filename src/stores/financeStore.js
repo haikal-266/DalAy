@@ -344,16 +344,46 @@ export const FinanceProvider = ({ children }) => {
     };
   }, [filteredTransactions, walletFilter]);
 
-  // Category breakdown for statistics & charts
-  const categoryStats = useMemo(() => {
+  // Category breakdown for statistics & charts (strictly separates expense and income, excludes transfers)
+  const getCategoryStats = (selectedType = 'expense') => {
     const map = {};
     let totalNominal = 0;
 
-    filteredTransactions.forEach((tx) => {
+    transactions.forEach((tx) => {
+      // 1. Exclude adjustments & internal transfers
       const isAdjustment = tx.type === 'adjustment' || tx.categoryId === 'cat_adjustment';
       if (isAdjustment) return;
 
-      if (typeFilter !== 'all' && tx.type !== typeFilter) return;
+      const isTransfer = tx.isTransfer || tx.categoryId === 'cat_transfer';
+      if (isTransfer) return;
+
+      // 2. Strict Type Check (Pengeluaran vs Pemasukan never mix)
+      if (tx.type !== selectedType) return;
+
+      // 3. Filter by Wallet
+      if (walletFilter !== 'all') {
+        const txWalletId = tx.walletId || 'wallet_cash';
+        if (txWalletId !== walletFilter) return;
+      }
+
+      // 4. Filter by Period
+      if (periodFilter === 'today') {
+        if (!isSameDay(tx.date, new Date())) return;
+      } else if (periodFilter === 'week') {
+        if (!isThisWeek(tx.date)) return;
+      } else if (periodFilter === 'month') {
+        if (!isThisMonth(tx.date)) return;
+      }
+
+      // 5. Search Query Filter if active
+      if (searchQuery.trim() !== '') {
+        const q = searchQuery.toLowerCase();
+        const matchName = (tx.name || '').toLowerCase().includes(q);
+        const matchCategory = (tx.categoryName || '').toLowerCase().includes(q);
+        const matchAmount = (tx.amount || 0).toString().includes(q);
+        const matchWallet = (tx.walletName || '').toLowerCase().includes(q);
+        if (!matchName && !matchCategory && !matchAmount && !matchWallet) return;
+      }
 
       const catId = tx.categoryId || 'other';
       const catName = tx.categoryName || 'Lain-lain';
@@ -390,10 +420,16 @@ export const FinanceProvider = ({ children }) => {
       .sort((a, b) => b.amount - a.amount);
 
     return {
+      type: selectedType,
       totalNominal,
       categories: list,
     };
-  }, [filteredTransactions, typeFilter]);
+  };
+
+  const categoryStats = useMemo(() => {
+    const effectiveType = typeFilter === 'income' ? 'income' : 'expense';
+    return getCategoryStats(effectiveType);
+  }, [transactions, walletFilter, periodFilter, typeFilter, searchQuery]);
 
   const contextValue = useMemo(
     () => ({
@@ -412,6 +448,7 @@ export const FinanceProvider = ({ children }) => {
       setSearchQuery,
       summary,
       categoryStats,
+      getCategoryStats,
       addFromNaturalLanguage,
       addTransaction,
       transferBalance,
