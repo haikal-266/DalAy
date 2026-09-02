@@ -9,6 +9,7 @@ import {
   Platform,
   Keyboard,
   ActivityIndicator,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { TYPOGRAPHY } from '../theme/typography';
@@ -37,6 +38,8 @@ import { getFriendlyErrorMessage } from '../utils/errorHandler';
 
 export const FinanceScreen = ({ onNavigateTab }) => {
   const scrollViewRef = useRef(null);
+  const { width, height } = useWindowDimensions();
+  const isTablet = Math.min(width, height) >= 600 || width >= 768;
   const { colors } = useTheme();
   const { t, isIndonesian } = useLanguage();
 
@@ -289,199 +292,330 @@ export const FinanceScreen = ({ onNavigateTab }) => {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
     >
-      <ScrollView
-        ref={scrollViewRef}
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor={colors.primary}
-          />
-        }
-      >
-        {/* Sleek Hero Header Card */}
-        <View
-          style={[
-            styles.headerHeroCard,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-          ]}
-        >
-          <View style={styles.headerLeftCol}>
-            <View style={styles.headerTitleRow}>
+      {isTablet ? (
+        <View style={styles.tabletOuter}>
+          {/* Enhanced Fixed Header Bar on Tablet */}
+          <View
+            style={[
+              styles.header,
+              styles.tabletHeader,
+              { borderBottomColor: colors.border },
+            ]}
+          >
+            <View style={styles.headerLeft}>
+              <View style={styles.logoRow}>
+                <View style={[styles.logoBadge, { backgroundColor: colors.primaryLight }]}>
+                  <Ionicons name="wallet" size={20} color={colors.primary} />
+                </View>
+                <Text style={[styles.headerLogo, { color: colors.text }]}>
+                  {t('quran.appName', 'DalAy')}
+                </Text>
+              </View>
+              <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
+                {isIndonesian ? 'Manajemen Keuangan & Dompet' : 'Finance & Wallet Dashboard'}
+              </Text>
+            </View>
+
+            <View style={styles.headerRightGroup}>
               <View
                 style={[
-                  styles.glowingIconBadge,
-                  { backgroundColor: colors.primary + '20' },
+                  styles.liveTagBadge,
+                  { backgroundColor: colors.income + '20', borderColor: colors.income },
                 ]}
               >
-                <Ionicons name="stats-chart" size={20} color={colors.primary} />
-                <View
-                  style={[
-                    styles.pulseDot,
-                    { backgroundColor: colors.accent || '#8B5CF6' },
-                  ]}
-                />
-              </View>
-              <View style={styles.headerTitleTextGroup}>
-                <View style={styles.titleWithTagRow}>
-                  <Text style={[styles.heroHeaderTitle, { color: colors.text }]}>
-                    {isIndonesian ? 'Manajemen Keuangan' : 'Finance Dashboard'}
-                  </Text>
-                  <View
-                    style={[
-                      styles.liveTagBadge,
-                      { backgroundColor: colors.income + '25' },
-                    ]}
-                  >
-                    <Text style={[styles.liveTagText, { color: colors.income }]}>
-                      LIVE
-                    </Text>
-                  </View>
-                </View>
-                <Text
-                  style={[
-                    styles.heroHeaderSubtitle,
-                    { color: colors.textSecondary },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {isIndonesian
-                    ? 'Catat Pengeluaranmu'
-                    : 'Record Your Expenses'}
+                <View style={[styles.pulseDotInline, { backgroundColor: colors.income }]} />
+                <Text style={[styles.liveTagText, { color: colors.incomeDark }]}>
+                  LIVE
                 </Text>
               </View>
             </View>
           </View>
-        </View>
 
-        {/* Floating Sync Toast Feedback */}
-        {syncFeedback && (
-          <View
-            style={[
-              styles.syncToastBox,
-              { backgroundColor: colors.accent, borderColor: colors.border },
-            ]}
-          >
-            <Ionicons
-              name={syncFeedback.icon || 'checkmark-circle'}
-              size={16}
-              color="#FFFFFF"
+          {/* Floating Sync Feedback if active */}
+          {syncFeedback && (
+            <View
+              style={[
+                styles.syncToastBox,
+                styles.tabletToastMargin,
+                { backgroundColor: colors.accent, borderColor: colors.border },
+              ]}
+            >
+              <Ionicons
+                name={syncFeedback.icon || 'checkmark-circle'}
+                size={16}
+                color="#FFFFFF"
+              />
+              <Text style={styles.syncToastText}>{syncFeedback.text}</Text>
+            </View>
+          )}
+
+          {/* Tablet Dual-Pane Independent Scroll Layout */}
+          <View style={styles.tabletPanesRow}>
+            {/* Left Pane: Summary, Wallets, Inputs, and Transaction List */}
+            <View style={styles.tabletPaneColumn}>
+              <ScrollView
+                ref={scrollViewRef}
+                style={styles.paneScrollView}
+                contentContainerStyle={styles.paneScrollContent}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={handleRefresh}
+                    tintColor={colors.primary}
+                  />
+                }
+              >
+                <SummaryCards
+                  summary={allWalletsSummary}
+                  periodFilter={periodFilter}
+                  periodLabel={getPeriodLabel()}
+                  onPeriodChange={setPeriodFilter}
+                  totalNetWorth={totalNetWorth}
+                />
+
+                <WalletCarousel
+                  onOpenManageWallets={() => {
+                    setInitialWalletAddMode(false);
+                    setManageWalletsVisible(true);
+                  }}
+                  onAddNewWallet={() => {
+                    setInitialWalletAddMode(true);
+                    setManageWalletsVisible(true);
+                  }}
+                  onOpenTransfer={() => setTransferModalVisible(true)}
+                />
+
+                <DateStripSelector
+                  selectedDate={selectedInputDate}
+                  onSelectDate={setSelectedInputDate}
+                />
+
+                <View onLayout={(e) => setQuickInputY(e.nativeEvent.layout.y)}>
+                  <QuickInputBar
+                    onAdd={handleQuickAdd}
+                    onOpenManual={() => {
+                      setEditingTransaction(null);
+                      setManualModalVisible(true);
+                    }}
+                    onOpenReceipt={handleOpenReceiptScanner}
+                    selectedDate={selectedInputDate}
+                    onFocus={handleFocusInput}
+                    onFocusInput={handleFocusInput}
+                  />
+                </View>
+
+                <View onLayout={(e) => setTransactionListY(e.nativeEvent.layout.y)}>
+                  <TransactionList
+                    transactions={filteredTransactions}
+                    typeFilter={typeFilter}
+                    setTypeFilter={setTypeFilter}
+                    categoryFilter={categoryFilter}
+                    setCategoryFilter={setCategoryFilter}
+                    searchQuery={searchQuery}
+                    setSearchQuery={setSearchQuery}
+                    onEdit={handleOpenEdit}
+                    onDelete={handleDeleteTransaction}
+                    onSearchFocus={handleSearchFocus}
+                  />
+                </View>
+              </ScrollView>
+            </View>
+
+            {/* Subtle Vertical Divider between Panes */}
+            <View style={[styles.tabletVerticalDivider, { backgroundColor: colors.border }]} />
+
+            {/* Right Pane: Live Chart & Analytics with Independent Scroll */}
+            <View style={styles.tabletPaneColumn}>
+              <ScrollView
+                style={styles.paneScrollView}
+                contentContainerStyle={styles.paneScrollContent}
+                showsVerticalScrollIndicator={false}
+              >
+                <PieChartSection
+                  categoryStats={categoryStats}
+                  summary={summary}
+                  periodFilter={periodFilter}
+                  onSelectPeriod={setPeriodFilter}
+                  typeFilter={typeFilter}
+                  onSelectType={setTypeFilter}
+                />
+              </ScrollView>
+            </View>
+          </View>
+        </View>
+      ) : (
+        /* Mobile Portrait Single Scroll Flow */
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.scrollView}
+          contentContainerStyle={[styles.scrollContent, { paddingHorizontal: 16 }]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={colors.primary}
             />
-            <Text style={styles.syncToastText}>{syncFeedback.text}</Text>
+          }
+        >
+          {/* Header Bar */}
+          <View style={[styles.header, { borderBottomColor: colors.border }]}>
+            <View style={styles.headerLeft}>
+              <View style={styles.logoRow}>
+                <View style={[styles.logoBadge, { backgroundColor: colors.primaryLight }]}>
+                  <Ionicons name="wallet" size={20} color={colors.primary} />
+                </View>
+                <Text style={[styles.headerLogo, { color: colors.text }]}>
+                  {t('quran.appName', 'DalAy')}
+                </Text>
+              </View>
+              <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
+                {isIndonesian ? 'Manajemen Keuangan' : 'Finance Dashboard'}
+              </Text>
+            </View>
+
+            <View style={styles.headerRightGroup}>
+              <View
+                style={[
+                  styles.liveTagBadge,
+                  { backgroundColor: colors.income + '20', borderColor: colors.income },
+                ]}
+              >
+                <View style={[styles.pulseDotInline, { backgroundColor: colors.income }]} />
+                <Text style={[styles.liveTagText, { color: colors.incomeDark }]}>
+                  LIVE
+                </Text>
+              </View>
+            </View>
           </View>
-        )}
 
-        {/* Floating Background Scan Status Banner */}
-        {bgScanStatus && (
-          <View
-            style={[
-              styles.syncToastBox,
-              { backgroundColor: (colors.accent || '#8B5CF6') + '25', borderColor: colors.accent || '#8B5CF6' },
-            ]}
-          >
-            <ActivityIndicator size="small" color={colors.accent || '#8B5CF6'} />
-            <Text style={[styles.syncToastText, { color: colors.text }]}>
-              {bgScanStatus.statusMsg || (isIndonesian ? 'Memproses struk di background...' : 'Processing receipt in background...')}
-            </Text>
-          </View>
-        )}
+          {/* Floating Sync Toast Feedback */}
+          {syncFeedback && (
+            <View
+              style={[
+                styles.syncToastBox,
+                { backgroundColor: colors.accent, borderColor: colors.border },
+              ]}
+            >
+              <Ionicons
+                name={syncFeedback.icon || 'checkmark-circle'}
+                size={16}
+                color="#FFFFFF"
+              />
+              <Text style={styles.syncToastText}>{syncFeedback.text}</Text>
+            </View>
+          )}
 
-        {/* Fixed All Wallets Overview KPI Card */}
-        <SummaryCards
-          summary={allWalletsSummary}
-          periodFilter={periodFilter}
-          periodLabel={getPeriodLabel()}
-          onPeriodChange={setPeriodFilter}
-          totalNetWorth={totalNetWorth}
-        />
-
-        {/* Diversified Custom Wallets Carousel */}
-        <WalletCarousel
-          onOpenManageWallets={() => {
-            setInitialWalletAddMode(false);
-            setManageWalletsVisible(true);
-          }}
-          onAddNewWallet={() => {
-            setInitialWalletAddMode(true);
-            setManageWalletsVisible(true);
-          }}
-          onOpenTransfer={() => setTransferModalVisible(true)}
-        />
-
-        {/* 7-Day Date Strip & Calendar Picker */}
-        <DateStripSelector
-          selectedDate={selectedInputDate}
-          onSelectDate={setSelectedInputDate}
-        />
-
-        {/* Smart Natural Language Quick Input Bar */}
-        <View onLayout={(e) => setQuickInputY(e.nativeEvent.layout.y)}>
-          <QuickInputBar
-            onAdd={handleQuickAdd}
-            onOpenManual={() => {
-              setEditingTransaction(null);
-              setManualModalVisible(true);
-            }}
-            onOpenReceipt={handleOpenReceiptScanner}
-            selectedDate={selectedInputDate}
-            onFocus={handleFocusInput}
-            onFocusInput={handleFocusInput}
-          />
-        </View>
-
-        {/* View Toggle Tabs (Transaction List vs Stats & Charts) */}
-        <View style={styles.viewToggleContainer}>
-          <NeoSegmented
-            options={[
-              {
-                label: `${t('finance.transactionHistory', 'Daftar Transaksi')} (${filteredTransactions.length})`,
-                value: 'list',
-                iconName: 'list-outline',
-              },
-              {
-                label: t('finance.chartView', 'Statistik & Grafik'),
-                value: 'chart',
-                iconName: 'pie-chart-outline',
-              },
-            ]}
-            selectedValue={activeViewTab}
-            onSelect={setActiveViewTab}
-          />
-        </View>
-
-        {/* Main Content Area */}
-        {activeViewTab === 'list' ? (
-          <View onLayout={(e) => setTransactionListY(e.nativeEvent.layout.y)}>
-            <TransactionList
-              transactions={filteredTransactions}
-              typeFilter={typeFilter}
-              setTypeFilter={setTypeFilter}
-              categoryFilter={categoryFilter}
-              setCategoryFilter={setCategoryFilter}
-              searchQuery={searchQuery}
-              setSearchQuery={setSearchQuery}
-              onEdit={handleOpenEdit}
-              onDelete={handleDeleteTransaction}
-              onSearchFocus={handleSearchFocus}
-            />
-          </View>
-        ) : (
-          <PieChartSection
-            categoryStats={categoryStats}
-            summary={summary}
+          {/* Floating Background Scan Status Banner */}
+          {bgScanStatus && (
+            <View
+              style={[
+                styles.syncToastBox,
+                { backgroundColor: (colors.accent || '#8B5CF6') + '25', borderColor: colors.accent || '#8B5CF6' },
+              ]}
+            >
+              <ActivityIndicator size="small" color={colors.accent || '#8B5CF6'} />
+              <Text style={[styles.syncToastText, { color: colors.text }]}>
+                {bgScanStatus.statusMsg || (isIndonesian ? 'Memproses struk di background...' : 'Processing receipt in background...')}
+              </Text>
+            </View>
+          )}
+          {/* Mobile All Wallets Overview KPI Card */}
+          <SummaryCards
+            summary={allWalletsSummary}
             periodFilter={periodFilter}
-            onSelectPeriod={setPeriodFilter}
-            typeFilter={typeFilter}
-            onSelectType={setTypeFilter}
+            periodLabel={getPeriodLabel()}
+            onPeriodChange={setPeriodFilter}
+            totalNetWorth={totalNetWorth}
           />
-        )}
-      </ScrollView>
+
+          {/* Mobile Wallets Carousel */}
+          <WalletCarousel
+            onOpenManageWallets={() => {
+              setInitialWalletAddMode(false);
+              setManageWalletsVisible(true);
+            }}
+            onAddNewWallet={() => {
+              setInitialWalletAddMode(true);
+              setManageWalletsVisible(true);
+            }}
+            onOpenTransfer={() => setTransferModalVisible(true)}
+          />
+
+          {/* Mobile 7-Day Date Strip & Calendar Picker */}
+          <DateStripSelector
+            selectedDate={selectedInputDate}
+            onSelectDate={setSelectedInputDate}
+          />
+
+          {/* Smart Natural Language Quick Input Bar */}
+          <View onLayout={(e) => setQuickInputY(e.nativeEvent.layout.y)}>
+            <QuickInputBar
+              onAdd={handleQuickAdd}
+              onOpenManual={() => {
+                setEditingTransaction(null);
+                setManualModalVisible(true);
+              }}
+              onOpenReceipt={handleOpenReceiptScanner}
+              selectedDate={selectedInputDate}
+              onFocus={handleFocusInput}
+              onFocusInput={handleFocusInput}
+            />
+          </View>
+
+          {/* View Toggle Tabs (Transaction List vs Stats & Charts) */}
+          <View style={styles.viewToggleContainer}>
+            <NeoSegmented
+              options={[
+                {
+                  label: `${t('finance.transactionHistory', 'Daftar Transaksi')} (${filteredTransactions.length})`,
+                  value: 'list',
+                  iconName: 'list-outline',
+                },
+                {
+                  label: t('finance.chartView', 'Statistik & Grafik'),
+                  value: 'chart',
+                  iconName: 'pie-chart-outline',
+                },
+              ]}
+              selectedValue={activeViewTab}
+              onSelect={setActiveViewTab}
+            />
+          </View>
+
+          {/* Mobile Tab Content */}
+          {activeViewTab === 'list' ? (
+            <View onLayout={(e) => setTransactionListY(e.nativeEvent.layout.y)}>
+              <TransactionList
+                transactions={filteredTransactions}
+                typeFilter={typeFilter}
+                setTypeFilter={setTypeFilter}
+                categoryFilter={categoryFilter}
+                setCategoryFilter={setCategoryFilter}
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                onEdit={handleOpenEdit}
+                onDelete={handleDeleteTransaction}
+                onSearchFocus={handleSearchFocus}
+              />
+            </View>
+          ) : (
+            <PieChartSection
+              categoryStats={categoryStats}
+              summary={summary}
+              periodFilter={periodFilter}
+              onSelectPeriod={setPeriodFilter}
+              typeFilter={typeFilter}
+              onSelectType={setTypeFilter}
+            />
+          )}
+        </ScrollView>
+      )}
 
       {/* Manual Input / Edit Modal */}
       {manualModalVisible && (
@@ -680,89 +814,122 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 220,
   },
-  headerHeroCard: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    marginBottom: 14,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingBottom: 12,
+    paddingTop: 4,
+    borderBottomWidth: 1,
+    width: '100%',
   },
-  headerLeftCol: {
-    flex: 1,
+  tabletHeader: {
+    paddingHorizontal: 24,
+    paddingTop: 10,
+    paddingBottom: 10,
+    marginBottom: 0,
   },
-  headerTitleRow: {
+  headerLeft: {
+    flexShrink: 0,
+    marginRight: 12,
+  },
+  logoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
-  glowingIconBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+  logoBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
   },
-  pulseDot: {
-    position: 'absolute',
-    top: 2,
-    right: 2,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    borderWidth: 1.5,
-    borderColor: '#FFFFFF',
+  headerLogo: {
+    fontSize: 22,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+    minWidth: 85,
+    paddingRight: 14,
+    paddingBottom: 2,
   },
-  headerTitleTextGroup: {
-    flex: 1,
-    gap: 2,
+  headerSubtitle: {
+    fontSize: TYPOGRAPHY.size.xs,
+    marginTop: 2,
+    fontWeight: '500',
   },
-  titleWithTagRow: {
+  headerRightGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-  },
-  heroHeaderTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-    letterSpacing: -0.4,
-  },
-  liveTagBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  liveTagText: {
-    fontSize: 9,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  heroHeaderSubtitle: {
-    fontSize: TYPOGRAPHY.size.xs,
-    fontWeight: '500',
-  },
-  headerButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
     flexShrink: 0,
   },
-  actionIconBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    borderWidth: 1,
+  liveTagBadge: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  pulseDotInline: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  liveTagText: {
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
   actionIconBtnPressed: {
     opacity: 0.7,
     transform: [{ scale: 0.93 }],
+  },
+  tabletOuter: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  tabletHeroHeader: {
+    marginHorizontal: 24,
+    marginTop: 10,
+    marginBottom: 0,
+  },
+  tabletToastMargin: {
+    marginHorizontal: 24,
+    marginTop: 8,
+    marginBottom: 0,
+  },
+  tabletPanesRow: {
+    flex: 1,
+    flexDirection: 'row',
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    gap: 18,
+    width: '100%',
+    height: '100%',
+    alignItems: 'stretch',
+  },
+  tabletVerticalDivider: {
+    width: 1,
+    height: '100%',
+    alignSelf: 'stretch',
+    opacity: 0.7,
+  },
+  tabletPaneColumn: {
+    flex: 1,
+    height: '100%',
+    minWidth: 0,
+  },
+  paneScrollView: {
+    flex: 1,
+    width: '100%',
+  },
+  paneScrollContent: {
+    paddingBottom: 40,
   },
   viewToggleContainer: {
     marginTop: 18,

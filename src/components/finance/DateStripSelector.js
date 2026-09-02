@@ -343,34 +343,37 @@ const styles = StyleSheet.create({
   dateText: {
     fontSize: 12,
     fontWeight: '800',
+    includeFontPadding: false,
   },
   topRightActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
   resetTodayBtn: {
-    paddingVertical: 3,
-    paddingHorizontal: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
     borderRadius: 8,
     borderWidth: 1,
   },
   resetTodayText: {
     fontSize: 10,
     fontWeight: '800',
+    includeFontPadding: false,
   },
   calendarHeaderBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 11,
     borderRadius: 8,
     borderWidth: 1,
   },
   calendarHeaderBtnText: {
     fontSize: 11,
     fontWeight: '700',
+    includeFontPadding: false,
   },
   stripContainer: {
     width: '100%',

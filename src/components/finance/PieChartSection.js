@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import Svg, { G, Path, Circle } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,7 +12,7 @@ import { useFinance } from '../../stores/financeStore';
 import { formatRupiah, formatCompact } from '../../utils/formatters';
 
 export const PieChartSection = ({
-  categoryStats = { type: 'expense', totalNominal: 0, categories: [] },
+  categoryStats,
   periodFilter = 'all',
   onSelectPeriod = () => {},
   typeFilter = 'expense',
@@ -24,15 +24,22 @@ export const PieChartSection = ({
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [chartType, setChartType] = useState(typeFilter === 'income' ? 'income' : 'expense');
 
+  // Sync internal chartType if prop changes
+  useEffect(() => {
+    if (typeFilter === 'income' || typeFilter === 'expense') {
+      setChartType(typeFilter);
+    }
+  }, [typeFilter]);
+
   const isIncome = chartType === 'income';
 
   // Compute category statistics strictly for the active chart type (excludes transfers and adjustments)
   const currentStats = typeof getCategoryStats === 'function'
     ? getCategoryStats(chartType)
-    : categoryStats;
+    : (categoryStats || { type: chartType, totalNominal: 0, categories: [] });
 
-  const categories = currentStats.categories || [];
-  const totalNominal = currentStats.totalNominal || 0;
+  const categories = currentStats?.categories || [];
+  const totalNominal = currentStats?.totalNominal || 0;
 
   // Computed helper strings
   const emptyText = isIndonesian
@@ -43,9 +50,9 @@ export const PieChartSection = ({
     ? (isIndonesian ? 'Pemasukan' : 'Income')
     : (isIndonesian ? 'Pengeluaran' : 'Expense');
 
-  // Responsive Donut chart parameters
+  // Donut chart parameters
   const size = 220;
-  const strokeWidth = 38;
+  const strokeWidth = 36;
   const radius = 95;
   const innerRadius = radius - strokeWidth;
   const cx = size / 2;
@@ -62,22 +69,23 @@ export const PieChartSection = ({
 
   // Generate SVG Path for a donut slice
   const createDonutSlice = (startAngle, endAngle, rOuter, rInner) => {
-    if (endAngle - startAngle >= 359.9) {
-      endAngle = 359.99;
+    let safeEnd = endAngle;
+    if (safeEnd - startAngle >= 359.9) {
+      safeEnd = startAngle + 359.9;
     }
 
     const startOuter = polarToCartesian(cx, cy, rOuter, startAngle);
-    const endOuter = polarToCartesian(cx, cy, rOuter, endAngle);
-    const startInner = polarToCartesian(cx, cy, rInner, endAngle);
+    const endOuter = polarToCartesian(cx, cy, rOuter, safeEnd);
+    const startInner = polarToCartesian(cx, cy, rInner, safeEnd);
     const endInner = polarToCartesian(cx, cy, rInner, startAngle);
 
-    const largeArcFlag = endAngle - startAngle <= 180 ? '0' : '1';
+    const largeArcFlag = safeEnd - startAngle <= 180 ? '0' : '1';
 
     return [
-      `M ${startOuter.x} ${startOuter.y}`,
-      `A ${rOuter} ${rOuter} 0 ${largeArcFlag} 1 ${endOuter.x} ${endOuter.y}`,
-      `L ${startInner.x} ${startInner.y}`,
-      `A ${rInner} ${rInner} 0 ${largeArcFlag} 0 ${endInner.x} ${endInner.y}`,
+      `M ${startOuter.x.toFixed(2)} ${startOuter.y.toFixed(2)}`,
+      `A ${rOuter} ${rOuter} 0 ${largeArcFlag} 1 ${endOuter.x.toFixed(2)} ${endOuter.y.toFixed(2)}`,
+      `L ${startInner.x.toFixed(2)} ${startInner.y.toFixed(2)}`,
+      `A ${rInner} ${rInner} 0 ${largeArcFlag} 0 ${endInner.x.toFixed(2)} ${endInner.y.toFixed(2)}`,
       'Z',
     ].join(' ');
   };
@@ -86,7 +94,7 @@ export const PieChartSection = ({
   let cumulativeAngle = 0;
   const isSingleCategory =
     categories.length === 1 ||
-    (categories.length > 0 && categories[0].percentage >= 99.9);
+    (categories.length > 0 && (categories[0].percentage >= 99.9 || categories.length === 1));
 
   const slices = categories.map((cat) => {
     const sliceAngle = Math.max(0.5, (cat.percentage / 100) * 360);

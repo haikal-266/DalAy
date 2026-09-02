@@ -7,7 +7,7 @@ export const APP_INFO = {
   name: 'DalAy',
   fullName: 'DalAy (Daily Ayah & Finance)',
   slug: 'dalay',
-  version: packageJson.version || '3.0.0',
+  version: packageJson.version || '3.5.0',
   buildLabel: 'AI Vision & Multi-Wallet',
   tagline: 'Quran Reminder & Smart Finance',
 
@@ -56,7 +56,7 @@ export const APP_INFO = {
 
   getVersionBadgeText: (isIndonesian = true) => {
     const prefix = isIndonesian ? 'Versi' : 'Version';
-    return `${prefix} ${packageJson.version || '3.0.0'}`;
+    return `${prefix} ${packageJson.version || '3.5.0'}`;
   },
 };
 

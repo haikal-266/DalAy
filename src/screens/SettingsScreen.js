@@ -5,6 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { TYPOGRAPHY } from '../theme/typography';
@@ -23,6 +24,8 @@ import { GeminiAiCard } from '../components/settings/GeminiAiCard';
 import { APP_INFO } from '../constants/appInfo';
 
 export const SettingsScreen = ({ onNavigateTab }) => {
+  const { width, height } = useWindowDimensions();
+  const isTablet = Math.min(width, height) >= 600 || width >= 768;
   const { colors, currentThemeId, setTheme, availableThemes } = useTheme();
   const { currentLanguage, setLanguage, availableLanguages, t, isIndonesian } = useLanguage();
   const { clearHistory, history } = useQuran();
@@ -61,18 +64,20 @@ export const SettingsScreen = ({ onNavigateTab }) => {
 
   const handleClearHistoryPrompt = () => {
     setConfirmDialog({
-      title: t('modal.clearHistory', 'Bersihkan Riwayat'),
+      title: isIndonesian ? 'Hapus Riwayat Ayat' : 'Clear Ayah History',
       message: isIndonesian
-        ? 'Yakin ingin menghapus seluruh riwayat bacaan ayat dari penyimpanan?'
-        : 'Are you sure you want to delete all reading history records?',
+        ? 'Semua riwayat bacaan ayat harian akan dihapus permanen. Lanjutkan?'
+        : 'All daily ayah reading history will be permanently deleted. Continue?',
       type: 'danger',
-      confirmText: t('modal.delete', 'Hapus'),
-      onConfirm: () => {
-        clearHistory();
+      confirmText: isIndonesian ? 'Hapus' : 'Delete',
+      cancelText: isIndonesian ? 'Batal' : 'Cancel',
+      onConfirm: async () => {
+        await clearHistory();
         setConfirmDialog(null);
         showToast(
-          isIndonesian ? 'Riwayat bacaan berhasil dibersihkan' : 'Reading history cleared',
-          'trash-outline'
+          isIndonesian
+            ? 'Riwayat ayat berhasil dibersihkan'
+            : 'Ayah history cleared successfully'
         );
       },
     });
@@ -80,18 +85,20 @@ export const SettingsScreen = ({ onNavigateTab }) => {
 
   const handleClearFinancePrompt = () => {
     setConfirmDialog({
-      title: isIndonesian ? 'Reset Semua Data Keuangan' : 'Reset All Financial Records',
+      title: isIndonesian ? 'Reset Data Keuangan' : 'Reset Financial Data',
       message: isIndonesian
-        ? 'PERINGATAN: Seluruh catatan pengeluaran, pemasukan, dan saldo akan dihapus permanen. Lanjutkan?'
-        : 'WARNING: All income and expense transaction records will be permanently deleted. Continue?',
+        ? 'PERINGATAN: Semua catatan transaksi keuangan akan dihapus permanen! Tindakan ini tidak dapat dibatalkan.'
+        : 'WARNING: All financial transaction records will be permanently deleted! This action cannot be undone.',
       type: 'danger',
-      confirmText: isIndonesian ? 'Reset Semua' : 'Reset All',
-      onConfirm: () => {
-        clearAllTransactions();
+      confirmText: isIndonesian ? 'Reset Semua Data' : 'Reset All Data',
+      cancelText: isIndonesian ? 'Batal' : 'Cancel',
+      onConfirm: async () => {
+        await clearAllTransactions();
         setConfirmDialog(null);
         showToast(
-          isIndonesian ? 'Seluruh data keuangan berhasil direset' : 'All financial data reset',
-          'trash-outline'
+          isIndonesian
+            ? 'Semua data keuangan telah direset'
+            : 'All financial data has been reset'
         );
       },
     });
@@ -100,30 +107,23 @@ export const SettingsScreen = ({ onNavigateTab }) => {
   const handleExportFull = async () => {
     if (transactions.length === 0) {
       setConfirmDialog({
-        title: isIndonesian ? 'Belum Ada Data' : 'No Data Available',
+        title: isIndonesian ? 'Tidak Ada Data' : 'No Data Available',
         message: isIndonesian
-          ? 'Belum ada catatan transaksi keuangan yang dapat diekspor ke Excel.'
-          : 'There are no financial records available to export to Excel.',
-        type: 'warning',
+          ? 'Belum ada transaksi keuangan untuk diekspor ke Excel.'
+          : 'There are no financial transactions to export.',
+        type: 'info',
         showCancel: false,
-        confirmText: isIndonesian ? 'Tutup' : 'Close',
+        confirmText: isIndonesian ? 'Mengerti' : 'Understood',
+        onConfirm: () => setConfirmDialog(null),
       });
       return;
     }
 
     setExporting(true);
-    const res = await exportTransactionsToExcel(
-      transactions,
-      summary,
-      isIndonesian ? 'Semua Periode' : 'All Periods'
-    );
+    const res = await exportTransactionsToExcel(transactions, summary);
     setExporting(false);
 
     if (res.success) {
-      showToast(
-        isIndonesian ? `Rekap ${res.fileName} siap dibagikan` : `Exported ${res.fileName}`,
-        'document-text-outline'
-      );
       setConfirmDialog({
         title: isIndonesian ? 'Ekspor Berhasil' : 'Export Successful',
         message: isIndonesian
@@ -150,7 +150,15 @@ export const SettingsScreen = ({ onNavigateTab }) => {
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingHorizontal: isTablet ? 24 : 16,
+            maxWidth: isTablet ? 1280 : '100%',
+            alignSelf: 'center',
+            width: '100%',
+          },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         {/* Simple App Name Header */}
@@ -165,7 +173,7 @@ export const SettingsScreen = ({ onNavigateTab }) => {
             ]}
           >
             <Text style={[styles.appVersionText, { color: colors.textSecondary }]}>
-              v3.0.0
+              v{APP_INFO.version}
             </Text>
           </View>
         </View>
@@ -481,7 +489,7 @@ export const SettingsScreen = ({ onNavigateTab }) => {
               <Text style={[styles.actionSubtitle, { color: colors.textSecondary }]}>
                 {t(
                   'settings.reminderDesc',
-                  'Notifikasi ayat Al-Quran terjadwal berkala ke perangkat Anda.'
+                  'Notifikasi ayat Al-Quran.'
                 )}
               </Text>
             </View>
@@ -726,7 +734,10 @@ const styles = StyleSheet.create({
   appNameText: {
     fontSize: 22,
     fontWeight: '900',
-    letterSpacing: -0.5,
+    letterSpacing: 0.5,
+    minWidth: 85,
+    paddingRight: 14,
+    paddingBottom: 2,
   },
   appVersionTag: {
     paddingHorizontal: 8,

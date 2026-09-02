@@ -18,7 +18,8 @@ import { useSwipeNavigation } from '../../stores/swipeNavigationStore';
 export const WalletCarousel = ({ onOpenManageWallets, onAddNewWallet, onOpenTransfer }) => {
   const { colors, isDark } = useTheme();
   const { isIndonesian } = useLanguage();
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const isTablet = Math.min(windowWidth, windowHeight) >= 600 || windowWidth >= 768;
   const { setSwipeEnabled } = useSwipeNavigation();
   const {
     wallets,
@@ -29,6 +30,10 @@ export const WalletCarousel = ({ onOpenManageWallets, onAddNewWallet, onOpenTran
   const { transactions } = useFinance();
 
   const scrollViewRef = useRef(null);
+
+  // Exact slide width based on container layout
+  const [containerWidth, setContainerWidth] = useState(windowWidth);
+  const slideWidth = containerWidth > 0 ? containerWidth : windowWidth;
 
   // Total slides = wallets.length + 1 ("Tambah Dompet")
   const totalSlides = wallets.length + 1;
@@ -43,7 +48,7 @@ export const WalletCarousel = ({ onOpenManageWallets, onAddNewWallet, onOpenTran
   const scrollToIndex = (index, animated = true) => {
     if (scrollViewRef.current) {
       scrollViewRef.current.scrollTo({
-        x: index * windowWidth,
+        x: index * slideWidth,
         animated,
       });
       setActiveIndex(index);
@@ -72,7 +77,7 @@ export const WalletCarousel = ({ onOpenManageWallets, onAddNewWallet, onOpenTran
 
   const handleScrollEnd = (e) => {
     const offsetX = e.nativeEvent.contentOffset.x;
-    const newIndex = Math.round(offsetX / windowWidth);
+    const newIndex = Math.round(offsetX / slideWidth);
     if (newIndex >= 0 && newIndex < totalSlides && newIndex !== activeIndex) {
       setActiveIndex(newIndex);
       // Auto-select wallet corresponding to this slide for default input context
@@ -95,9 +100,23 @@ export const WalletCarousel = ({ onOpenManageWallets, onAddNewWallet, onOpenTran
   };
 
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        {
+          marginHorizontal: isTablet ? 0 : -16,
+          width: isTablet ? '100%' : undefined,
+        },
+      ]}
+      onLayout={(e) => {
+        const w = e.nativeEvent.layout.width;
+        if (w > 0 && Math.abs(w - containerWidth) > 1) {
+          setContainerWidth(w);
+        }
+      }}
+    >
       {/* Header Bar */}
-      <View style={styles.headerRow}>
+      <View style={[styles.headerRow, { paddingHorizontal: isTablet ? 0 : 16 }]}>
         <View style={styles.titleGroup}>
           <Ionicons name="wallet" size={15} color={colors.primary} />
           <Text
@@ -175,7 +194,16 @@ export const WalletCarousel = ({ onOpenManageWallets, onAddNewWallet, onOpenTran
           const slideIndex = idx;
 
           return (
-            <View key={wallet.id} style={[styles.slideContainer, { width: windowWidth }]}>
+            <View
+              key={wallet.id}
+              style={[
+                styles.slideContainer,
+                {
+                  width: slideWidth,
+                  paddingHorizontal: isTablet ? 0 : 16,
+                },
+              ]}
+            >
               <Pressable
                 onPress={() => handleSelect(wallet.id, slideIndex)}
                 style={({ pressed }) => [
@@ -366,38 +394,41 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
     textTransform: 'uppercase',
     flexShrink: 1,
+    includeFontPadding: false,
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
     flexShrink: 0,
   },
   transferHeaderBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 7,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+    borderRadius: 8,
     borderWidth: 1,
   },
   transferHeaderBtnText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
+    includeFontPadding: false,
   },
   manageBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 7,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+    borderRadius: 8,
     borderWidth: 1,
   },
   manageBtnText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '700',
+    includeFontPadding: false,
   },
   slideContainer: {
     paddingHorizontal: 16,

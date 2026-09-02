@@ -131,7 +131,11 @@ export const AyatHistoryModal = ({
                   </Text>
                 </View>
 
-                <Text style={[styles.itemArab, { color: colors.text }]} numberOfLines={1}>
+                <Text
+                  allowFontScaling={false}
+                  style={[styles.itemArab, { color: colors.text }]}
+                  numberOfLines={1}
+                >
                   {item.arab}
                 </Text>
 
@@ -207,8 +211,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   itemArab: {
+    fontFamily: TYPOGRAPHY.fontFamilyArabic,
     fontSize: 16,
     textAlign: 'right',
+    writingDirection: 'rtl',
     marginBottom: 4,
     fontWeight: '600',
   },

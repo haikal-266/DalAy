@@ -7,6 +7,7 @@ import { useLanguage } from './languageStore';
 
 const STORAGE_KEY_FAVORITES = '@dalay_favorites';
 const STORAGE_KEY_HISTORY = '@dalay_ayat_history';
+const STORAGE_KEY_FONT_SIZE = '@dalay_translation_font_size';
 
 const QuranContext = createContext(null);
 
@@ -18,6 +19,7 @@ export const QuranProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [audioLoading, setAudioLoading] = useState(false);
+  const [translationFontSize, setTranslationFontSize] = useState(15);
 
   const soundRef = useRef(null);
   const webAudioRef = useRef(null);
@@ -67,15 +69,22 @@ export const QuranProvider = ({ children }) => {
   const loadInitialData = async () => {
     setLoading(true);
     try {
-      // Load favorites and history
-      const [rawFavs, rawHist, lastAyahJson] = await Promise.all([
+      // Load favorites, history, and font size
+      const [rawFavs, rawHist, lastAyahJson, rawFontSize] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEY_FAVORITES),
         AsyncStorage.getItem(STORAGE_KEY_HISTORY),
         AsyncStorage.getItem('@dalay_last_viewed_ayah'),
+        AsyncStorage.getItem(STORAGE_KEY_FONT_SIZE),
       ]);
 
       if (rawFavs) setFavorites(JSON.parse(rawFavs));
       if (rawHist) setHistory(JSON.parse(rawHist));
+      if (rawFontSize) {
+        const parsed = parseInt(rawFontSize, 10);
+        if (!isNaN(parsed) && parsed >= 12 && parsed <= 24) {
+          setTranslationFontSize(parsed);
+        }
+      }
 
       // Always fetch a fresh random ayah for each new session using active language
       const lastAyah = lastAyahJson ? JSON.parse(lastAyahJson) : null;
@@ -100,6 +109,28 @@ export const QuranProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const increaseFontSize = async () => {
+    setTranslationFontSize((prev) => {
+      const next = Math.min(prev + 1, 22);
+      AsyncStorage.setItem(STORAGE_KEY_FONT_SIZE, String(next)).catch(() => {});
+      return next;
+    });
+  };
+
+  const decreaseFontSize = async () => {
+    setTranslationFontSize((prev) => {
+      const next = Math.max(prev - 1, 12);
+      AsyncStorage.setItem(STORAGE_KEY_FONT_SIZE, String(next)).catch(() => {});
+      return next;
+    });
+  };
+
+  const setFontSize = async (size) => {
+    const clamped = Math.max(12, Math.min(size, 22));
+    setTranslationFontSize(clamped);
+    await AsyncStorage.setItem(STORAGE_KEY_FONT_SIZE, String(clamped)).catch(() => {});
   };
 
   /**
@@ -304,6 +335,10 @@ export const QuranProvider = ({ children }) => {
       loading,
       isPlayingAudio,
       audioLoading,
+      translationFontSize,
+      increaseFontSize,
+      decreaseFontSize,
+      setFontSize,
       getNewRandomAyah,
       selectSpecificAyah,
       toggleFavorite,
@@ -312,7 +347,15 @@ export const QuranProvider = ({ children }) => {
       replaceFavoritesAndHistory,
       togglePlayAudio,
     }),
-    [currentAyah, favorites, history, loading, isPlayingAudio, audioLoading]
+    [
+      currentAyah,
+      favorites,
+      history,
+      loading,
+      isPlayingAudio,
+      audioLoading,
+      translationFontSize,
+    ]
   );
 
   return <QuranContext.Provider value={value}>{children}</QuranContext.Provider>;

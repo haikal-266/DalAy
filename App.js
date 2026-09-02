@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { StyleSheet, View, Animated, PanResponder, useWindowDimensions } from 'react-native';
+import { StyleSheet, View, Animated, PanResponder, useWindowDimensions, Dimensions, Platform } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import { LanguageProvider, useLanguage } from './src/stores/languageStore';
 import { ThemeProvider, useTheme } from './src/stores/themeStore';
 import { QuranProvider, useQuran } from './src/stores/quranStore';
@@ -15,19 +16,45 @@ import { QuranScreen } from './src/screens/QuranScreen';
 import { FinanceScreen } from './src/screens/FinanceScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { BottomTabBar } from './src/navigation/BottomTabBar';
+import { TabletRightNavRail } from './src/navigation/TabletRightNavRail';
 import { getNotificationModule, initNotificationSync } from './src/services/notificationService';
 
 const TABS = ['quran', 'finance', 'settings'];
 
 const AppContent = () => {
   const [activeTab, setActiveTab] = useState('quran');
-  const { width: windowWidth } = useWindowDimensions();
-  const [containerWidth, setContainerWidth] = useState(Math.min(windowWidth, 960));
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const isTablet = Math.min(windowWidth, windowHeight) >= 600 || windowWidth >= 768;
+  const [containerWidth, setContainerWidth] = useState(windowWidth);
 
   const { colors, isDark } = useTheme();
   const { currentLanguage, loading: langLoading } = useLanguage();
   const { selectSpecificAyah } = useQuran();
   const { swipeEnabledRef } = useSwipeNavigation();
+
+  // Strict Device Orientation: Tablets strictly LANDSCAPE, Phones strictly PORTRAIT
+  useEffect(() => {
+    const configureDeviceOrientation = async () => {
+      try {
+        if (Platform.OS === 'web') return;
+        const { width, height } = Dimensions.get('window');
+        const minDimension = Math.min(width, height);
+        const isTabletDevice = minDimension >= 600;
+
+        if (isTabletDevice) {
+          // Strictly lock Tablets to Landscape (no portrait leaking)
+          await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
+        } else {
+          // Strictly lock Phones to Portrait
+          await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+        }
+      } catch (e) {
+        console.log('Screen orientation setup note:', e);
+      }
+    };
+
+    configureDeviceOrientation();
+  }, []);
 
   const activeTabRef = useRef(activeTab);
   activeTabRef.current = activeTab;
@@ -58,60 +85,64 @@ const AppContent = () => {
       onStartShouldSetPanResponder: () => false,
       onStartShouldSetPanResponderCapture: () => false,
       onMoveShouldSetPanResponder: (_, gestureState) => {
-        if (swipeEnabledRef?.current === false) return false;
-        return (
-          Math.abs(gestureState.dx) > 12 &&
-          Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.6
-        );
+        if (!swipeEnabledRef.current) return false;
+        const { dx, dy } = gestureState;
+        return Math.abs(dx) > 15 && Math.abs(dx) > Math.abs(dy) * 1.5;
       },
-      onMoveShouldSetPanResponderCapture: () => false,
       onPanResponderGrant: () => {
-        const currentIndex = TABS.indexOf(activeTabRef.current);
-        gestureStartScrollX.current = -currentIndex * containerWidthRef.current;
+        scrollX.stopAnimation((val) => {
+          gestureStartScrollX.current = val;
+        });
       },
       onPanResponderMove: (_, gestureState) => {
-        if (swipeEnabledRef?.current === false) return;
-
         const currentIndex = TABS.indexOf(activeTabRef.current);
-        let dx = gestureState.dx;
+        const baseOffset = -currentIndex * containerWidthRef.current;
+        let newOffset = baseOffset + gestureState.dx;
 
-        // Resistensi saat ditarik di ujung kiri atau kanan layar
-        if ((currentIndex === 0 && dx > 0) || (currentIndex === TABS.length - 1 && dx < 0)) {
-          dx = dx * 0.25;
+        // Apply friction resistance at boundaries
+        const maxOffset = 0;
+        const minOffset = -2 * containerWidthRef.current;
+
+        if (newOffset > maxOffset) {
+          newOffset = maxOffset + (newOffset - maxOffset) * 0.3;
+        } else if (newOffset < minOffset) {
+          newOffset = minOffset + (newOffset - minOffset) * 0.3;
         }
 
-        scrollX.setValue(gestureStartScrollX.current + dx);
+        scrollX.setValue(newOffset);
       },
-      onPanResponderTerminationRequest: () => true,
       onPanResponderRelease: (_, gestureState) => {
-        const width = containerWidthRef.current || 1;
-        const currentIndex = TABS.indexOf(activeTabRef.current);
-
-        if (swipeEnabledRef?.current === false) {
-          scrollX.setValue(-currentIndex * width);
-          return;
-        }
-
         const { dx, vx } = gestureState;
+        const currentIndex = TABS.indexOf(activeTabRef.current);
         let targetIndex = currentIndex;
 
-        // Geser ke tab kanan (swipe kiri) jika jarak > 18% lebar layar atau flick cepat
-        if ((dx < -width * 0.18 || (dx < -20 && vx < -0.3)) && currentIndex < TABS.length - 1) {
-          targetIndex = currentIndex + 1;
-        }
-        // Geser ke tab kiri (swipe kanan) jika jarak > 18% lebar layar atau flick cepat
-        else if ((dx > width * 0.18 || (dx > 20 && vx > 0.3)) && currentIndex > 0) {
-          targetIndex = currentIndex - 1;
+        const threshold = containerWidthRef.current * 0.22;
+        const velocityThreshold = 0.4;
+
+        if (dx < -threshold || (dx < -25 && vx < -velocityThreshold)) {
+          targetIndex = Math.min(currentIndex + 1, TABS.length - 1);
+        } else if (dx > threshold || (dx > 25 && vx > velocityThreshold)) {
+          targetIndex = Math.max(currentIndex - 1, 0);
         }
 
-        const targetTab = TABS[targetIndex];
-        activeTabRef.current = targetTab;
-        setActiveTab(targetTab);
+        const newTab = TABS[targetIndex];
+        activeTabRef.current = newTab;
+        setActiveTab(newTab);
 
         Animated.spring(scrollX, {
-          toValue: -targetIndex * width,
-          tension: 220,
+          toValue: -targetIndex * containerWidthRef.current,
+          velocity: -vx,
+          tension: 180,
           friction: 22,
+          useNativeDriver: true,
+        }).start();
+      },
+      onPanResponderTerminate: () => {
+        const currentIndex = TABS.indexOf(activeTabRef.current);
+        Animated.spring(scrollX, {
+          toValue: -currentIndex * containerWidthRef.current,
+          tension: 200,
+          friction: 20,
           useNativeDriver: true,
         }).start();
       },
@@ -159,44 +190,62 @@ const AppContent = () => {
   return (
     <View style={[styles.outerContainer, { backgroundColor: colors.background }]}>
       <SafeAreaView
-        style={[styles.safeArea, { backgroundColor: colors.background }]}
-        edges={['top', 'left', 'right']}
+        style={[
+          styles.safeArea,
+          isTablet && styles.safeAreaTablet,
+          { backgroundColor: colors.background },
+        ]}
+        edges={['top', 'left', 'right', isTablet ? 'bottom' : 'left']}
       >
         <StatusBar
           style={isDark ? 'light' : 'dark'}
           backgroundColor={colors.background}
         />
 
-        <View
-          style={[styles.contentContainer, { backgroundColor: colors.background }]}
-          onLayout={onContainerLayout}
-          {...panResponder.panHandlers}
-        >
-          <Animated.View
-            style={[
-              styles.screensRow,
-              {
-                width: containerWidth * 3,
-                transform: [{ translateX: scrollX }],
-              },
-            ]}
+        {/* Main Tablet / Mobile Content Area */}
+        <View style={[styles.mainShell, isTablet && styles.mainShellTablet]}>
+          <View
+            style={[styles.contentContainer, { backgroundColor: colors.background }]}
+            onLayout={onContainerLayout}
+            {...panResponder.panHandlers}
           >
-            <View style={{ width: containerWidth, flex: 1 }}>
-              <QuranScreen onNavigateTab={handleTabPress} />
-            </View>
-            <View style={{ width: containerWidth, flex: 1 }}>
-              <FinanceScreen onNavigateTab={handleTabPress} />
-            </View>
-            <View style={{ width: containerWidth, flex: 1 }}>
-              <SettingsScreen onNavigateTab={handleTabPress} />
-            </View>
-          </Animated.View>
+            <Animated.View
+              style={[
+                styles.screensRow,
+                {
+                  width: containerWidth * 3,
+                  transform: [{ translateX: scrollX }],
+                },
+              ]}
+            >
+              <View style={{ width: containerWidth, flex: 1 }}>
+                <QuranScreen onNavigateTab={handleTabPress} />
+              </View>
+              <View style={{ width: containerWidth, flex: 1 }}>
+                <FinanceScreen onNavigateTab={handleTabPress} />
+              </View>
+              <View style={{ width: containerWidth, flex: 1 }}>
+                <SettingsScreen onNavigateTab={handleTabPress} />
+              </View>
+            </Animated.View>
+          </View>
+
+          {/* Right Nav Rail for Tablet */}
+          {isTablet && (
+            <TabletRightNavRail
+              activeTab={activeTab}
+              onTabPress={handleTabPress}
+            />
+          )}
         </View>
 
-        <BottomTabBar
-          activeTab={activeTab}
-          onTabPress={handleTabPress}
-        />
+        {/* Bottom Tab Bar for Mobile Phone */}
+        {!isTablet && (
+          <BottomTabBar
+            activeTab={activeTab}
+            onTabPress={handleTabPress}
+          />
+        )}
       </SafeAreaView>
     </View>
   );
@@ -231,17 +280,31 @@ export default function App() {
 const styles = StyleSheet.create({
   outerContainer: {
     flex: 1,
-    alignItems: 'center',
+    width: '100%',
+    height: '100%',
   },
   safeArea: {
     flex: 1,
     width: '100%',
-    maxWidth: 960,
+  },
+  safeAreaTablet: {
+    width: '100%',
+  },
+  mainShell: {
+    flex: 1,
+    flexDirection: 'column',
+    width: '100%',
+  },
+  mainShellTablet: {
+    flexDirection: 'row',
+    width: '100%',
+    height: '100%',
   },
   contentContainer: {
     flex: 1,
     position: 'relative',
     overflow: 'hidden',
+    width: '100%',
   },
   screensRow: {
     flex: 1,

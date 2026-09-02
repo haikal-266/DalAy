@@ -125,11 +125,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 8,
     elevation: 6,
+    width: '100%',
   },
   container: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
+    maxWidth: 580,
+    width: '100%',
+    alignSelf: 'center',
   },
   tabItem: {
     flex: 1,
@@ -152,8 +156,9 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.94 }],
   },
   tabLabel: {
-    fontSize: 10.5,
+    fontSize: 11,
     letterSpacing: 0.1,
+    includeFontPadding: false,
   },
   activeTabLabel: {
     fontWeight: '800',

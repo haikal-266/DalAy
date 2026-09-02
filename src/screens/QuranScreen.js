@@ -6,6 +6,7 @@ import {
   ScrollView,
   useWindowDimensions,
   RefreshControl,
+  Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { TYPOGRAPHY } from '../theme/typography';
@@ -22,8 +23,8 @@ import { NeoButton } from '../components/neo/NeoButton';
 import { NeoSegmented } from '../components/neo/NeoSegmented';
 
 export const QuranScreen = () => {
-  const { width } = useWindowDimensions();
-  const isTablet = width >= 768;
+  const { width, height } = useWindowDimensions();
+  const isTablet = Math.min(width, height) >= 600 || width >= 768;
   const { colors } = useTheme();
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState('ayat'); // 'ayat' | 'hadits'
@@ -34,6 +35,9 @@ export const QuranScreen = () => {
     loading,
     isPlayingAudio,
     audioLoading,
+    translationFontSize,
+    increaseFontSize,
+    decreaseFontSize,
     getNewRandomAyah,
     selectSpecificAyah,
     toggleFavorite,
@@ -56,56 +60,204 @@ export const QuranScreen = () => {
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor={colors.primary}
-          />
-        }
-      >
-        {/* Enhanced Header Bar */}
-        <View style={[styles.header, { borderBottomColor: colors.border }]}>
-          <View style={styles.headerLeft}>
-            <View style={styles.logoRow}>
-              <View style={[styles.logoBadge, { backgroundColor: colors.primaryLight }]}>
-                <Ionicons name="book" size={20} color={colors.primary} />
+      {isTablet ? (
+        <View style={styles.tabletOuter}>
+          {/* Enhanced Fixed Header Bar on Tablet */}
+          <View
+            style={[
+              styles.header,
+              styles.tabletHeader,
+              { borderBottomColor: colors.border },
+            ]}
+          >
+            <View style={styles.headerLeft}>
+              <View style={styles.logoRow}>
+                <View style={[styles.logoBadge, { backgroundColor: colors.primaryLight }]}>
+                  <Ionicons name="book" size={20} color={colors.primary} />
+                </View>
+                <Text style={[styles.headerLogo, { color: colors.text }]}>
+                  {t('quran.appName', 'DalAy')}
+                </Text>
               </View>
-              <Text style={[styles.headerLogo, { color: colors.text }]}>
-                {t('quran.appName', 'DalAy')}
+              <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
+                {t('quran.subtitle', 'Daily Ayah & Hadith')}
               </Text>
             </View>
-            <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
-              {t('quran.subtitle', 'Daily Ayah & Hadith')}
-            </Text>
+
+            <View style={styles.headerButtons}>
+              {/* Unified Tablet Font Size Controller for Quran & Hadith */}
+              <View
+                style={[
+                  styles.tabletFontSizePill,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name="text-outline"
+                  size={14}
+                  color={colors.textSecondary}
+                  style={{ marginRight: 2 }}
+                />
+                <Pressable
+                  onPress={decreaseFontSize}
+                  style={({ pressed }) => [
+                    styles.tabletFontBtn,
+                    pressed && styles.fontBtnPressed,
+                  ]}
+                  hitSlop={6}
+                >
+                  <Text style={[styles.tabletFontBtnText, { color: colors.text }]}>A-</Text>
+                </Pressable>
+                <View style={[styles.fontDivider, { backgroundColor: colors.borderLight }]} />
+                <Text style={[styles.tabletFontSizeValue, { color: colors.primary }]}>
+                  {translationFontSize}
+                </Text>
+                <View style={[styles.fontDivider, { backgroundColor: colors.borderLight }]} />
+                <Pressable
+                  onPress={increaseFontSize}
+                  style={({ pressed }) => [
+                    styles.tabletFontBtn,
+                    pressed && styles.fontBtnPressed,
+                  ]}
+                  hitSlop={6}
+                >
+                  <Text style={[styles.tabletFontBtnText, { color: colors.text }]}>A+</Text>
+                </Pressable>
+              </View>
+
+              <NeoButton
+                title={t('quran.reminderBtn', 'Pengingat')}
+                iconName="notifications-outline"
+                variant="accent"
+                size="sm"
+                onPress={() => setReminderModalVisible(true)}
+                style={styles.topBtn}
+              />
+              <NeoButton
+                title={`(${favorites.length})`}
+                iconName="heart"
+                variant="light"
+                size="sm"
+                onPress={() => setHistoryModalVisible(true)}
+                style={styles.topBtn}
+              />
+            </View>
           </View>
 
-          <View style={styles.headerButtons}>
-            <NeoButton
-              title={t('quran.reminderBtn', 'Pengingat')}
-              iconName="notifications-outline"
-              variant="accent"
-              size="sm"
-              onPress={() => setReminderModalVisible(true)}
-              style={styles.topBtn}
-            />
-            <NeoButton
-              title={`(${favorites.length})`}
-              iconName="heart"
-              variant="light"
-              size="sm"
-              onPress={() => setHistoryModalVisible(true)}
-              style={styles.topBtn}
-            />
+          {/* Independent Dual-Pane Scrolling Layout for Tablet */}
+          <View style={styles.tabletPanesRow}>
+            {/* Left Pane: Featured Ayat Column with Independent Scroll */}
+            <View style={styles.tabletPaneColumn}>
+              <ScrollView
+                style={styles.paneScrollView}
+                contentContainerStyle={styles.paneScrollContent}
+                showsVerticalScrollIndicator={false}
+              >
+                <View style={styles.sectionHeaderRow}>
+                  <View style={styles.sectionTitleRow}>
+                    <Ionicons name="sparkles" size={15} color={colors.primary} />
+                    <Text
+                      style={[styles.sectionTitle, { color: colors.textSecondary }]}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {t('quran.dailyAyahTitle', 'AYAT UNTUKMU HARI INI')}
+                    </Text>
+                  </View>
+                  <NeoButton
+                    title={t('quran.surahPickerBtn', 'Pilih Surah (114)')}
+                    iconName="list"
+                    variant="light"
+                    size="sm"
+                    onPress={() => setSurahPickerVisible(true)}
+                    style={styles.surahPickerBtn}
+                  />
+                </View>
+
+                <AyatCard
+                  ayah={currentAyah}
+                  loading={loading}
+                  isPlayingAudio={isPlayingAudio}
+                  audioLoading={audioLoading}
+                  isFavorite={isFavorite(currentAyah)}
+                  onRandomPress={getNewRandomAyah}
+                  onTogglePlayAudio={togglePlayAudio}
+                  onToggleFavorite={() => toggleFavorite(currentAyah)}
+                  onOpenSurahPicker={() => setSurahPickerVisible(true)}
+                  onOpenTafsir={() => setTafsirModalVisible(true)}
+                />
+              </ScrollView>
+            </View>
+
+            {/* Subtle Vertical Divider between Panes */}
+            <View style={[styles.tabletVerticalDivider, { backgroundColor: colors.border }]} />
+
+            {/* Right Pane: Daily Hadith Column with Independent Scroll */}
+            <View style={styles.tabletPaneColumn}>
+              <ScrollView
+                style={styles.paneScrollView}
+                contentContainerStyle={styles.paneScrollContent}
+                showsVerticalScrollIndicator={false}
+              >
+                <RandomHadithCard />
+              </ScrollView>
+            </View>
           </View>
         </View>
+      ) : (
+        /* Mobile Portrait Single Scroll Flow */
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={[styles.scrollContent, { paddingHorizontal: 16 }]}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={colors.primary}
+            />
+          }
+        >
+          {/* Header Bar */}
+          <View style={[styles.header, { borderBottomColor: colors.border }]}>
+            <View style={styles.headerLeft}>
+              <View style={styles.logoRow}>
+                <View style={[styles.logoBadge, { backgroundColor: colors.primaryLight }]}>
+                  <Ionicons name="book" size={20} color={colors.primary} />
+                </View>
+                <Text style={[styles.headerLogo, { color: colors.text }]}>
+                  {t('quran.appName', 'DalAy')}
+                </Text>
+              </View>
+              <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
+                {t('quran.subtitle', 'Daily Ayah & Hadith')}
+              </Text>
+            </View>
 
-        {/* Top Tab Switcher: Ayat vs Hadits (Mobile) */}
-        {!isTablet && (
+            <View style={styles.headerButtons}>
+              <NeoButton
+                title={t('quran.reminderBtn', 'Pengingat')}
+                iconName="notifications-outline"
+                variant="accent"
+                size="sm"
+                onPress={() => setReminderModalVisible(true)}
+                style={styles.topBtn}
+              />
+              <NeoButton
+                title={`(${favorites.length})`}
+                iconName="heart"
+                variant="light"
+                size="sm"
+                onPress={() => setHistoryModalVisible(true)}
+                style={styles.topBtn}
+              />
+            </View>
+          </View>
+
+          {/* Top Tab Switcher: Ayat vs Hadits (Mobile Only) */}
           <View style={styles.viewToggleContainer}>
             <NeoSegmented
               options={[
@@ -124,13 +276,10 @@ export const QuranScreen = () => {
               onSelect={setActiveTab}
             />
           </View>
-        )}
 
-        {/* Main Content Layout (Adaptive for Tablet & Tab Switching) */}
-        <View style={[styles.mainLayout, isTablet && styles.mainLayoutTablet]}>
-          {/* Left Column: Featured Ayat Card */}
-          {(isTablet || activeTab === 'ayat') && (
-            <View style={[styles.columnLeft, isTablet && styles.columnTablet]}>
+          {/* Mobile Main Content */}
+          {activeTab === 'ayat' ? (
+            <View style={styles.columnLeft}>
               <View style={styles.sectionHeaderRow}>
                 <View style={styles.sectionTitleRow}>
                   <Ionicons name="sparkles" size={15} color={colors.primary} />
@@ -165,16 +314,13 @@ export const QuranScreen = () => {
                 onOpenTafsir={() => setTafsirModalVisible(true)}
               />
             </View>
-          )}
-
-          {/* Right Column: Daily Hadith & Wisdom (Directly at top when selected on Mobile) */}
-          {(isTablet || activeTab === 'hadits') && (
-            <View style={[styles.columnRight, isTablet && styles.columnTablet]}>
+          ) : (
+            <View style={styles.columnRight}>
               <RandomHadithCard />
             </View>
           )}
-        </View>
-      </ScrollView>
+        </ScrollView>
+      )}
 
       {/* Modals */}
       <ReminderModal
@@ -211,14 +357,56 @@ export const QuranScreen = () => {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  tabletOuter: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  tabletHeader: {
+    paddingHorizontal: 24,
+    paddingTop: 10,
+    paddingBottom: 10,
+    marginBottom: 0,
+  },
+  tabletPanesRow: {
+    flex: 1,
+    flexDirection: 'row',
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    gap: 18,
+    width: '100%',
+    height: '100%',
+    alignItems: 'stretch',
+  },
+  tabletVerticalDivider: {
+    width: 1,
+    height: '100%',
+    alignSelf: 'stretch',
+    opacity: 0.7,
+  },
+  tabletPaneColumn: {
+    flex: 1,
+    height: '100%',
+    minWidth: 0,
+  },
+  paneScrollView: {
+    flex: 1,
+    width: '100%',
+  },
+  paneScrollContent: {
+    paddingBottom: 40,
   },
   scrollView: {
     flex: 1,
+    width: '100%',
   },
   scrollContent: {
-    paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 48,
+    width: '100%',
   },
   header: {
     flexDirection: 'row',
@@ -228,10 +416,11 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     paddingTop: 4,
     borderBottomWidth: 1,
+    width: '100%',
   },
   headerLeft: {
-    flex: 1,
-    marginRight: 8,
+    flexShrink: 0,
+    marginRight: 12,
   },
   logoRow: {
     flexDirection: 'row',
@@ -248,40 +437,66 @@ const styles = StyleSheet.create({
   headerLogo: {
     fontSize: 22,
     fontWeight: '900',
-    letterSpacing: -0.3,
+    letterSpacing: 0.5,
+    minWidth: 85,
+    paddingRight: 14,
+    paddingBottom: 2,
   },
   headerSubtitle: {
     fontSize: TYPOGRAPHY.size.xs,
-    marginTop: 3,
+    marginTop: 2,
     fontWeight: '500',
   },
   headerButtons: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
+    flexShrink: 0,
+  },
+  tabletFontSizePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  tabletFontBtn: {
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  tabletFontBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  fontDivider: {
+    width: 1,
+    height: 12,
+    marginHorizontal: 3,
+  },
+  tabletFontSizeValue: {
+    fontSize: 12,
+    fontWeight: '900',
+    paddingHorizontal: 4,
+    minWidth: 20,
+    textAlign: 'center',
+  },
+  fontBtnPressed: {
+    opacity: 0.6,
+    transform: [{ scale: 0.92 }],
   },
   topBtn: {
-    paddingVertical: 7,
-    paddingHorizontal: 10,
-  },
-  mainLayout: {
-    flexDirection: 'column',
-  },
-  mainLayoutTablet: {
-    flexDirection: 'row',
-    gap: 16,
-    alignItems: 'flex-start',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    flexShrink: 0,
   },
   columnLeft: {
-    flex: 1,
+    width: '100%',
   },
   columnRight: {
-    flex: 1,
+    width: '100%',
     marginTop: 14,
-  },
-  columnTablet: {
-    flex: 1,
-    marginTop: 0,
   },
   viewToggleContainer: {
     marginBottom: 8,
@@ -290,7 +505,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginVertical: 8,
+    marginBottom: 8,
     gap: 8,
   },
   sectionTitleRow: {
@@ -298,6 +513,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     flex: 1,
+    minWidth: 0,
   },
   sectionTitle: {
     fontSize: 11,

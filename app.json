@@ -3,8 +3,8 @@
     "name": "DalAy",
     "slug": "dalay",
     "scheme": "dalay",
-    "version": "3.0.0",
-    "orientation": "portrait",
+    "version": "3.5.0",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {

@@ -6,7 +6,6 @@ import {
   ActivityIndicator,
   Share,
   Platform,
-  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { TYPOGRAPHY } from '../../theme/typography';
@@ -115,13 +114,19 @@ export const TafsirModal = ({ visible, onClose, ayah }) => {
               QS. {surahName} : {ayahNum}
             </Text>
           </View>
-          <Text style={[styles.snippetArabName, { color: colors.primary }]}>
+          <Text
+            allowFontScaling={false}
+            style={[styles.snippetArabName, { color: colors.primary }]}
+          >
             {ayah.surahNameArab || surahMeta.name || ''}
           </Text>
         </View>
 
         {ayah.arab && (
-          <Text style={[styles.snippetArabText, { color: colors.text }]}>
+          <Text
+            allowFontScaling={false}
+            style={[styles.snippetArabText, { color: colors.text }]}
+          >
             {ayah.arab}
           </Text>
         )}
@@ -212,14 +217,17 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   snippetArabName: {
+    fontFamily: TYPOGRAPHY.fontFamilyArabic,
     fontSize: 14,
     fontWeight: '700',
   },
   snippetArabText: {
+    fontFamily: TYPOGRAPHY.fontFamilyArabic,
     fontSize: 18,
-    lineHeight: 34,
+    lineHeight: 36,
     textAlign: 'right',
-    fontWeight: '600',
+    writingDirection: 'rtl',
+    fontWeight: '500',
     marginVertical: 4,
   },
   snippetTranslation: {

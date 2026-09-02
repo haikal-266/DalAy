@@ -114,7 +114,7 @@ export const SummaryCards = ({
         <View style={styles.statCol}>
           <View style={styles.statHeader}>
             <Ionicons name="arrow-up-circle" size={14} color={colors.expenseDark} />
-            <Text style={[styles.statLabel, { color: colors.textMuted }]} numberOfLines={1}>
+            <Text style={[styles.statLabel, { color: colors.textMuted }]}>
               {t('finance.expense', 'Pengeluaran')}
             </Text>
           </View>
@@ -136,6 +136,8 @@ const styles = StyleSheet.create({
   card: {
     marginTop: 6,
     marginBottom: 16,
+    width: '100%',
+    minWidth: 0,
   },
   topRow: {
     flexDirection: 'row',
@@ -147,21 +149,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    flex: 1,
+    minWidth: 0,
   },
   saldoLabel: {
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.5,
+    includeFontPadding: false,
   },
   periodBadge: {
-    paddingVertical: 3,
-    paddingHorizontal: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
     borderRadius: 8,
     borderWidth: 1,
+    flexShrink: 0,
   },
   periodText: {
     fontSize: 10,
     fontWeight: '700',
+    includeFontPadding: false,
   },
   balanceRow: {
     flexDirection: 'row',
@@ -173,6 +180,7 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: '900',
     letterSpacing: -0.5,
+    includeFontPadding: false,
   },
   debtBadge: {
     paddingHorizontal: 6,
@@ -184,6 +192,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.2,
+    includeFontPadding: false,
   },
   divider: {
     height: 1,
@@ -197,6 +206,7 @@ const styles = StyleSheet.create({
   },
   statCol: {
     flex: 1,
+    minWidth: 0,
   },
   statHeader: {
     flexDirection: 'row',
@@ -207,10 +217,13 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: 11,
     fontWeight: '700',
+    flexShrink: 0,
+    includeFontPadding: false,
   },
   statValue: {
     fontSize: 14,
     fontWeight: '800',
+    includeFontPadding: false,
   },
   verticalDivider: {
     width: 1,
