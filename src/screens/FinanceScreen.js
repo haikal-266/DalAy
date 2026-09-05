@@ -209,6 +209,7 @@ export const FinanceScreen = React.memo(({ onNavigateTab }) => {
   };
 
   const [isHoldingVoice, setIsHoldingVoice] = useState(false);
+  const [isCancelingVoice, setIsCancelingVoice] = useState(false);
 
   // Push-To-Talk Voice Input Hook
   const {
@@ -220,6 +221,7 @@ export const FinanceScreen = React.memo(({ onNavigateTab }) => {
     isExpoGo,
     startListening: startVoiceListening,
     stopListening: stopVoiceListening,
+    abortListening: abortVoiceListening,
     resetTranscript: resetVoiceTranscript,
   } = useVoiceInput({ defaultLang: 'id-ID' });
 
@@ -245,6 +247,7 @@ export const FinanceScreen = React.memo(({ onNavigateTab }) => {
 
   const handlePushToTalkStart = async () => {
     setIsHoldingVoice(true);
+    setIsCancelingVoice(false);
     resetVoiceTranscript();
     const success = await startVoiceListening({ lang: 'id-ID', continuous: true });
     if (!success) {
@@ -260,8 +263,25 @@ export const FinanceScreen = React.memo(({ onNavigateTab }) => {
     }
   };
 
-  const handlePushToTalkEnd = async () => {
+  const handleCancelVoice = async () => {
     setIsHoldingVoice(false);
+    setIsCancelingVoice(false);
+    await abortVoiceListening();
+    resetVoiceTranscript();
+    showSyncToast(
+      isIndonesian ? 'Perekaman suara dibatalkan' : 'Voice input cancelled',
+      'trash-outline'
+    );
+  };
+
+  const handlePushToTalkEnd = async (params = {}) => {
+    if (params?.cancelled || isCancelingVoice) {
+      await handleCancelVoice();
+      return;
+    }
+
+    setIsHoldingVoice(false);
+    setIsCancelingVoice(false);
     const result = await stopVoiceListening();
     const spoken =
       typeof result === 'object' && result?.transcript !== undefined
@@ -342,12 +362,6 @@ export const FinanceScreen = React.memo(({ onNavigateTab }) => {
       'checkmark-circle'
     );
 
-    resetVoiceTranscript();
-  };
-
-  const handleCancelVoice = async () => {
-    setIsHoldingVoice(false);
-    await stopVoiceListening();
     resetVoiceTranscript();
   };
 
@@ -504,20 +518,6 @@ export const FinanceScreen = React.memo(({ onNavigateTab }) => {
                 {isIndonesian ? 'Manajemen Keuangan & Dompet' : 'Finance & Wallet Dashboard'}
               </Text>
             </View>
-
-            <View style={styles.headerRightGroup}>
-              <View
-                style={[
-                  styles.liveTagBadge,
-                  { backgroundColor: colors.income + '20', borderColor: colors.income },
-                ]}
-              >
-                <View style={[styles.pulseDotInline, { backgroundColor: colors.income }]} />
-                <Text style={[styles.liveTagText, { color: colors.incomeDark }]}>
-                  LIVE
-                </Text>
-              </View>
-            </View>
           </View>
 
           {/* Tablet Dual-Pane Independent Scroll Layout */}
@@ -648,20 +648,6 @@ export const FinanceScreen = React.memo(({ onNavigateTab }) => {
               <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
                 {isIndonesian ? 'Manajemen Keuangan' : 'Finance Dashboard'}
               </Text>
-            </View>
-
-            <View style={styles.headerRightGroup}>
-              <View
-                style={[
-                  styles.liveTagBadge,
-                  { backgroundColor: colors.income + '20', borderColor: colors.income },
-                ]}
-              >
-                <View style={[styles.pulseDotInline, { backgroundColor: colors.income }]} />
-                <Text style={[styles.liveTagText, { color: colors.incomeDark }]}>
-                  LIVE
-                </Text>
-              </View>
             </View>
           </View>
           {/* Mobile All Wallets Overview KPI Card */}
@@ -941,6 +927,8 @@ export const FinanceScreen = React.memo(({ onNavigateTab }) => {
       <PushToTalkButton
         onPressIn={handlePushToTalkStart}
         onPressOut={handlePushToTalkEnd}
+        onCancel={handleCancelVoice}
+        onDragStateChange={({ isCanceling }) => setIsCancelingVoice(isCanceling)}
         isListening={isVoiceListening || isHoldingVoice}
       />
 
@@ -953,6 +941,7 @@ export const FinanceScreen = React.memo(({ onNavigateTab }) => {
         detectedWallet={liveVoiceDetection.walletName}
         detectedCategory={liveVoiceDetection.categoryName}
         isExpoGo={isExpoGo}
+        isCanceling={isCancelingVoice}
         onClose={handleCancelVoice}
       />
     </KeyboardAvoidingView>

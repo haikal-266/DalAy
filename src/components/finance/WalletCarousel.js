@@ -26,6 +26,8 @@ export const WalletCarousel = ({ onOpenManageWallets, onAddNewWallet, onOpenTran
     selectedWalletId,
     selectWallet,
     getWalletBalance,
+    isBalanceHidden,
+    toggleBalanceHidden,
   } = useWallet();
   const { transactions } = useFinance();
 
@@ -129,6 +131,29 @@ export const WalletCarousel = ({ onOpenManageWallets, onAddNewWallet, onOpenTran
         </View>
 
         <View style={styles.headerActions}>
+          {/* Eye Toggle Button */}
+          <Pressable
+            onPress={toggleBalanceHidden}
+            style={({ pressed }) => [
+              styles.eyeHeaderBtn,
+              {
+                backgroundColor: isBalanceHidden
+                  ? (colors.primaryLight || '#F0FDF4')
+                  : colors.surfaceLight,
+                borderColor: isBalanceHidden ? colors.primary : colors.border,
+              },
+              pressed && styles.pressed,
+            ]}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            accessibilityLabel={isBalanceHidden ? 'Tampilkan Saldo' : 'Sembunyikan Saldo'}
+          >
+            <Ionicons
+              name={isBalanceHidden ? 'eye-off-outline' : 'eye-outline'}
+              size={13}
+              color={isBalanceHidden ? (colors.primaryDark || colors.primary) : colors.textSecondary}
+            />
+          </Pressable>
+
           {/* Transfer Button */}
           {wallets.length > 1 && (
             <Pressable
@@ -249,7 +274,7 @@ export const WalletCarousel = ({ onOpenManageWallets, onAddNewWallet, onOpenTran
                   </View>
 
                   <View style={styles.headerRightBadges}>
-                    {stats.balance < 0 && (
+                    {!isBalanceHidden && stats.balance < 0 && (
                       <View
                         style={[
                           styles.debtBadge,
@@ -276,19 +301,37 @@ export const WalletCarousel = ({ onOpenManageWallets, onAddNewWallet, onOpenTran
                 </View>
 
                 <View style={styles.cardBody}>
-                  <Text style={[styles.balanceLabel, { color: colors.textSecondary }]}>
-                    {isIndonesian ? 'SALDO TERSEDIA' : 'AVAILABLE BALANCE'}
-                  </Text>
+                  <View style={styles.balanceHeaderRow}>
+                    <Text style={[styles.balanceLabel, { color: colors.textSecondary }]}>
+                      {isIndonesian ? 'SALDO TERSEDIA' : 'AVAILABLE BALANCE'}
+                    </Text>
+                    <Pressable
+                      onPress={toggleBalanceHidden}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      style={styles.cardEyeBtn}
+                      accessibilityLabel={isBalanceHidden ? 'Tampilkan Saldo' : 'Sembunyikan Saldo'}
+                    >
+                      <Ionicons
+                        name={isBalanceHidden ? 'eye-off-outline' : 'eye-outline'}
+                        size={14}
+                        color={isBalanceHidden ? (colors.primaryDark || colors.primary) : colors.textMuted}
+                      />
+                    </Pressable>
+                  </View>
                   <Text
                     style={[
                       styles.walletBalance,
-                      { color: stats.balance >= 0 ? colors.text : colors.expense },
+                      {
+                        color: (isBalanceHidden || stats.balance >= 0)
+                          ? colors.text
+                          : colors.expense,
+                      },
                     ]}
                     numberOfLines={1}
                     adjustsFontSizeToFit
                     minimumFontScale={0.8}
                   >
-                    {formatRupiah(stats.balance)}
+                    {isBalanceHidden ? 'Rp ••••••••' : formatRupiah(stats.balance)}
                   </Text>
                 </View>
 
@@ -402,6 +445,25 @@ const styles = StyleSheet.create({
     gap: 8,
     flexShrink: 0,
   },
+  eyeHeaderBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  balanceHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  cardEyeBtn: {
+    padding: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   transferHeaderBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -507,7 +569,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.5,
-    marginBottom: 2,
   },
   walletBalance: {
     fontSize: 22,

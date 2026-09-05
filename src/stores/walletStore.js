@@ -9,6 +9,7 @@ import {
 } from '../services/database';
 
 const STORAGE_KEY_SELECTED_WALLET = '@dalay_selected_wallet_id';
+const STORAGE_KEY_HIDE_BALANCE = '@dalay_hide_wallet_balance';
 
 export const PRIMARY_WALLET_ICONS = [
   'cash-outline',
@@ -123,6 +124,7 @@ export const WalletProvider = ({ children }) => {
   const [wallets, setWallets] = useState(DEFAULT_WALLETS);
   const [selectedWalletId, setSelectedWalletId] = useState('all'); // 'all' | walletId
   const [loading, setLoading] = useState(true);
+  const [isBalanceHidden, setIsBalanceHidden] = useState(false);
 
   useEffect(() => {
     loadWallets();
@@ -131,9 +133,10 @@ export const WalletProvider = ({ children }) => {
   const loadWallets = async () => {
     setLoading(true);
     try {
-      let [loadedWallets, rawSelected] = await Promise.all([
+      let [loadedWallets, rawSelected, rawHideBalance] = await Promise.all([
         dbLoadAllWallets(),
         AsyncStorage.getItem(STORAGE_KEY_SELECTED_WALLET),
+        AsyncStorage.getItem(STORAGE_KEY_HIDE_BALANCE),
       ]);
 
       if (!loadedWallets || loadedWallets.length === 0) {
@@ -146,12 +149,24 @@ export const WalletProvider = ({ children }) => {
       if (rawSelected) {
         setSelectedWalletId(rawSelected);
       }
+
+      if (rawHideBalance !== null) {
+        setIsBalanceHidden(rawHideBalance === 'true');
+      }
     } catch (e) {
       console.log('Error loading wallets:', e);
       setWallets(DEFAULT_WALLETS);
     } finally {
       setLoading(false);
     }
+  };
+
+  const toggleBalanceHidden = () => {
+    setIsBalanceHidden((prev) => {
+      const next = !prev;
+      AsyncStorage.setItem(STORAGE_KEY_HIDE_BALANCE, String(next)).catch(() => {});
+      return next;
+    });
   };
 
   const selectWallet = async (id) => {
@@ -306,6 +321,9 @@ export const WalletProvider = ({ children }) => {
       wallets,
       selectedWalletId,
       loading,
+      isBalanceHidden,
+      toggleBalanceHidden,
+      setBalanceHidden: setIsBalanceHidden,
       selectWallet,
       addWallet,
       updateWallet,
@@ -315,7 +333,7 @@ export const WalletProvider = ({ children }) => {
       getTotalNetWorth,
       replaceWallets,
     }),
-    [wallets, selectedWalletId, loading]
+    [wallets, selectedWalletId, loading, isBalanceHidden]
   );
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;

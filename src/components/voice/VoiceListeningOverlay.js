@@ -4,9 +4,9 @@ import {
   View,
   Text,
   Animated,
-  Modal,
   Dimensions,
   Pressable,
+  BackHandler,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../../stores/languageStore';
@@ -14,7 +14,7 @@ import { VoiceService } from '../../services/voiceService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-const BAR_COLORS = [
+const NORMAL_BAR_COLORS = [
   '#2DD4BF', // Teal-400
   '#38BDF8', // Sky-400
   '#0D9488', // Teal-600
@@ -24,13 +24,24 @@ const BAR_COLORS = [
   '#2DD4BF', // Teal-400
 ];
 
+const CANCEL_BAR_COLORS = [
+  '#F87171', // Red-400
+  '#EF4444', // Red-500
+  '#DC2626', // Red-600
+  '#B91C1C', // Red-700
+  '#DC2626', // Red-600
+  '#EF4444', // Red-500
+  '#F87171', // Red-400
+];
+
 /**
  * 100% GPU-Accelerated Native Audio Waveform Visualizer
  * Zero React re-renders, zero JS thread overhead.
  */
-const NativeAudioWaveform = ({ active }) => {
-  const barScales = useRef(BAR_COLORS.map(() => new Animated.Value(0.35))).current;
-  const loopAnims = useRef([]).current;
+const NativeAudioWaveform = ({ active, isCanceling = false }) => {
+  const barScales = useRef(NORMAL_BAR_COLORS.map(() => new Animated.Value(0.35))).current;
+
+  const currentColors = isCanceling ? CANCEL_BAR_COLORS : NORMAL_BAR_COLORS;
 
   useEffect(() => {
     if (active) {
@@ -98,11 +109,11 @@ const NativeAudioWaveform = ({ active }) => {
     <View style={styles.waveformContainer}>
       {barScales.map((scaleY, idx) => (
         <Animated.View
-          key={`wave-bar-${idx}`}
+          key={`bar-color-${idx}-${currentColors[idx]}`}
           style={[
             styles.equalizerBar,
             {
-              backgroundColor: BAR_COLORS[idx],
+              backgroundColor: currentColors[idx],
               transform: [{ scaleY }],
             },
           ]}
@@ -115,7 +126,7 @@ const NativeAudioWaveform = ({ active }) => {
 /**
  * Ultra-Sleek, Modern Voice Recording Overlay
  * Displays a clean frosted glassmorphism card with live audio waveform,
- * real-time transcript preview, and smart wallet/category badges.
+ * real-time transcript preview, smart badges, and interactive cancellation state.
  */
 export const VoiceListeningOverlay = React.memo(({
   visible = false,
@@ -125,12 +136,26 @@ export const VoiceListeningOverlay = React.memo(({
   detectedWallet = null,
   detectedCategory = null,
   isExpoGo = false,
+  isCanceling = false,
   onClose = null,
 }) => {
   const { isIndonesian } = useLanguage();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.92)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // Handle hardware back press on Android when overlay is visible
+  useEffect(() => {
+    if (!visible) return;
+    const backSub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (typeof onClose === 'function') {
+        onClose();
+        return true;
+      }
+      return false;
+    });
+    return () => backSub.remove();
+  }, [visible, onClose]);
 
   useEffect(() => {
     if (visible) {
@@ -184,34 +209,67 @@ export const VoiceListeningOverlay = React.memo(({
 
   const currentText = interimTranscript || transcript;
 
-  return (
-    <Modal
-      transparent={true}
-      visible={visible}
-      animationType="none"
-      statusBarTranslucent={true}
-      hardwareAccelerated={true}
-      onRequestClose={onClose || undefined}
-    >
-      <Animated.View style={[styles.modalBackdrop, { opacity: fadeAnim }]}>
-        {/* Full-Screen Backdrop Touch to Cancel/Dismiss */}
-        <Pressable
-          style={StyleSheet.absoluteFill}
-          onPress={onClose}
-          accessibilityLabel="Tutup dialog suara"
-        />
+  let statusPillText = isIndonesian ? 'Mendengarkan...' : 'Listening...';
+  let tipActionText = isIndonesian ? 'Lepas untuk simpan' : 'Release to save';
+  let hintSwipeText = isIndonesian
+    ? '↑ Geser tombol ke atas untuk batalkan'
+    : '↑ Swipe mic button up to cancel';
+  let placeholderMessage = isIndonesian
+    ? 'Contoh: "Pengeluaran mie ayam 20k BCA" atau "Pemasukan gaji 5jt BCA"'
+    : 'Example: "Expense lunch 20k BCA" or "Income salary 5m BCA"';
 
-        <Animated.View
-          style={[
-            styles.voiceCard,
-            {
-              transform: [{ scale: scaleAnim }],
-            },
-          ]}
-        >
-          {/* Header Status */}
-          <View style={styles.headerRow}>
-            <View style={styles.recordingPill}>
+  if (isCanceling) {
+    statusPillText = isIndonesian ? 'Membatalkan...' : 'Cancelling...';
+    tipActionText = isIndonesian ? 'Lepas untuk hapus' : 'Release to discard';
+    hintSwipeText = isIndonesian
+      ? '✕ Lepas tombol untuk batalkan tanpa simpan'
+      : '✕ Release button to cancel without saving';
+    placeholderMessage = isIndonesian ? 'Perekaman dibatalkan' : 'Recording cancelled';
+  }
+
+  let typeBadgeLabel = '';
+  if (detectedType === 'income') {
+    typeBadgeLabel = isIndonesian ? 'Pemasukan' : 'Income';
+  } else if (detectedType === 'expense') {
+    typeBadgeLabel = isIndonesian ? 'Pengeluaran' : 'Expense';
+  }
+
+  return (
+    <Animated.View
+      style={[
+        StyleSheet.absoluteFill,
+        styles.overlayContainer,
+        { opacity: fadeAnim },
+      ]}
+      pointerEvents="box-none"
+    >
+      {/* Full-Screen Backdrop Touch to Dismiss/Cancel */}
+      <Pressable
+        style={StyleSheet.absoluteFill}
+        onPress={onClose}
+        accessibilityLabel="Tutup dialog suara"
+      />
+
+      <Animated.View
+        style={[
+          styles.voiceCard,
+          isCanceling && styles.voiceCardCancel,
+          {
+            transform: [{ scale: scaleAnim }],
+          },
+        ]}
+      >
+        {/* Header Status */}
+        <View style={styles.headerRow}>
+          <View
+            style={[
+              styles.recordingPill,
+              isCanceling && styles.recordingPillCancel,
+            ]}
+          >
+            {isCanceling ? (
+              <Ionicons name="trash-outline" size={13} color="#EF4444" />
+            ) : (
               <Animated.View
                 style={[
                   styles.recDot,
@@ -220,121 +278,161 @@ export const VoiceListeningOverlay = React.memo(({
                   },
                 ]}
               />
-              <Text style={styles.recText}>
-                {isIndonesian ? 'Mendengarkan...' : 'Listening...'}
-              </Text>
-            </View>
-
-            <Text style={styles.tipText}>
-              {isIndonesian ? 'Lepas untuk simpan' : 'Release to save'}
+            )}
+            <Text
+              style={[
+                styles.recText,
+                isCanceling && styles.recTextCancel,
+              ]}
+            >
+              {statusPillText}
             </Text>
           </View>
 
-          {/* Siri/ChatGPT Style Dynamic Equalizer Waveform */}
-          <NativeAudioWaveform active={visible} />
+          <Text
+            style={[
+              styles.tipText,
+              isCanceling && styles.tipTextCancel,
+            ]}
+          >
+            {tipActionText}
+          </Text>
+        </View>
 
-          {/* Live Transcript Container */}
-          <View style={styles.transcriptBox}>
-            {currentText ? (
-              <Text style={styles.transcriptText}>
+        {/* Dynamic Equalizer Waveform */}
+        <NativeAudioWaveform active={visible} isCanceling={isCanceling} />
+
+        {/* Live Transcript Container */}
+        <View
+          style={[
+            styles.transcriptBox,
+            isCanceling && styles.transcriptBoxCancel,
+          ]}
+        >
+          {currentText ? (
+            <View style={styles.transcriptContentWrapper}>
+              <Text
+                style={[
+                  styles.transcriptText,
+                  isCanceling && styles.transcriptTextCancel,
+                ]}
+              >
                 {transcript}
                 {Boolean(interimTranscript) && (
-                  <Text style={styles.interimText}>
+                  <Text
+                    style={[
+                      styles.interimText,
+                      isCanceling && styles.interimTextCancel,
+                    ]}
+                  >
                     {transcript ? ' ' : ''}
                     {interimTranscript}
                   </Text>
                 )}
               </Text>
-            ) : (
-              <Text style={styles.placeholderText}>
-                {isIndonesian
-                  ? 'Contoh: "Pengeluaran mie ayam 20k BCA" atau "Pemasukan gaji 5jt BCA"'
-                  : 'Example: "Expense lunch 20k BCA" or "Income salary 5m BCA"'}
-              </Text>
-            )}
-          </View>
-
-          {/* Auto Detected Metadata Badges (Type, Wallet, Category) */}
-          {(detectedType || detectedWallet || detectedCategory) && (
-            <View style={styles.badgesRow}>
-              {detectedType && (
-                <View
-                  style={[
-                    styles.typeBadge,
-                    detectedType === 'income' ? styles.incomeBadge : styles.expenseBadge,
-                  ]}
-                >
-                  <Ionicons
-                    name={
-                      detectedType === 'income'
-                        ? 'arrow-down-circle-outline'
-                        : 'arrow-up-circle-outline'
-                    }
-                    size={13}
-                    color={detectedType === 'income' ? '#34D399' : '#FB7185'}
-                  />
-                  <Text
-                    style={[
-                      styles.typeBadgeText,
-                      { color: detectedType === 'income' ? '#A7F3D0' : '#FECDD3' },
-                    ]}
-                  >
-                    {detectedType === 'income'
-                      ? isIndonesian
-                        ? 'Pemasukan'
-                        : 'Income'
-                      : isIndonesian
-                        ? 'Pengeluaran'
-                        : 'Expense'}
+              {isCanceling && (
+                <View style={styles.discardWarningBadge}>
+                  <Ionicons name="alert-circle" size={13} color="#F87171" />
+                  <Text style={styles.discardWarningText}>
+                    {isIndonesian
+                      ? 'Input suara ini akan dihapus'
+                      : 'This input will be discarded'}
                   </Text>
                 </View>
               )}
-              {detectedWallet && (
-                <View style={styles.walletBadge}>
-                  <Ionicons name="wallet-outline" size={13} color="#38BDF8" />
-                  <Text style={styles.walletBadgeText}>{detectedWallet}</Text>
-                </View>
-              )}
-              {detectedCategory && (
-                <View style={styles.categoryBadge}>
-                  <Ionicons name="pricetag-outline" size={13} color="#2DD4BF" />
-                  <Text style={styles.categoryBadgeText}>{detectedCategory}</Text>
-                </View>
-              )}
             </View>
+          ) : (
+            <Text
+              style={[
+                styles.placeholderText,
+                isCanceling && styles.placeholderTextCancel,
+              ]}
+            >
+              {placeholderMessage}
+            </Text>
           )}
+        </View>
 
-          {/* Tap outside to cancel hint */}
-          <View style={styles.cancelHintContainer}>
-            <Text style={styles.cancelHintText}>
-              {isIndonesian ? 'Ketuk di luar untuk batal' : 'Tap outside to cancel'}
+        {/* Auto Detected Metadata Badges (Type, Wallet, Category) */}
+        {!isCanceling && (detectedType || detectedWallet || detectedCategory) && (
+          <View style={styles.badgesRow}>
+            {detectedType && (
+              <View
+                style={[
+                  styles.typeBadge,
+                  detectedType === 'income' ? styles.incomeBadge : styles.expenseBadge,
+                ]}
+              >
+                <Ionicons
+                  name={
+                    detectedType === 'income'
+                      ? 'arrow-down-circle-outline'
+                      : 'arrow-up-circle-outline'
+                  }
+                  size={13}
+                  color={detectedType === 'income' ? '#34D399' : '#FB7185'}
+                />
+                <Text
+                  style={[
+                    styles.typeBadgeText,
+                    { color: detectedType === 'income' ? '#A7F3D0' : '#FECDD3' },
+                  ]}
+                >
+                  {typeBadgeLabel}
+                </Text>
+              </View>
+            )}
+            {detectedWallet && (
+              <View style={styles.walletBadge}>
+                <Ionicons name="wallet-outline" size={13} color="#38BDF8" />
+                <Text style={styles.walletBadgeText}>{detectedWallet}</Text>
+              </View>
+            )}
+            {detectedCategory && (
+              <View style={styles.categoryBadge}>
+                <Ionicons name="pricetag-outline" size={13} color="#2DD4BF" />
+                <Text style={styles.categoryBadgeText}>{detectedCategory}</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Dynamic Cancel & Swipe Helper Text */}
+        <View style={styles.cancelHintContainer}>
+          <Text
+            style={[
+              styles.cancelHintText,
+              isCanceling && styles.cancelHintTextActive,
+            ]}
+          >
+            {hintSwipeText}
+          </Text>
+        </View>
+
+        {/* Discreet Expo Go Hint */}
+        {isExpoGo && (
+          <View style={styles.expoGoHintRow}>
+            <Ionicons name="information-circle-outline" size={13} color="#64748B" />
+            <Text style={styles.expoGoHintText}>
+              {isIndonesian
+                ? 'Mode demo Expo Go (Dev build untuk mic asli)'
+                : 'Expo Go demo mode (Dev build for real mic)'}
             </Text>
           </View>
-
-          {/* Discreet Expo Go Hint */}
-          {isExpoGo && (
-            <View style={styles.expoGoHintRow}>
-              <Ionicons name="information-circle-outline" size={13} color="#64748B" />
-              <Text style={styles.expoGoHintText}>
-                {isIndonesian
-                  ? 'Mode demo Expo Go (Dev build untuk mic asli)'
-                  : 'Expo Go demo mode (Dev build for real mic)'}
-              </Text>
-            </View>
-          )}
-        </Animated.View>
+        )}
       </Animated.View>
-    </Modal>
+    </Animated.View>
   );
 });
 
 const styles = StyleSheet.create({
-  modalBackdrop: {
-    flex: 1,
+  overlayContainer: {
     backgroundColor: 'rgba(15, 23, 42, 0.72)',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20,
+    zIndex: 9998,
+    elevation: 20,
   },
   voiceCard: {
     width: '100%',
@@ -352,6 +450,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.45,
     shadowRadius: 28,
     elevation: 24,
+  },
+  voiceCardCancel: {
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+    shadowColor: '#DC2626',
+    shadowOpacity: 0.35,
   },
   headerRow: {
     flexDirection: 'row',
@@ -371,6 +474,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(244, 63, 94, 0.3)',
   },
+  recordingPillCancel: {
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    borderColor: 'rgba(239, 68, 68, 0.5)',
+  },
   recDot: {
     width: 7,
     height: 7,
@@ -383,19 +490,33 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.3,
   },
+  recTextCancel: {
+    color: '#FCA5A5',
+  },
   tipText: {
     color: '#94A3B8',
     fontSize: 12,
     fontWeight: '500',
   },
+  tipTextCancel: {
+    color: '#F87171',
+    fontWeight: '700',
+  },
   cancelHintContainer: {
     marginTop: 14,
-    paddingVertical: 2,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    borderRadius: 12,
   },
   cancelHintText: {
-    color: '#64748B',
+    color: '#94A3B8',
     fontSize: 11,
-    fontWeight: '500',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  cancelHintTextActive: {
+    color: '#FCA5A5',
+    fontWeight: '700',
   },
   waveformContainer: {
     flexDirection: 'row',
@@ -424,6 +545,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 10,
   },
+  transcriptBoxCancel: {
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+  },
+  transcriptContentWrapper: {
+    width: '100%',
+    alignItems: 'center',
+  },
   transcriptText: {
     color: '#F8FAFC',
     fontSize: 16,
@@ -431,9 +560,33 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 23,
   },
+  transcriptTextCancel: {
+    color: '#F87171',
+    textDecorationLine: 'line-through',
+    opacity: 0.85,
+  },
   interimText: {
     color: '#94A3B8',
     fontStyle: 'italic',
+  },
+  interimTextCancel: {
+    color: '#FCA5A5',
+    textDecorationLine: 'line-through',
+  },
+  discardWarningBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 8,
+    backgroundColor: 'rgba(239, 68, 68, 0.18)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  discardWarningText: {
+    color: '#FECDD3',
+    fontSize: 11,
+    fontWeight: '700',
   },
   placeholderText: {
     color: '#64748B',
@@ -441,6 +594,10 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     textAlign: 'center',
     lineHeight: 19,
+  },
+  placeholderTextCancel: {
+    color: '#F87171',
+    fontWeight: '600',
   },
   badgesRow: {
     flexDirection: 'row',

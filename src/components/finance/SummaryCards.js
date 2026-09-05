@@ -1,9 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NeoCard } from '../neo/NeoCard';
 import { useTheme } from '../../stores/themeStore';
 import { useLanguage } from '../../stores/languageStore';
+import { useWallet } from '../../stores/walletStore';
 import { formatRupiah } from '../../utils/formatters';
 
 export const SummaryCards = ({
@@ -14,6 +15,7 @@ export const SummaryCards = ({
 }) => {
   const { colors } = useTheme();
   const { t, isIndonesian } = useLanguage();
+  const { isBalanceHidden, toggleBalanceHidden } = useWallet();
 
   const resolvedPeriodLabel = React.useMemo(() => {
     if (periodLabel) return periodLabel;
@@ -34,6 +36,18 @@ export const SummaryCards = ({
           <Text style={[styles.saldoLabel, { color: colors.textSecondary }]}>
             {isIndonesian ? 'SEMUA DOMPET' : 'ALL WALLETS'}
           </Text>
+          <Pressable
+            onPress={toggleBalanceHidden}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={styles.eyeBtn}
+            accessibilityLabel={isBalanceHidden ? 'Tampilkan Saldo' : 'Sembunyikan Saldo'}
+          >
+            <Ionicons
+              name={isBalanceHidden ? 'eye-off-outline' : 'eye-outline'}
+              size={15}
+              color={isBalanceHidden ? (colors.primaryDark || colors.primary) : colors.textMuted}
+            />
+          </Pressable>
         </View>
 
         <View
@@ -61,16 +75,19 @@ export const SummaryCards = ({
         <Text
           style={[
             styles.balanceAmount,
-            { color: colors.text },
-            displayBalance < 0 && { color: colors.expense },
+            {
+              color: (isBalanceHidden || displayBalance >= 0)
+                ? colors.text
+                : colors.expense,
+            },
           ]}
           numberOfLines={1}
           adjustsFontSizeToFit
         >
-          {formatRupiah(displayBalance)}
+          {isBalanceHidden ? 'Rp ••••••••' : formatRupiah(displayBalance)}
         </Text>
 
-        {displayBalance < 0 && (
+        {!isBalanceHidden && displayBalance < 0 && (
           <View
             style={[
               styles.debtBadge,
@@ -157,6 +174,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.5,
     includeFontPadding: false,
+  },
+  eyeBtn: {
+    padding: 2,
+    marginLeft: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   periodBadge: {
     paddingVertical: 4,

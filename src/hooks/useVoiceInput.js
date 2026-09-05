@@ -254,6 +254,28 @@ export const useVoiceInput = ({ defaultLang = 'id-ID', onResult = null } = {}) =
     };
   }, [isExpoGo]);
 
+  const abortListening = useCallback(async () => {
+    if (interimTimeoutRef.current) {
+      clearTimeout(interimTimeoutRef.current);
+      interimTimeoutRef.current = null;
+    }
+
+    isListeningRef.current = false;
+    setIsListening(false);
+    committedClausesRef.current = [];
+    latestSpokenRef.current = '';
+    lastErrorRef.current = null;
+    setTranscript('');
+    setInterimTranscript('');
+    setError(null);
+
+    if (!isExpoGo) {
+      VoiceService.abort().catch((err) => {
+        console.warn('[useVoiceInput] abort error:', err);
+      });
+    }
+  }, [isExpoGo]);
+
   const resetTranscript = useCallback(() => {
     if (interimTimeoutRef.current) {
       clearTimeout(interimTimeoutRef.current);
@@ -281,6 +303,7 @@ export const useVoiceInput = ({ defaultLang = 'id-ID', onResult = null } = {}) =
     isExpoGo,
     startListening,
     stopListening,
+    abortListening,
     resetTranscript,
     setTranscript,
   };
