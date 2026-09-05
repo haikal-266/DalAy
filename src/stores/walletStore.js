@@ -1,7 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  dbLoadAllWallets,
+  dbInsertWallet,
+  dbUpdateWallet,
+  dbDeleteWallet,
+  dbReplaceAllWallets,
+} from '../services/database';
 
-const STORAGE_KEY_WALLETS = '@dalay_wallets_v1';
 const STORAGE_KEY_SELECTED_WALLET = '@dalay_selected_wallet_id';
 
 export const PRIMARY_WALLET_ICONS = [
@@ -125,23 +131,17 @@ export const WalletProvider = ({ children }) => {
   const loadWallets = async () => {
     setLoading(true);
     try {
-      const [rawWallets, rawSelected] = await Promise.all([
-        AsyncStorage.getItem(STORAGE_KEY_WALLETS),
+      let [loadedWallets, rawSelected] = await Promise.all([
+        dbLoadAllWallets(),
         AsyncStorage.getItem(STORAGE_KEY_SELECTED_WALLET),
       ]);
 
-      if (rawWallets) {
-        const parsed = JSON.parse(rawWallets);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setWallets(parsed);
-        } else {
-          setWallets(DEFAULT_WALLETS);
-          await AsyncStorage.setItem(STORAGE_KEY_WALLETS, JSON.stringify(DEFAULT_WALLETS));
-        }
-      } else {
-        setWallets(DEFAULT_WALLETS);
-        await AsyncStorage.setItem(STORAGE_KEY_WALLETS, JSON.stringify(DEFAULT_WALLETS));
+      if (!loadedWallets || loadedWallets.length === 0) {
+        await dbReplaceAllWallets(DEFAULT_WALLETS);
+        loadedWallets = DEFAULT_WALLETS;
       }
+
+      setWallets(loadedWallets);
 
       if (rawSelected) {
         setSelectedWalletId(rawSelected);
@@ -151,15 +151,6 @@ export const WalletProvider = ({ children }) => {
       setWallets(DEFAULT_WALLETS);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const saveWallets = async (newList) => {
-    try {
-      setWallets(newList);
-      await AsyncStorage.setItem(STORAGE_KEY_WALLETS, JSON.stringify(newList));
-    } catch (e) {
-      console.log('Error saving wallets:', e);
     }
   };
 
@@ -181,14 +172,29 @@ export const WalletProvider = ({ children }) => {
       initialBalance: Number.parseInt(walletData.initialBalance, 10) || 0,
       isDefault: false,
       createdAt: new Date().toISOString(),
+      sortOrder: wallets.length,
     };
 
     const updated = [...wallets, newWallet];
-    await saveWallets(updated);
+    setWallets(updated);
+    dbInsertWallet(newWallet).catch((err) => {
+      console.warn('[DB] Background wallet insert failed:', err);
+    });
     return newWallet;
   };
 
   const updateWallet = async (id, updates) => {
+    const cleanedUpdates = {
+      ...updates,
+      name: updates.name ? updates.name.trim() : undefined,
+      initialBalance:
+        updates.initialBalance !== undefined
+          ? Number.parseInt(updates.initialBalance, 10) || 0
+          : undefined,
+    };
+    // remove undefined values
+    Object.keys(cleanedUpdates).forEach((k) => cleanedUpdates[k] === undefined && delete cleanedUpdates[k]);
+
     const updated = wallets.map((w) => {
       if (w.id === id) {
         return {
@@ -203,7 +209,11 @@ export const WalletProvider = ({ children }) => {
       }
       return w;
     });
-    await saveWallets(updated);
+
+    setWallets(updated);
+    dbUpdateWallet(id, cleanedUpdates).catch((err) => {
+      console.warn('[DB] Background wallet update failed:', err);
+    });
   };
 
   const deleteWallet = async (id) => {
@@ -217,10 +227,13 @@ export const WalletProvider = ({ children }) => {
     }
 
     const updated = wallets.filter((w) => w.id !== id);
+    setWallets(updated);
     if (selectedWalletId === id) {
       selectWallet('all');
     }
-    await saveWallets(updated);
+    dbDeleteWallet(id).catch((err) => {
+      console.warn('[DB] Background wallet delete failed:', err);
+    });
     return { success: true };
   };
 
@@ -283,7 +296,8 @@ export const WalletProvider = ({ children }) => {
 
   const replaceWallets = async (newWallets) => {
     if (Array.isArray(newWallets) && newWallets.length > 0) {
-      await saveWallets(newWallets);
+      setWallets(newWallets);
+      await dbReplaceAllWallets(newWallets);
     }
   };
 

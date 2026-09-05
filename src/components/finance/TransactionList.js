@@ -122,7 +122,7 @@ export const TransactionList = ({
       {/* 2. Search Input */}
       <View style={styles.searchWrapper}>
         <NeoInput
-          placeholder={t('finance.searchPlaceholder', 'Cari transaksi (nama, kategori, nominal)...')}
+          placeholder={t('finance.searchPlaceholder', 'Cari transaksi')}
           value={searchQuery}
           onChangeText={setSearchQuery}
           leftIconName="search-outline"

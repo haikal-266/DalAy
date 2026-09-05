@@ -56,6 +56,23 @@ export const RandomHadithCard = ({ onToast }) => {
   const handleSelectPerawi = (slug) => {
     setSelectedPerawi(slug);
     loadHadith(slug);
+    const item = PERAWI_LIST.find((p) => p.slug === slug);
+    if (onToast && item) {
+      onToast(
+        isIndonesian ? `Koleksi hadits: ${item.name}` : `Hadith collection: ${item.name}`,
+        'book-outline'
+      );
+    }
+  };
+
+  const handleRefreshHadith = () => {
+    loadHadith(selectedPerawi);
+    if (onToast) {
+      onToast(
+        isIndonesian ? 'Hadits acak dimuat' : 'Random Hadith loaded',
+        'shuffle'
+      );
+    }
   };
 
   const handleShareHadith = async () => {
@@ -69,7 +86,7 @@ export const RandomHadithCard = ({ onToast }) => {
   };
 
   const hadithParagraphs = React.useMemo(() => {
-    if (!hadith || !hadith.id) return [];
+    if (!hadith?.id) return [];
     return splitIntoReadableParagraphs(typeof hadith.id === 'string' ? hadith.id : String(hadith.id));
   }, [hadith?.id]);
 
@@ -85,7 +102,7 @@ export const RandomHadithCard = ({ onToast }) => {
         </View>
 
         <Pressable
-          onPress={() => loadHadith(selectedPerawi)}
+          onPress={handleRefreshHadith}
           style={({ pressed }) => [
             styles.refreshBtn,
             {
@@ -271,7 +288,7 @@ export const RandomHadithCard = ({ onToast }) => {
             {/* Footer Action Buttons */}
             <View style={[styles.actionRow, { borderTopColor: colors.borderLight }]}>
               <Pressable
-                onPress={() => loadHadith(selectedPerawi)}
+                onPress={handleRefreshHadith}
                 style={({ pressed }) => [
                   styles.actionButton,
                   { backgroundColor: colors.surfaceLight, borderColor: colors.border },

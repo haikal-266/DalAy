@@ -1,8 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../utils/categories';
-
-const STORAGE_KEY_CUSTOM_CATEGORIES = '@dalay_custom_categories_v1';
+import {
+  dbLoadAllCustomCategories,
+  dbInsertCategory,
+  dbDeleteCategory,
+} from '../services/database';
 
 const CategoryContext = createContext(null);
 
@@ -10,16 +12,13 @@ export const CategoryProvider = ({ children }) => {
   const [customCategories, setCustomCategories] = useState([]);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Load custom categories from storage
+  // Load custom categories from SQLite
   useEffect(() => {
     const loadCategories = async () => {
       try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY_CUSTOM_CATEGORIES);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed)) {
-            setCustomCategories(parsed);
-          }
+        const loaded = await dbLoadAllCustomCategories();
+        if (Array.isArray(loaded)) {
+          setCustomCategories(loaded);
         }
       } catch (err) {
         console.error('Error loading custom categories:', err);
@@ -29,18 +28,6 @@ export const CategoryProvider = ({ children }) => {
     };
     loadCategories();
   }, []);
-
-  // Save to storage helper
-  const saveCustomCategories = async (newList) => {
-    try {
-      setCustomCategories(newList);
-      await AsyncStorage.setItem(STORAGE_KEY_CUSTOM_CATEGORIES, JSON.stringify(newList));
-      return true;
-    } catch (err) {
-      console.error('Error saving custom categories:', err);
-      return false;
-    }
-  };
 
   /**
    * Add a new custom category
@@ -66,21 +53,24 @@ export const CategoryProvider = ({ children }) => {
       keywords: [trimmedName.toLowerCase()],
     };
 
-    const nextList = [newCategory, ...customCategories];
-    const saved = await saveCustomCategories(nextList);
-    if (saved) {
-      return { success: true, category: newCategory };
-    }
-    return { success: false, message: 'Gagal menyimpan kategori baru' };
-  }, [customCategories]);
+    setCustomCategories((prev) => [newCategory, ...prev]);
+    dbInsertCategory(newCategory).catch((err) => {
+      console.warn('[DB] Background category insert failed:', err);
+    });
+
+    return { success: true, category: newCategory };
+  }, []);
 
   /**
    * Delete a custom category
    */
   const deleteCategory = useCallback(async (catId) => {
-    const nextList = customCategories.filter((c) => c.id !== catId);
-    return await saveCustomCategories(nextList);
-  }, [customCategories]);
+    setCustomCategories((prev) => prev.filter((c) => c.id !== catId));
+    dbDeleteCategory(catId).catch((err) => {
+      console.warn('[DB] Background category delete failed:', err);
+    });
+    return true;
+  }, []);
 
   // Combined active expense categories (preset + custom, with "Lain-lain" at the end)
   const expenseCategories = useMemo(() => {

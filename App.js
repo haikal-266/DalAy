@@ -18,6 +18,7 @@ import { SettingsScreen } from './src/screens/SettingsScreen';
 import { BottomTabBar } from './src/navigation/BottomTabBar';
 import { TabletRightNavRail } from './src/navigation/TabletRightNavRail';
 import { getNotificationModule, initNotificationSync } from './src/services/notificationService';
+import { initializeDatabase } from './src/services/database';
 
 const TABS = ['quran', 'finance', 'settings'];
 
@@ -252,6 +253,12 @@ const AppContent = () => {
 };
 
 export default function App() {
+  useEffect(() => {
+    initializeDatabase().catch((err) => {
+      console.warn('[DB] App startup init error:', err);
+    });
+  }, []);
+
   return (
     <SafeAreaProvider>
       <LanguageProvider>

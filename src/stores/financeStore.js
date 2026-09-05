@@ -1,9 +1,16 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { parseFinancialInput } from '../utils/parser';
 import { isSameDay, isThisWeek, isThisMonth } from '../utils/formatters';
-
-const STORAGE_KEY_TRANSACTIONS = '@quranku_transactions';
+import {
+  dbLoadAllTransactions,
+  dbInsertTransaction,
+  dbInsertTransactionsBatch,
+  dbUpdateTransaction,
+  dbDeleteTransaction,
+  dbDeleteTransactionsByTransferId,
+  dbClearAllTransactions,
+  dbReplaceAllTransactions,
+} from '../services/database';
 
 const FinanceContext = createContext(null);
 
@@ -28,35 +35,9 @@ export const FinanceProvider = ({ children }) => {
   const loadTransactions = async () => {
     setLoading(true);
     try {
-      const raw = await AsyncStorage.getItem(STORAGE_KEY_TRANSACTIONS);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        // Filter out any legacy dummy samples and auto-heal adjustment flags if missing
-        const cleaned = Array.isArray(parsed)
-          ? parsed
-              .filter((t) => t && !String(t.id).startsWith('tx_sample_'))
-              .map((t) => {
-                if (t && (t.type === 'adjustment' || t.categoryId === 'cat_adjustment')) {
-                  if (t.isIncrease === undefined && t.adjustmentDiff === undefined) {
-                    const isPositive = t.rawText ? t.rawText.includes('+') : false;
-                    return {
-                      ...t,
-                      isIncrease: isPositive,
-                      adjustmentDiff: isPositive ? (t.amount || 0) : -(t.amount || 0),
-                    };
-                  }
-                }
-                return t;
-              })
-          : [];
-        transactionsRef.current = cleaned;
-        setTransactions(cleaned);
-        await AsyncStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(cleaned));
-      } else {
-        transactionsRef.current = [];
-        setTransactions([]);
-        await AsyncStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify([]));
-      }
+      const list = await dbLoadAllTransactions();
+      transactionsRef.current = list;
+      setTransactions(list);
     } catch (e) {
       console.log('Error loading transactions:', e);
       transactionsRef.current = [];
@@ -64,17 +45,6 @@ export const FinanceProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const saveTransactions = async (newTxList) => {
-    // 1. Instant optimistic in-memory update (0ms delay)
-    transactionsRef.current = newTxList;
-    setTransactions(newTxList);
-
-    // 2. Background asynchronous persistence (non-blocking)
-    AsyncStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(newTxList)).catch((err) => {
-      console.warn('AsyncStorage background write failed:', err);
-    });
   };
 
   /**
@@ -102,7 +72,13 @@ export const FinanceProvider = ({ children }) => {
 
     const currentList = transactionsRef.current && transactionsRef.current.length > 0 ? transactionsRef.current : transactions;
     const updated = [...itemsWithDate, ...currentList];
-    await saveTransactions(updated);
+    transactionsRef.current = updated;
+    setTransactions(updated);
+
+    dbInsertTransactionsBatch(itemsWithDate).catch((err) => {
+      console.warn('[DB] Background insert failed:', err);
+    });
+
     return { success: true, count: itemsWithDate.length, items: itemsWithDate };
   };
 
@@ -130,7 +106,13 @@ export const FinanceProvider = ({ children }) => {
 
     const currentList = transactionsRef.current && transactionsRef.current.length > 0 ? transactionsRef.current : transactions;
     const updated = [newTx, ...currentList];
-    await saveTransactions(updated);
+    transactionsRef.current = updated;
+    setTransactions(updated);
+
+    dbInsertTransaction(newTx).catch((err) => {
+      console.warn('[DB] Background insert failed:', err);
+    });
+
     return newTx;
   };
 
@@ -162,7 +144,13 @@ export const FinanceProvider = ({ children }) => {
 
     const currentList = transactionsRef.current && transactionsRef.current.length > 0 ? transactionsRef.current : transactions;
     const updated = [...newItems, ...currentList];
-    await saveTransactions(updated);
+    transactionsRef.current = updated;
+    setTransactions(updated);
+
+    dbInsertTransactionsBatch(newItems).catch((err) => {
+      console.warn('[DB] Background insert failed:', err);
+    });
+
     return { success: true, count: newItems.length, items: newItems };
   };
 
@@ -175,7 +163,13 @@ export const FinanceProvider = ({ children }) => {
     }
     const currentList = transactionsRef.current && transactionsRef.current.length > 0 ? transactionsRef.current : transactions;
     const updated = [...importedList, ...currentList];
-    await saveTransactions(updated);
+    transactionsRef.current = updated;
+    setTransactions(updated);
+
+    dbInsertTransactionsBatch(importedList).catch((err) => {
+      console.warn('[DB] Background insert failed:', err);
+    });
+
     return { success: true, count: importedList.length };
   };
 
@@ -270,7 +264,13 @@ export const FinanceProvider = ({ children }) => {
 
     const currentList = transactionsRef.current && transactionsRef.current.length > 0 ? transactionsRef.current : transactions;
     const updated = [...newTxs, ...currentList];
-    await saveTransactions(updated);
+    transactionsRef.current = updated;
+    setTransactions(updated);
+
+    dbInsertTransactionsBatch(newTxs).catch((err) => {
+      console.warn('[DB] Background insert failed:', err);
+    });
+
     return { success: true, count: newTxs.length, transferId };
   };
 
@@ -279,7 +279,12 @@ export const FinanceProvider = ({ children }) => {
     const updated = currentList.map((t) =>
       t.id === id ? { ...t, ...updatedFields } : t
     );
-    await saveTransactions(updated);
+    transactionsRef.current = updated;
+    setTransactions(updated);
+
+    dbUpdateTransaction(id, updatedFields).catch((err) => {
+      console.warn('[DB] Background update failed:', err);
+    });
   };
 
   const deleteTransaction = async (id) => {
@@ -289,14 +294,27 @@ export const FinanceProvider = ({ children }) => {
     if (target?.transferId) {
       // If deleting a transfer, remove all paired transfer records
       updated = currentList.filter((t) => t.transferId !== target.transferId);
+      transactionsRef.current = updated;
+      setTransactions(updated);
+      dbDeleteTransactionsByTransferId(target.transferId).catch((err) => {
+        console.warn('[DB] Background delete failed:', err);
+      });
     } else {
       updated = currentList.filter((t) => t.id !== id);
+      transactionsRef.current = updated;
+      setTransactions(updated);
+      dbDeleteTransaction(id).catch((err) => {
+        console.warn('[DB] Background delete failed:', err);
+      });
     }
-    await saveTransactions(updated);
   };
 
   const clearAllTransactions = async () => {
-    await saveTransactions([]);
+    transactionsRef.current = [];
+    setTransactions([]);
+    dbClearAllTransactions().catch((err) => {
+      console.warn('[DB] Background clear failed:', err);
+    });
   };
 
   /**
@@ -304,7 +322,9 @@ export const FinanceProvider = ({ children }) => {
    */
   const replaceTransactions = async (newTxList) => {
     if (Array.isArray(newTxList)) {
-      await saveTransactions(newTxList);
+      transactionsRef.current = newTxList;
+      setTransactions(newTxList);
+      await dbReplaceAllTransactions(newTxList);
     }
   };
 

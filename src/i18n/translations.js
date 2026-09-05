@@ -322,7 +322,7 @@ export const TRANSLATIONS = {
       totalLabel: 'TOTAL',
       transactionsListTab: 'Daftar Transaksi',
       statsTab: 'Statistik & Grafik',
-      searchPlaceholder: 'Cari transaksi (nama, kategori, nominal)...',
+      searchPlaceholder: 'Cari transaksi',
       allTypes: 'Semua',
       noResults: 'Tidak Ada Hasil',
       noResultsDesc: 'Tidak ada transaksi yang cocok dengan pencarian Anda.',

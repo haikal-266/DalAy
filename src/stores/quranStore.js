@@ -1,12 +1,18 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useMemo } from 'react';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
+import { createAudioPlayer } from 'expo-audio';
 import { fetchAyah, fetchRandomAyah, getLastOrInitialAyah } from '../services/quranApi';
 import { useLanguage } from './languageStore';
+import {
+  dbLoadQuranItems,
+  dbInsertQuranItem,
+  dbDeleteQuranItem,
+  dbClearQuranItems,
+  dbCapQuranHistory,
+  dbReplaceQuranItems,
+} from '../services/database';
 
-const STORAGE_KEY_FAVORITES = '@dalay_favorites';
-const STORAGE_KEY_HISTORY = '@dalay_ayat_history';
 const STORAGE_KEY_FONT_SIZE = '@dalay_translation_font_size';
 
 const QuranContext = createContext(null);
@@ -69,16 +75,16 @@ export const QuranProvider = ({ children }) => {
   const loadInitialData = async () => {
     setLoading(true);
     try {
-      // Load favorites, history, and font size
-      const [rawFavs, rawHist, lastAyahJson, rawFontSize] = await Promise.all([
-        AsyncStorage.getItem(STORAGE_KEY_FAVORITES),
-        AsyncStorage.getItem(STORAGE_KEY_HISTORY),
+      // Load favorites and history from SQLite, font size and last ayah from AsyncStorage
+      const [loadedFavs, loadedHist, lastAyahJson, rawFontSize] = await Promise.all([
+        dbLoadQuranItems('favorite'),
+        dbLoadQuranItems('history'),
         AsyncStorage.getItem('@dalay_last_viewed_ayah'),
         AsyncStorage.getItem(STORAGE_KEY_FONT_SIZE),
       ]);
 
-      if (rawFavs) setFavorites(JSON.parse(rawFavs));
-      if (rawHist) setHistory(JSON.parse(rawHist));
+      if (Array.isArray(loadedFavs)) setFavorites(loadedFavs);
+      if (Array.isArray(loadedHist)) setHistory(loadedHist);
       if (rawFontSize) {
         const parsed = parseInt(rawFontSize, 10);
         if (!isNaN(parsed) && parsed >= 12 && parsed <= 24) {
@@ -185,23 +191,28 @@ export const QuranProvider = ({ children }) => {
     if (!ayah) return;
 
     try {
-      let updated;
-      if (isFavorite(ayah)) {
-        updated = favorites.filter(
+      const alreadyFav = isFavorite(ayah);
+      if (alreadyFav) {
+        const updated = favorites.filter(
           (f) => !(f.surah === ayah.surah && f.ayah === ayah.ayah)
         );
+        setFavorites(updated);
+        dbDeleteQuranItem('favorite', ayah.surah, ayah.ayah).catch((err) => {
+          console.warn('[DB] Background delete favorite failed:', err);
+        });
       } else {
         const itemToSave = {
           ...ayah,
           favoritedAt: new Date().toISOString(),
         };
-        updated = [itemToSave, ...favorites];
+        const updated = [itemToSave, ...favorites];
+        setFavorites(updated);
+        dbInsertQuranItem('favorite', itemToSave).catch((err) => {
+          console.warn('[DB] Background insert favorite failed:', err);
+        });
       }
-
-      setFavorites(updated);
-      await AsyncStorage.setItem(STORAGE_KEY_FAVORITES, JSON.stringify(updated));
     } catch (e) {
-      console.log('Error saving favorite:', e);
+      console.log('Error toggling favorite:', e);
     }
   };
 
@@ -211,21 +222,29 @@ export const QuranProvider = ({ children }) => {
   const addToHistory = async (ayah) => {
     if (!ayah) return;
     try {
+      const itemToSave = { ...ayah, readAt: new Date().toISOString() };
       const filtered = history.filter(
         (h) => !(h.surah === ayah.surah && h.ayah === ayah.ayah)
       );
       const updated = [
-        { ...ayah, readAt: new Date().toISOString() },
+        itemToSave,
         ...filtered.slice(0, 49), // Keep max 50 recent items
       ];
       setHistory(updated);
-      await AsyncStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(updated));
-    } catch (e) {}
+      dbInsertQuranItem('history', itemToSave).catch((err) => {
+        console.warn('[DB] Background insert history failed:', err);
+      });
+      dbCapQuranHistory(50).catch(() => {});
+    } catch (e) {
+      // ignore
+    }
   };
 
   const clearHistory = async () => {
     setHistory([]);
-    await AsyncStorage.removeItem(STORAGE_KEY_HISTORY);
+    dbClearQuranItems('history').catch((err) => {
+      console.warn('[DB] Background clear history failed:', err);
+    });
   };
 
   /**
@@ -234,11 +253,11 @@ export const QuranProvider = ({ children }) => {
   const replaceFavoritesAndHistory = async (newFavs, newHist) => {
     if (Array.isArray(newFavs)) {
       setFavorites(newFavs);
-      await AsyncStorage.setItem(STORAGE_KEY_FAVORITES, JSON.stringify(newFavs));
+      await dbReplaceQuranItems('favorite', newFavs);
     }
     if (Array.isArray(newHist)) {
       setHistory(newHist);
-      await AsyncStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(newHist));
+      await dbReplaceQuranItems('history', newHist);
     }
   };
 

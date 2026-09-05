@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   Pressable,
+  Platform,
   useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -34,12 +35,14 @@ export const SettingsScreen = React.memo(({ onNavigateTab }) => {
   const [importModalVisible, setImportModalVisible] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
+  const toastTimeoutRef = useRef(null);
   const [confirmDialog, setConfirmDialog] = useState(null); // { visible, title, message, type, confirmText, onConfirm }
 
   const showToast = (msg, icon = 'checkmark-circle') => {
     const toastObj = typeof msg === 'string' ? { text: msg, icon } : msg;
     setToastMessage(toastObj);
-    setTimeout(() => setToastMessage(null), 3000);
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    toastTimeoutRef.current = setTimeout(() => setToastMessage(null), 3500);
   };
 
   const handleSelectLanguage = (langId) => {
@@ -148,6 +151,29 @@ export const SettingsScreen = React.memo(({ onNavigateTab }) => {
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
+      {/* Floating Top Screen Toast Banner - Always visible regardless of scroll position */}
+      {toastMessage && (
+        <View
+          style={[
+            styles.floatingScreenToast,
+            {
+              backgroundColor: colors.accent || '#0D9488',
+              borderColor: colors.borderLight,
+            },
+          ]}
+          pointerEvents="none"
+        >
+          <Ionicons
+            name={toastMessage.icon || 'checkmark-circle'}
+            size={18}
+            color="#FFFFFF"
+          />
+          <Text style={styles.floatingScreenToastText} numberOfLines={2}>
+            {toastMessage.text}
+          </Text>
+        </View>
+      )}
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[
@@ -177,23 +203,6 @@ export const SettingsScreen = React.memo(({ onNavigateTab }) => {
             </Text>
           </View>
         </View>
-
-        {/* Floating Toast Feedback */}
-        {toastMessage && (
-          <View
-            style={[
-              styles.toastBox,
-              { backgroundColor: colors.primary, borderColor: colors.primaryDark },
-            ]}
-          >
-            <Ionicons
-              name={toastMessage.icon || 'checkmark-circle'}
-              size={16}
-              color="#FFFFFF"
-            />
-            <Text style={styles.toastText}>{toastMessage.text}</Text>
-          </View>
-        )}
 
         {/* App Profile & Version Card */}
         <NeoCard variant="white" padding={16} style={styles.profileCard}>
@@ -412,7 +421,10 @@ export const SettingsScreen = React.memo(({ onNavigateTab }) => {
                     <View
                       style={[
                         styles.swatchCircle,
-                        { backgroundColor: theme.previewPrimary },
+                        {
+                          backgroundColor: theme.previewPrimary,
+                          borderColor: theme.previewPrimary,
+                        },
                       ]}
                     />
                     <Text
@@ -428,7 +440,10 @@ export const SettingsScreen = React.memo(({ onNavigateTab }) => {
                     <View
                       style={[
                         styles.swatchCircle,
-                        { backgroundColor: theme.previewSurface },
+                        {
+                          backgroundColor: theme.previewSurface,
+                          borderColor: colors.borderDark || 'rgba(0,0,0,0.15)',
+                        },
                       ]}
                     />
                     <Text
@@ -444,7 +459,10 @@ export const SettingsScreen = React.memo(({ onNavigateTab }) => {
                     <View
                       style={[
                         styles.swatchCircle,
-                        { backgroundColor: theme.previewBg },
+                        {
+                          backgroundColor: theme.previewBg,
+                          borderColor: colors.borderDark || 'rgba(0,0,0,0.15)',
+                        },
                       ]}
                     />
                     <Text
@@ -732,20 +750,31 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
-  toastBox: {
+  floatingScreenToast: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 52 : 24,
+    left: 16,
+    right: 16,
+    zIndex: 9999,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    marginBottom: 10,
-    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 20,
+    gap: 10,
   },
-  toastText: {
+  floatingScreenToastText: {
     color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '800',
+    flex: 1,
+    letterSpacing: 0.2,
   },
   profileCard: {
     marginBottom: 16,
@@ -931,9 +960,10 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   swatchCircle: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 1.5,
   },
   swatchLabel: {
     fontSize: 10,

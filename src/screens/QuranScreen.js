@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   useWindowDimensions,
   RefreshControl,
   Pressable,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { TYPOGRAPHY } from '../theme/typography';
@@ -21,13 +22,36 @@ import { TafsirModal } from '../components/quran/TafsirModal';
 import { RandomHadithCard } from '../components/quran/RandomHadithCard';
 import { NeoButton } from '../components/neo/NeoButton';
 import { NeoSegmented } from '../components/neo/NeoSegmented';
+import { SURAH_DATA } from '../utils/surahData';
 
 export const QuranScreen = React.memo(() => {
   const { width, height } = useWindowDimensions();
   const isTablet = Math.min(width, height) >= 600 || width >= 768;
   const { colors } = useTheme();
-  const { t } = useLanguage();
+  const { t, isIndonesian } = useLanguage();
   const [activeTab, setActiveTab] = useState('ayat'); // 'ayat' | 'hadits'
+  const [toastMessage, setToastMessage] = useState(null);
+  const toastTimeoutRef = useRef(null);
+
+  const showToast = (msg, icon = 'checkmark-circle') => {
+    const toastObj = typeof msg === 'string' ? { text: msg, icon } : msg;
+    setToastMessage(toastObj);
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    toastTimeoutRef.current = setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  const handleToggleFavorite = async (ayah) => {
+    if (!ayah) return;
+    const isFav = isFavorite(ayah);
+    await toggleFavorite(ayah);
+    let feedbackText = '';
+    if (isFav) {
+      feedbackText = isIndonesian ? 'Dihapus dari favorit' : 'Removed from favorites';
+    } else {
+      feedbackText = isIndonesian ? 'Disimpan ke favorit' : 'Saved to favorites';
+    }
+    showToast(feedbackText, isFav ? 'heart-dislike-outline' : 'heart');
+  };
   const {
     currentAyah,
     favorites,
@@ -56,10 +80,37 @@ export const QuranScreen = React.memo(() => {
     setRefreshing(true);
     await getNewRandomAyah();
     setRefreshing(false);
+    showToast(
+      isIndonesian ? 'Ayat acak dimuat' : 'Random Ayah loaded',
+      'shuffle'
+    );
   };
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
+      {/* Floating Top Screen Toast Banner - Always visible regardless of scroll position */}
+      {toastMessage && (
+        <View
+          style={[
+            styles.floatingScreenToast,
+            {
+              backgroundColor: colors.accent || '#0D9488',
+              borderColor: colors.borderLight,
+            },
+          ]}
+          pointerEvents="none"
+        >
+          <Ionicons
+            name={toastMessage.icon || 'checkmark-circle'}
+            size={18}
+            color="#FFFFFF"
+          />
+          <Text style={styles.floatingScreenToastText} numberOfLines={2}>
+            {toastMessage.text}
+          </Text>
+        </View>
+      )}
+
       {isTablet ? (
         <View style={styles.tabletOuter}>
           {/* Enhanced Fixed Header Bar on Tablet */}
@@ -185,7 +236,7 @@ export const QuranScreen = React.memo(() => {
                   isFavorite={isFavorite(currentAyah)}
                   onRandomPress={getNewRandomAyah}
                   onTogglePlayAudio={togglePlayAudio}
-                  onToggleFavorite={() => toggleFavorite(currentAyah)}
+                  onToggleFavorite={() => handleToggleFavorite(currentAyah)}
                   onOpenSurahPicker={() => setSurahPickerVisible(true)}
                   onOpenTafsir={() => setTafsirModalVisible(true)}
                 />
@@ -202,7 +253,7 @@ export const QuranScreen = React.memo(() => {
                 contentContainerStyle={styles.paneScrollContent}
                 showsVerticalScrollIndicator={false}
               >
-                <RandomHadithCard />
+                <RandomHadithCard onToast={showToast} />
               </ScrollView>
             </View>
           </View>
@@ -309,14 +360,14 @@ export const QuranScreen = React.memo(() => {
                 isFavorite={isFavorite(currentAyah)}
                 onRandomPress={getNewRandomAyah}
                 onTogglePlayAudio={togglePlayAudio}
-                onToggleFavorite={() => toggleFavorite(currentAyah)}
+                onToggleFavorite={() => handleToggleFavorite(currentAyah)}
                 onOpenSurahPicker={() => setSurahPickerVisible(true)}
                 onOpenTafsir={() => setTafsirModalVisible(true)}
               />
             </View>
           ) : (
             <View style={styles.columnRight}>
-              <RandomHadithCard />
+              <RandomHadithCard onToast={showToast} />
             </View>
           )}
         </ScrollView>
@@ -331,7 +382,15 @@ export const QuranScreen = React.memo(() => {
       <SurahPickerModal
         visible={surahPickerVisible}
         onClose={() => setSurahPickerVisible(false)}
-        onSelectAyah={(s, a) => selectSpecificAyah(s, a)}
+        onSelectAyah={(s, a) => {
+          selectSpecificAyah(s, a);
+          const sMeta = SURAH_DATA.find((item) => item.number === s);
+          const sName = sMeta ? sMeta.name_latin : `Surah ${s}`;
+          showToast(
+            isIndonesian ? `Memilih QS. ${sName} : ${a}` : `Selected QS. ${sName} : ${a}`,
+            'book-outline'
+          );
+        }}
         currentSurah={currentAyah?.surah || 1}
         currentAyah={currentAyah?.ayah || 1}
       />
@@ -341,8 +400,22 @@ export const QuranScreen = React.memo(() => {
         onClose={() => setHistoryModalVisible(false)}
         favorites={favorites}
         history={history}
-        onSelectAyah={(s, a) => selectSpecificAyah(s, a)}
-        onClearHistory={clearHistory}
+        onSelectAyah={(s, a) => {
+          selectSpecificAyah(s, a);
+          const sMeta = SURAH_DATA.find((item) => item.number === s);
+          const sName = sMeta ? sMeta.name_latin : `Surah ${s}`;
+          showToast(
+            isIndonesian ? `Membuka QS. ${sName} : ${a}` : `Opened QS. ${sName} : ${a}`,
+            'time-outline'
+          );
+        }}
+        onClearHistory={async () => {
+          await clearHistory();
+          showToast(
+            isIndonesian ? 'Riwayat bacaan dibersihkan' : 'Reading history cleared',
+            'trash-outline'
+          );
+        }}
       />
 
       <TafsirModal
@@ -525,6 +598,32 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     paddingHorizontal: 10,
     flexShrink: 0,
+  },
+  floatingScreenToast: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 52 : 24,
+    left: 16,
+    right: 16,
+    zIndex: 9999,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 20,
+    gap: 10,
+  },
+  floatingScreenToastText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
+    flex: 1,
+    letterSpacing: 0.2,
   },
 });
 
