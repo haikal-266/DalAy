@@ -359,6 +359,7 @@ export const ManualTransactionModal = ({
         </View>
       </NeoModal>
 
+
       {/* Modern Feedback / Alert Dialog */}
       {alertConfig && (
         <ConfirmModal
@@ -380,11 +381,30 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 12,
   },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
   label: {
     fontSize: TYPOGRAPHY.size.xs,
     fontWeight: '800',
     letterSpacing: 0.4,
     marginBottom: 6,
+  },
+  voicePillSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  voicePillText: {
+    fontSize: 10,
+    fontWeight: '800',
   },
   categoryPickerBtn: {
     flexDirection: 'row',

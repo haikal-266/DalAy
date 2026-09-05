@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../stores/themeStore';
 import { useLanguage } from '../stores/languageStore';
 
-const NavRailItem = ({ tab, isActive, onPress, colors }) => {
+const NavRailItem = React.memo(({ tab, isActive, onPress, colors }) => {
   const scaleAnim = useRef(new Animated.Value(isActive ? 1.05 : 1)).current;
 
   useEffect(() => {
@@ -62,9 +62,9 @@ const NavRailItem = ({ tab, isActive, onPress, colors }) => {
       )}
     </Pressable>
   );
-};
+});
 
-export const TabletRightNavRail = ({ activeTab, onTabPress }) => {
+export const TabletRightNavRail = React.memo(({ activeTab, onTabPress }) => {
   const { colors } = useTheme();
   const { isIndonesian } = useLanguage();
 
@@ -110,7 +110,7 @@ export const TabletRightNavRail = ({ activeTab, onTabPress }) => {
         <Text style={[styles.appLogoText, { color: colors.primary }]}>DalAy</Text>
       </View>
 
-      {/* Vertical Navigation Tabs */}
+      {/* Middle Tab Navigation Items */}
       <View style={styles.middleSection}>
         {tabs.map((tab) => (
           <NavRailItem
@@ -123,7 +123,7 @@ export const TabletRightNavRail = ({ activeTab, onTabPress }) => {
         ))}
       </View>
 
-      {/* Bottom Spacer / Info */}
+      {/* Bottom Pro / Status Pill */}
       <View style={styles.bottomSection}>
         <View
           style={[
@@ -137,7 +137,7 @@ export const TabletRightNavRail = ({ activeTab, onTabPress }) => {
       </View>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

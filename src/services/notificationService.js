@@ -393,7 +393,6 @@ export const requestNotificationPermission = async () => {
           importance: Notifications.AndroidImportance.HIGH,
           vibrationPattern: [0, 250, 250, 250],
           lightColor: '#0D9488',
-          sound: 'default',
           enableVibrate: true,
           showBadge: true,
         });
@@ -572,7 +571,6 @@ export const triggerTestNotification = async (lang = 'id') => {
           importance: Notifications.AndroidImportance.HIGH,
           vibrationPattern: [0, 250, 250, 250],
           lightColor: '#0D9488',
-          sound: 'default',
           enableVibrate: true,
           showBadge: true,
         });
@@ -639,7 +637,6 @@ export const sendLocalNotification = async ({ title, body, data = {} }) => {
           importance: Notifications.AndroidImportance.HIGH,
           vibrationPattern: [0, 250, 250, 250],
           lightColor: '#0D9488',
-          sound: 'default',
           enableVibrate: true,
           showBadge: true,
         });

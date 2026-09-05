@@ -34,9 +34,13 @@ import { ReceiptDetailModal } from '../components/finance/ReceiptDetailModal';
 import { useWallet } from '../stores/walletStore';
 import { NeoSegmented } from '../components/neo/NeoSegmented';
 import { ConfirmModal } from '../components/neo/ConfirmModal';
+import { PushToTalkButton } from '../components/voice/PushToTalkButton';
+import { VoiceListeningOverlay } from '../components/voice/VoiceListeningOverlay';
+import { useVoiceInput } from '../hooks/useVoiceInput';
+import { parseFinancialInput } from '../utils/parser';
 import { getFriendlyErrorMessage } from '../utils/errorHandler';
 
-export const FinanceScreen = ({ onNavigateTab }) => {
+export const FinanceScreen = React.memo(({ onNavigateTab }) => {
   const scrollViewRef = useRef(null);
   const { width, height } = useWindowDimensions();
   const isTablet = Math.min(width, height) >= 600 || width >= 768;
@@ -60,6 +64,7 @@ export const FinanceScreen = ({ onNavigateTab }) => {
     categoryStats,
     addFromNaturalLanguage,
     addTransaction,
+    addMultipleTransactions,
     updateTransaction,
     deleteTransaction,
   } = useFinance();
@@ -148,8 +153,6 @@ export const FinanceScreen = ({ onNavigateTab }) => {
     setTimeout(() => setSyncFeedback(null), 3000);
   };
 
-
-
   const handleRefresh = async () => {
     setRefreshing(true);
     setTimeout(() => setRefreshing(false), 400);
@@ -192,7 +195,7 @@ export const FinanceScreen = ({ onNavigateTab }) => {
 
   const handleQuickAdd = async (text, type, date, walletId, walletName) => {
     const res = await addFromNaturalLanguage(text, type, date, walletId, walletName);
-    if (res.success) {
+    if (res?.success) {
       const destinationText = walletName ? ` ke ${walletName}` : '';
       const destinationTextEn = walletName ? ` to ${walletName}` : '';
       showSyncToast(
@@ -203,6 +206,149 @@ export const FinanceScreen = ({ onNavigateTab }) => {
       );
     }
     return res;
+  };
+
+  const [isHoldingVoice, setIsHoldingVoice] = useState(false);
+
+  // Push-To-Talk Voice Input Hook
+  const {
+    isListening: isVoiceListening,
+    transcript: voiceTranscript,
+    interimTranscript: voiceInterimTranscript,
+    fullTranscript: voiceFullTranscript,
+    error: voiceError,
+    isExpoGo,
+    startListening: startVoiceListening,
+    stopListening: stopVoiceListening,
+    resetTranscript: resetVoiceTranscript,
+  } = useVoiceInput({ defaultLang: 'id-ID' });
+
+  // Real-time detection while user is holding and speaking
+  const liveVoiceDetection = useMemo(() => {
+    const textToParse = voiceFullTranscript.trim();
+    if (!isHoldingVoice && !isVoiceListening) {
+      return { walletName: null, categoryName: null, type: null };
+    }
+    if (!textToParse) {
+      return { walletName: null, categoryName: null, type: null };
+    }
+    const items = parseFinancialInput(textToParse, 'expense', wallets, wallets[0]?.id);
+    if (items.length > 0) {
+      return {
+        walletName: items[0].walletName || null,
+        categoryName: items[0].categoryName || null,
+        type: items[0].type || null,
+      };
+    }
+    return { walletName: null, categoryName: null, type: null };
+  }, [isHoldingVoice, isVoiceListening, voiceFullTranscript, wallets]);
+
+  const handlePushToTalkStart = async () => {
+    setIsHoldingVoice(true);
+    resetVoiceTranscript();
+    const success = await startVoiceListening({ lang: 'id-ID', continuous: true });
+    if (!success) {
+      setIsHoldingVoice(false);
+      if (isExpoGo) {
+        showSyncToast(
+          isIndonesian
+            ? 'Fitur suara butuh build native (tidak didukung di Expo Go)'
+            : 'Voice input requires native build',
+          'alert-circle-outline'
+        );
+      }
+    }
+  };
+
+  const handlePushToTalkEnd = async () => {
+    setIsHoldingVoice(false);
+    const result = await stopVoiceListening();
+    const spoken =
+      typeof result === 'object' && result?.transcript !== undefined
+        ? result.transcript
+        : result || voiceFullTranscript || voiceTranscript;
+    const lastErr = typeof result === 'object' && result?.error ? result.error : voiceError;
+
+    if (!spoken?.trim()) {
+      if (lastErr === 'permission-denied') {
+        showSyncToast(
+          isIndonesian ? 'Izin mikrofon diperlukan' : 'Microphone permission required',
+          'alert-circle-outline'
+        );
+      } else if (lastErr === 'network-error') {
+        showSyncToast(
+          isIndonesian ? 'Koneksi suara terputus' : 'Voice network error',
+          'alert-circle-outline'
+        );
+      } else {
+        showSyncToast(
+          isIndonesian ? 'Suara tidak terdeteksi' : 'No speech detected',
+          'mic-off-outline'
+        );
+      }
+      resetVoiceTranscript();
+      return;
+    }
+
+    // Parse all financial items with wallet, category & type (income/expense) matching
+    const parsedItems = parseFinancialInput(
+      spoken,
+      'expense',
+      wallets,
+      wallets[0]?.id
+    );
+
+    if (parsedItems.length === 0) {
+      showSyncToast(
+        isIndonesian
+          ? 'Nominal transaksi tidak terdeteksi'
+          : 'No transaction amount detected',
+        'alert-circle-outline'
+      );
+      resetVoiceTranscript();
+      return;
+    }
+
+    const txDataList = parsedItems.map((item) => ({
+      name: item.name,
+      amount: item.amount,
+      type: item.type || 'expense',
+      categoryId: item.categoryId,
+      categoryName: item.categoryName,
+      iconName: item.iconName,
+      iconFamily: item.iconFamily,
+      categoryColor: item.categoryColor,
+      categoryBgColor: item.categoryBgColor,
+      walletId: item.walletId || wallets[0]?.id,
+      walletName: item.walletName || wallets[0]?.name,
+      rawText: item.rawText,
+      date: selectedInputDate ? new Date(selectedInputDate).toISOString() : new Date().toISOString(),
+    }));
+
+    await addMultipleTransactions(txDataList);
+
+    const isAllIncome = parsedItems.every((it) => it.type === 'income');
+    const isAllExpense = parsedItems.every((it) => it.type === 'expense');
+    const typeLabel = isAllIncome
+      ? isIndonesian ? ' pemasukan' : ' income'
+      : isAllExpense
+      ? isIndonesian ? ' pengeluaran' : ' expense'
+      : '';
+
+    showSyncToast(
+      isIndonesian
+        ? `Berhasil mencatat ${parsedItems.length}${typeLabel}`
+        : `Recorded ${parsedItems.length}${typeLabel} transaction(s)`,
+      'checkmark-circle'
+    );
+
+    resetVoiceTranscript();
+  };
+
+  const handleCancelVoice = async () => {
+    setIsHoldingVoice(false);
+    await stopVoiceListening();
+    resetVoiceTranscript();
   };
 
   const [quickInputY, setQuickInputY] = useState(480);
@@ -292,6 +438,49 @@ export const FinanceScreen = ({ onNavigateTab }) => {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
     >
+      {/* Floating Top Screen Toast Banner - Always visible regardless of scroll position */}
+      {syncFeedback && (
+        <View
+          style={[
+            styles.floatingScreenToast,
+            {
+              backgroundColor: colors.accent || '#0D9488',
+              borderColor: colors.borderLight,
+            },
+          ]}
+          pointerEvents="none"
+        >
+          <Ionicons
+            name={syncFeedback.icon || 'checkmark-circle'}
+            size={18}
+            color="#FFFFFF"
+          />
+          <Text style={styles.floatingScreenToastText} numberOfLines={2}>
+            {syncFeedback.text}
+          </Text>
+        </View>
+      )}
+
+      {/* Floating Top Background Scan Status Banner */}
+      {bgScanStatus && (
+        <View
+          style={[
+            styles.floatingScreenToast,
+            {
+              top: syncFeedback ? (Platform.OS === 'ios' ? 108 : 78) : (Platform.OS === 'ios' ? 52 : 24),
+              backgroundColor: colors.surfaceLight || '#1E293B',
+              borderColor: colors.accent || '#8B5CF6',
+            },
+          ]}
+          pointerEvents="none"
+        >
+          <ActivityIndicator size="small" color={colors.accent || '#8B5CF6'} />
+          <Text style={[styles.floatingScreenToastText, { color: colors.text }]}>
+            {bgScanStatus.statusMsg || (isIndonesian ? 'Memproses struk di background...' : 'Processing receipt in background...')}
+          </Text>
+        </View>
+      )}
+
       {isTablet ? (
         <View style={styles.tabletOuter}>
           {/* Enhanced Fixed Header Bar on Tablet */}
@@ -330,24 +519,6 @@ export const FinanceScreen = ({ onNavigateTab }) => {
               </View>
             </View>
           </View>
-
-          {/* Floating Sync Feedback if active */}
-          {syncFeedback && (
-            <View
-              style={[
-                styles.syncToastBox,
-                styles.tabletToastMargin,
-                { backgroundColor: colors.accent, borderColor: colors.border },
-              ]}
-            >
-              <Ionicons
-                name={syncFeedback.icon || 'checkmark-circle'}
-                size={16}
-                color="#FFFFFF"
-              />
-              <Text style={styles.syncToastText}>{syncFeedback.text}</Text>
-            </View>
-          )}
 
           {/* Tablet Dual-Pane Independent Scroll Layout */}
           <View style={styles.tabletPanesRow}>
@@ -493,38 +664,6 @@ export const FinanceScreen = ({ onNavigateTab }) => {
               </View>
             </View>
           </View>
-
-          {/* Floating Sync Toast Feedback */}
-          {syncFeedback && (
-            <View
-              style={[
-                styles.syncToastBox,
-                { backgroundColor: colors.accent, borderColor: colors.border },
-              ]}
-            >
-              <Ionicons
-                name={syncFeedback.icon || 'checkmark-circle'}
-                size={16}
-                color="#FFFFFF"
-              />
-              <Text style={styles.syncToastText}>{syncFeedback.text}</Text>
-            </View>
-          )}
-
-          {/* Floating Background Scan Status Banner */}
-          {bgScanStatus && (
-            <View
-              style={[
-                styles.syncToastBox,
-                { backgroundColor: (colors.accent || '#8B5CF6') + '25', borderColor: colors.accent || '#8B5CF6' },
-              ]}
-            >
-              <ActivityIndicator size="small" color={colors.accent || '#8B5CF6'} />
-              <Text style={[styles.syncToastText, { color: colors.text }]}>
-                {bgScanStatus.statusMsg || (isIndonesian ? 'Memproses struk di background...' : 'Processing receipt in background...')}
-              </Text>
-            </View>
-          )}
           {/* Mobile All Wallets Overview KPI Card */}
           <SummaryCards
             summary={allWalletsSummary}
@@ -798,9 +937,27 @@ export const FinanceScreen = ({ onNavigateTab }) => {
           showCancel={false}
         />
       )}
+      {/* Push-To-Talk Floating Action Button - Exclusively on Finance Tab */}
+      <PushToTalkButton
+        onPressIn={handlePushToTalkStart}
+        onPressOut={handlePushToTalkEnd}
+        isListening={isVoiceListening || isHoldingVoice}
+      />
+
+      {/* Full-Screen Blur/Backdrop Overlay while Holding Button */}
+      <VoiceListeningOverlay
+        visible={isVoiceListening || isHoldingVoice}
+        transcript={voiceTranscript}
+        interimTranscript={voiceInterimTranscript}
+        detectedType={liveVoiceDetection.type}
+        detectedWallet={liveVoiceDetection.walletName}
+        detectedCategory={liveVoiceDetection.categoryName}
+        isExpoGo={isExpoGo}
+        onClose={handleCancelVoice}
+      />
     </KeyboardAvoidingView>
   );
-};
+});
 
 const styles = StyleSheet.create({
   screen: {
@@ -935,22 +1092,31 @@ const styles = StyleSheet.create({
     marginTop: 18,
     marginBottom: 14,
   },
-  syncToastBox: {
+  floatingScreenToast: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 52 : 24,
+    left: 16,
+    right: 16,
+    zIndex: 9999,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 2,
-    marginBottom: 10,
-    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 20,
+    gap: 10,
   },
-  syncToastText: {
+  floatingScreenToastText: {
     color: '#FFFFFF',
-    fontSize: 12,
-    fontFamily: TYPOGRAPHY.families.bold,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '800',
     flex: 1,
+    letterSpacing: 0.2,
   },
 });
 

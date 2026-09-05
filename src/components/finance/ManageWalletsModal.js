@@ -238,24 +238,25 @@ export const ManageWalletsModal = ({ visible, onClose, onToast, initialAddMode =
               {mode === 'edit' && !editingWallet?.isDefault && (
                 <Pressable
                   onPress={() => setDeleteTarget(editingWallet)}
-                  style={[
-                    styles.iconActionBtn,
+                  style={({ pressed }) => [
+                    styles.formDeleteBtn,
                     {
                       backgroundColor: (colors.expense || '#EF4444') + '15',
                       borderColor: colors.expense || '#EF4444',
-                      paddingHorizontal: 12,
-                      marginRight: 4,
                     },
+                    pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] },
                   ]}
+                  accessibilityLabel={isIndonesian ? 'Hapus Dompet' : 'Delete Wallet'}
                 >
-                  <Ionicons name="trash-outline" size={16} color={colors.expense || '#EF4444'} />
+                  <Ionicons name="trash-outline" size={18} color={colors.expense || '#EF4444'} />
                 </Pressable>
               )}
               <Pressable
                 onPress={() => setMode('list')}
-                style={[
+                style={({ pressed }) => [
                   styles.cancelBtn,
                   { backgroundColor: colors.surfaceLight, borderColor: colors.border },
+                  pressed && { opacity: 0.7 },
                 ]}
               >
                 <Text style={[styles.cancelBtnText, { color: colors.textSecondary }]}>
@@ -831,12 +832,20 @@ const styles = StyleSheet.create({
   formFooterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
+  },
+  formDeleteBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cancelBtn: {
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 14,
+    height: 44,
+    borderRadius: 12,
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',

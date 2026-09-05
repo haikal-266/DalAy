@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../stores/themeStore';
 import { useLanguage } from '../stores/languageStore';
 
-const TabButton = ({ tab, isActive, onPress, colors }) => {
+const TabButton = React.memo(({ tab, isActive, onPress, colors }) => {
   const scaleAnim = useRef(new Animated.Value(isActive ? 1 : 0.94)).current;
 
   useEffect(() => {
@@ -59,9 +59,9 @@ const TabButton = ({ tab, isActive, onPress, colors }) => {
       </Text>
     </Pressable>
   );
-};
+});
 
-export const BottomTabBar = ({ activeTab, onTabPress }) => {
+export const BottomTabBar = React.memo(({ activeTab, onTabPress }) => {
   const { colors } = useTheme();
   const { t } = useLanguage();
 
@@ -112,7 +112,7 @@ export const BottomTabBar = ({ activeTab, onTabPress }) => {
       </View>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   wrapper: {

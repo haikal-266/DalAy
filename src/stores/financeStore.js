@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { parseFinancialInput } from '../utils/parser';
 import { isSameDay, isThisWeek, isThisMonth } from '../utils/formatters';
@@ -15,6 +15,11 @@ export const FinanceProvider = ({ children }) => {
   const [walletFilter, setWalletFilter] = useState('all'); // 'all' | walletId
   const [categoryFilter, setCategoryFilter] = useState('all'); // 'all' | categoryId
   const [searchQuery, setSearchQuery] = useState('');
+  const transactionsRef = useRef([]);
+
+  useEffect(() => {
+    transactionsRef.current = transactions;
+  }, [transactions]);
 
   useEffect(() => {
     loadTransactions();
@@ -44,14 +49,17 @@ export const FinanceProvider = ({ children }) => {
                 return t;
               })
           : [];
+        transactionsRef.current = cleaned;
         setTransactions(cleaned);
         await AsyncStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(cleaned));
       } else {
+        transactionsRef.current = [];
         setTransactions([]);
         await AsyncStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify([]));
       }
     } catch (e) {
       console.log('Error loading transactions:', e);
+      transactionsRef.current = [];
       setTransactions([]);
     } finally {
       setLoading(false);
@@ -59,12 +67,14 @@ export const FinanceProvider = ({ children }) => {
   };
 
   const saveTransactions = async (newTxList) => {
-    try {
-      setTransactions(newTxList);
-      await AsyncStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(newTxList));
-    } catch (e) {
-      console.log('Error saving transactions:', e);
-    }
+    // 1. Instant optimistic in-memory update (0ms delay)
+    transactionsRef.current = newTxList;
+    setTransactions(newTxList);
+
+    // 2. Background asynchronous persistence (non-blocking)
+    AsyncStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(newTxList)).catch((err) => {
+      console.warn('AsyncStorage background write failed:', err);
+    });
   };
 
   /**
@@ -85,12 +95,13 @@ export const FinanceProvider = ({ children }) => {
 
     const itemsWithDate = parsed.map((item) => ({
       ...item,
-      walletId: targetWalletId || (walletFilter !== 'all' ? walletFilter : 'wallet_cash'),
-      walletName: targetWalletName || 'Tunai',
+      walletId: item.walletId || targetWalletId || (walletFilter !== 'all' ? walletFilter : 'wallet_cash'),
+      walletName: item.walletName || targetWalletName || 'Tunai',
       date: customDate ? new Date(customDate).toISOString() : (item.date || new Date().toISOString()),
     }));
 
-    const updated = [...itemsWithDate, ...transactions];
+    const currentList = transactionsRef.current && transactionsRef.current.length > 0 ? transactionsRef.current : transactions;
+    const updated = [...itemsWithDate, ...currentList];
     await saveTransactions(updated);
     return { success: true, count: itemsWithDate.length, items: itemsWithDate };
   };
@@ -117,9 +128,42 @@ export const FinanceProvider = ({ children }) => {
       date: txData.date || new Date().toISOString(),
     };
 
-    const updated = [newTx, ...transactions];
+    const currentList = transactionsRef.current && transactionsRef.current.length > 0 ? transactionsRef.current : transactions;
+    const updated = [newTx, ...currentList];
     await saveTransactions(updated);
     return newTx;
+  };
+
+  /**
+   * Add batch of transactions simultaneously (atomic save, zero data loss)
+   */
+  const addMultipleTransactions = async (txDataList) => {
+    if (!Array.isArray(txDataList) || txDataList.length === 0) {
+      return { success: false, count: 0, items: [] };
+    }
+
+    const newItems = txDataList.map((txData) => ({
+      ...txData,
+      id: txData.id || `tx_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+      type: txData.type || 'expense',
+      name: txData.name || 'Transaksi Baru',
+      amount: txData.amount || 0,
+      walletId: txData.walletId || (walletFilter !== 'all' ? walletFilter : 'wallet_cash'),
+      walletName: txData.walletName || 'Tunai',
+      categoryId: txData.categoryId || 'other',
+      categoryName: txData.categoryName || 'Lain-lain',
+      iconName: txData.iconName || 'cube',
+      iconFamily: txData.iconFamily || 'Ionicons',
+      categoryColor: txData.categoryColor || '#64748B',
+      categoryBgColor: txData.categoryBgColor || '#F1F5F9',
+      rawText: txData.rawText || txData.name,
+      date: txData.date || new Date().toISOString(),
+    }));
+
+    const currentList = transactionsRef.current && transactionsRef.current.length > 0 ? transactionsRef.current : transactions;
+    const updated = [...newItems, ...currentList];
+    await saveTransactions(updated);
+    return { success: true, count: newItems.length, items: newItems };
   };
 
   /**
@@ -129,7 +173,8 @@ export const FinanceProvider = ({ children }) => {
     if (!Array.isArray(importedList) || importedList.length === 0) {
       return { success: false, count: 0 };
     }
-    const updated = [...importedList, ...transactions];
+    const currentList = transactionsRef.current && transactionsRef.current.length > 0 ? transactionsRef.current : transactions;
+    const updated = [...importedList, ...currentList];
     await saveTransactions(updated);
     return { success: true, count: importedList.length };
   };
@@ -223,26 +268,29 @@ export const FinanceProvider = ({ children }) => {
       newTxs.push(txFee);
     }
 
-    const updated = [...newTxs, ...transactions];
+    const currentList = transactionsRef.current && transactionsRef.current.length > 0 ? transactionsRef.current : transactions;
+    const updated = [...newTxs, ...currentList];
     await saveTransactions(updated);
     return { success: true, count: newTxs.length, transferId };
   };
 
   const updateTransaction = async (id, updatedFields) => {
-    const updated = transactions.map((t) =>
+    const currentList = transactionsRef.current && transactionsRef.current.length > 0 ? transactionsRef.current : transactions;
+    const updated = currentList.map((t) =>
       t.id === id ? { ...t, ...updatedFields } : t
     );
     await saveTransactions(updated);
   };
 
   const deleteTransaction = async (id) => {
-    const target = transactions.find((t) => t.id === id);
+    const currentList = transactionsRef.current && transactionsRef.current.length > 0 ? transactionsRef.current : transactions;
+    const target = currentList.find((t) => t.id === id);
     let updated;
     if (target?.transferId) {
       // If deleting a transfer, remove all paired transfer records
-      updated = transactions.filter((t) => t.transferId !== target.transferId);
+      updated = currentList.filter((t) => t.transferId !== target.transferId);
     } else {
-      updated = transactions.filter((t) => t.id !== id);
+      updated = currentList.filter((t) => t.id !== id);
     }
     await saveTransactions(updated);
   };
@@ -451,6 +499,7 @@ export const FinanceProvider = ({ children }) => {
       getCategoryStats,
       addFromNaturalLanguage,
       addTransaction,
+      addMultipleTransactions,
       transferBalance,
       importTransactions,
       updateTransaction,

@@ -23,7 +23,7 @@ import { GoogleSyncCard } from '../components/sync/GoogleSyncCard';
 import { GeminiAiCard } from '../components/settings/GeminiAiCard';
 import { APP_INFO } from '../constants/appInfo';
 
-export const SettingsScreen = ({ onNavigateTab }) => {
+export const SettingsScreen = React.memo(({ onNavigateTab }) => {
   const { width, height } = useWindowDimensions();
   const isTablet = Math.min(width, height) >= 600 || width >= 768;
   const { colors, currentThemeId, setTheme, availableThemes } = useTheme();
@@ -212,12 +212,6 @@ export const SettingsScreen = ({ onNavigateTab }) => {
             <View style={styles.appInfo}>
               <Text style={[styles.appName, { color: colors.text }]}>
                 {t('settings.appProfile', 'DalAy (Daily Ayah & Smart Finance)')}
-              </Text>
-              <Text style={[styles.appTagline, { color: colors.textSecondary }]}>
-                {t(
-                  'settings.appTagline',
-                  'Daily Quran Reminder & Smart AI Finance Tracker'
-                )}
               </Text>
               <View
                 style={[
@@ -486,12 +480,6 @@ export const SettingsScreen = ({ onNavigateTab }) => {
               <Text style={[styles.actionTitle, { color: colors.text }]}>
                 {t('reminder.title', 'Pengingat Terjadwal')}
               </Text>
-              <Text style={[styles.actionSubtitle, { color: colors.textSecondary }]}>
-                {t(
-                  'settings.reminderDesc',
-                  'Notifikasi ayat Al-Quran.'
-                )}
-              </Text>
             </View>
             <NeoButton
               title={t('settings.reminderSettingsBtn', 'Atur Pengingat')}
@@ -514,11 +502,6 @@ export const SettingsScreen = ({ onNavigateTab }) => {
             {isIndonesian ? 'SINKRONISASI CLOUD (GOOGLE DRIVE)' : 'CLOUD SYNC (GOOGLE DRIVE)'}
           </Text>
         </View>
-        <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
-          {isIndonesian
-            ? 'Cadangkan & pulihkan otomatis seluruh data dengan akun Google'
-            : 'Auto-backup & recover all data with your Google account'}
-        </Text>
 
         <GoogleSyncCard onToast={showToast} />
 
@@ -709,7 +692,7 @@ export const SettingsScreen = ({ onNavigateTab }) => {
       )}
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   screen: {

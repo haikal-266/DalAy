@@ -59,6 +59,13 @@
           }
         }
       ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Izinkan DalAy mengakses mikrofon untuk pencatatan transaksi dan pencarian dengan suara.",
+          "speechRecognitionPermission": "Izinkan DalAy menggunakan pengenalan suara untuk fitur voice input."
+        }
+      ],
       "expo-splash-screen"
     ],
     "extra": {

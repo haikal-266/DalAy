@@ -22,7 +22,7 @@ import { RandomHadithCard } from '../components/quran/RandomHadithCard';
 import { NeoButton } from '../components/neo/NeoButton';
 import { NeoSegmented } from '../components/neo/NeoSegmented';
 
-export const QuranScreen = () => {
+export const QuranScreen = React.memo(() => {
   const { width, height } = useWindowDimensions();
   const isTablet = Math.min(width, height) >= 600 || width >= 768;
   const { colors } = useTheme();
@@ -352,7 +352,7 @@ export const QuranScreen = () => {
       />
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   screen: {

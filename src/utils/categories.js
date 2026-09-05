@@ -72,10 +72,11 @@ export const EXPENSE_CATEGORIES = [
     color: '#DB2777',      // Pink 600
     bgColor: '#FCE7F3',    // Pink 100
     keywords: [
-      'jajan', 'beli', 'belanja', 'indomaret', 'alfamart', 'shopee', 'tokped', 'tokopedia',
+      'jam tangan', 'smartwatch', 'kacamata hitam', 'tali pinggang', 'jajan', 'beli', 'belanja',
+      'indomaret', 'alfamart', 'shopee', 'tokped', 'tokopedia',
       'lazada', 'tiktok shop', 'sabun', 'baju', 'celana', 'sepatu', 'sandal', 'minimarket',
       'supermarket', 'pasar', 'fashion', 'skincare', 'sampo', 'deterjen', 'toko',
-      'kaos', 'tas', 'jaket', 'parfum', 'aksesoris', 'checkout', 'barang', 'kado'
+      'kaos', 'tas', 'jaket', 'parfum', 'aksesoris', 'checkout', 'barang', 'kado', 'jam', 'dompet', 'cincin', 'kalung'
     ],
   },
   {
