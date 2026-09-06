@@ -15,7 +15,8 @@
         "NSCameraUsageDescription": "Izinkan DalAy mengakses kamera untuk memotret struk belanja.",
         "NSPhotoLibraryUsageDescription": "Izinkan DalAy mengakses galeri untuk memilih foto struk belanja.",
         "NSMicrophoneUsageDescription": "Izinkan DalAy mengakses mikrofon untuk pencatatan transaksi dan pencarian dengan suara.",
-        "NSSpeechRecognitionUsageDescription": "Izinkan DalAy menggunakan pengenalan suara untuk fitur voice input."
+        "NSSpeechRecognitionUsageDescription": "Izinkan DalAy menggunakan pengenalan suara untuk fitur voice input.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -26,12 +27,12 @@
         "backgroundImage": "./assets/android-icon-background.png"
       },
       "permissions": [
-        "RECEIVE_BOOT_COMPLETED",
-        "SCHEDULE_EXACT_ALARM",
-        "USE_EXACT_ALARM",
-        "WAKE_LOCK",
-        "POST_NOTIFICATIONS",
-        "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.USE_EXACT_ALARM",
+        "android.permission.WAKE_LOCK",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.FOREGROUND_SERVICE",
@@ -67,7 +68,8 @@
           "android": {
             "enableProguardInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
-            "enableBundleCompression": true
+            "enableBundleCompression": true,
+            "enableMinifyInReleaseBuilds": true
           }
         }
       ],
