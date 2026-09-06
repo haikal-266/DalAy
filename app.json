@@ -9,8 +9,13 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.kallkun.dalay",
       "infoPlist": {
-        "CADisableMinimumFrameDurationOnPhone": true
+        "CADisableMinimumFrameDurationOnPhone": true,
+        "NSCameraUsageDescription": "Izinkan DalAy mengakses kamera untuk memotret struk belanja.",
+        "NSPhotoLibraryUsageDescription": "Izinkan DalAy mengakses galeri untuk memilih foto struk belanja.",
+        "NSMicrophoneUsageDescription": "Izinkan DalAy mengakses mikrofon untuk pencatatan transaksi dan pencarian dengan suara.",
+        "NSSpeechRecognitionUsageDescription": "Izinkan DalAy menggunakan pengenalan suara untuk fitur voice input."
       }
     },
     "android": {
@@ -42,6 +47,13 @@
         {
           "icon": "./assets/icon.png",
           "color": "#0D9488"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Izinkan DalAy mengakses galeri untuk memilih foto struk belanja.",
+          "cameraPermission": "Izinkan DalAy mengakses kamera untuk memotret struk belanja."
         }
       ],
       "expo-sharing",
