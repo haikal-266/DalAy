@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, TouchableOpacity } from 'react-native';
 import Svg, { G, Path, Circle } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import { TYPOGRAPHY } from '../../theme/typography';
@@ -17,6 +17,7 @@ export const PieChartSection = ({
   onSelectPeriod = () => {},
   typeFilter = 'expense',
   onSelectType = () => {},
+  onPressExport,
 }) => {
   const { colors } = useTheme();
   const { t, isIndonesian } = useLanguage();
@@ -122,10 +123,32 @@ export const PieChartSection = ({
       {/* Top Period Selector Bar */}
       <View style={styles.header}>
         <View style={styles.titleRow}>
-          <Ionicons name="pie-chart" size={16} color={colors.primary} />
-          <Text style={[styles.title, { color: colors.text }]}>
-            {isIndonesian ? 'STATISTIK & PROPORSI' : 'STATISTICS & BREAKDOWN'}
-          </Text>
+          <View style={styles.titleLeft}>
+            <Ionicons name="pie-chart" size={16} color={colors.primary} />
+            <Text style={[styles.title, { color: colors.text }]}>
+              {isIndonesian ? 'STATISTIK & PROPORSI' : 'STATISTICS & BREAKDOWN'}
+            </Text>
+          </View>
+
+          {onPressExport && (
+            <TouchableOpacity
+              style={[
+                styles.exportChartButton,
+                {
+                  backgroundColor: colors.primary,
+                  borderColor: colors.borderDark,
+                  shadowColor: colors.shadowColor,
+                },
+              ]}
+              onPress={onPressExport}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="sparkles" size={12} color="#FFFFFF" />
+              <Text style={styles.exportChartButtonText}>
+                {isIndonesian ? 'Laporan AI' : 'AI Report'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
         <NeoSegmented
           options={[
@@ -398,8 +421,32 @@ const styles = StyleSheet.create({
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 8,
+  },
+  titleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
+  },
+  exportChartButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 4.5,
+    borderRadius: 7,
+    borderWidth: 1.5,
+    elevation: 2,
+    shadowOffset: { width: 1.5, height: 1.5 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+  },
+  exportChartButtonText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
   },
   title: {
     fontSize: TYPOGRAPHY.size.xs,

@@ -301,23 +301,9 @@ export const WalletCarousel = ({ onOpenManageWallets, onAddNewWallet, onOpenTran
                 </View>
 
                 <View style={styles.cardBody}>
-                  <View style={styles.balanceHeaderRow}>
-                    <Text style={[styles.balanceLabel, { color: colors.textSecondary }]}>
-                      {isIndonesian ? 'SALDO TERSEDIA' : 'AVAILABLE BALANCE'}
-                    </Text>
-                    <Pressable
-                      onPress={toggleBalanceHidden}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      style={styles.cardEyeBtn}
-                      accessibilityLabel={isBalanceHidden ? 'Tampilkan Saldo' : 'Sembunyikan Saldo'}
-                    >
-                      <Ionicons
-                        name={isBalanceHidden ? 'eye-off-outline' : 'eye-outline'}
-                        size={14}
-                        color={isBalanceHidden ? (colors.primaryDark || colors.primary) : colors.textMuted}
-                      />
-                    </Pressable>
-                  </View>
+                  <Text style={[styles.balanceLabel, { color: colors.textSecondary }]}>
+                    {isIndonesian ? 'SALDO TERSEDIA' : 'AVAILABLE BALANCE'}
+                  </Text>
                   <Text
                     style={[
                       styles.walletBalance,
@@ -453,17 +439,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  balanceHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 2,
-  },
-  cardEyeBtn: {
-    padding: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   transferHeaderBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -569,6 +544,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.5,
+    marginBottom: 2,
   },
   walletBalance: {
     fontSize: 22,

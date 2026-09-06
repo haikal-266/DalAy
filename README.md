@@ -118,7 +118,26 @@ npm run start:clear
 
 ---
 
-### 4. Opening on Your Device
+### 4. Automated Testing & Type Checking
+
+DalAy dilengkapi dengan rangkaian unit testing otomatis (Jest) dan type checking (TypeScript) untuk memastikan integritas logika keuangan, parser suara, dan database:
+
+```bash
+# Jalankan seluruh unit testing (otomatis jalan sebelum npm start)
+npm test
+
+# Mode watch (interaktif saat koding)
+npm run test:watch
+
+# Type check via TypeScript compiler
+npm run type-check
+```
+
+*Setiap kali menjalankan `npm start`, `npm run start:tunnel`, atau `npm run start:clear`, seluruh unit test akan otomatis dieksekusi terlebih dahulu melalui lifecycle hook `prestart`.*
+
+---
+
+### 5. Opening on Your Device
 1. **Physical Device (Expo Go):** Open **Expo Go** on your phone, select **Scan QR Code**, and scan the QR code printed in your terminal.
 2. **Android Emulator:** Press `a` in the terminal while Metro is running.
 3. **Developer Menu:** Shake the physical device or press `m` in the terminal to access reload and debugging options.

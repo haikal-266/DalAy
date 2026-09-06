@@ -9,6 +9,7 @@ import {
   Platform,
   Keyboard,
   ActivityIndicator,
+  TouchableOpacity,
   useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,6 +26,7 @@ import { TransactionList } from '../components/finance/TransactionList';
 import { ManualTransactionModal } from '../components/finance/ManualTransactionModal';
 import { ExportModal } from '../components/finance/ExportModal';
 import { ImportModal } from '../components/finance/ImportModal';
+import { PdfReportModal } from '../components/finance/PdfReportModal';
 import { WalletCarousel } from '../components/finance/WalletCarousel';
 import { ManageWalletsModal } from '../components/finance/ManageWalletsModal';
 import { TransferModal } from '../components/finance/TransferModal';
@@ -32,6 +34,7 @@ import { ReceiptSourceModal } from '../components/finance/ReceiptSourceModal';
 import { ReceiptReviewModal } from '../components/finance/ReceiptReviewModal';
 import { ReceiptDetailModal } from '../components/finance/ReceiptDetailModal';
 import { useWallet } from '../stores/walletStore';
+import { useAi } from '../stores/aiStore';
 import { NeoSegmented } from '../components/neo/NeoSegmented';
 import { ConfirmModal } from '../components/neo/ConfirmModal';
 import { PushToTalkButton } from '../components/voice/PushToTalkButton';
@@ -48,6 +51,7 @@ export const FinanceScreen = React.memo(({ onNavigateTab }) => {
   const { t, isIndonesian } = useLanguage();
 
   const { getTotalNetWorth, wallets } = useWallet();
+  const { hasApiKey } = useAi();
 
   const {
     transactions,
@@ -117,6 +121,7 @@ export const FinanceScreen = React.memo(({ onNavigateTab }) => {
   const [scannedReceiptImageUri, setScannedReceiptImageUri] = useState(null);
   const [exportModalVisible, setExportModalVisible] = useState(false);
   const [importModalVisible, setImportModalVisible] = useState(false);
+  const [pdfModalVisible, setPdfModalVisible] = useState(false);
   const [manageWalletsVisible, setManageWalletsVisible] = useState(false);
   const [initialWalletAddMode, setInitialWalletAddMode] = useState(false);
   const [transferModalVisible, setTransferModalVisible] = useState(false);
@@ -206,6 +211,30 @@ export const FinanceScreen = React.memo(({ onNavigateTab }) => {
       );
     }
     return res;
+  };
+
+  const handleOpenAiReport = () => {
+    if (!hasApiKey) {
+      setModalAlert({
+        title: isIndonesian ? 'API Key Belum Diatur' : 'API Key Required',
+        message: isIndonesian
+          ? 'Untuk menyusun laporan keuangan cerdas dengan AI, Anda perlu memasukkan Google Gemini API Key di menu Pengaturan.'
+          : 'To generate smart AI financial reports, please configure your Google Gemini API key in Settings.',
+        type: 'warning',
+        confirmText: isIndonesian ? 'Buka Pengaturan' : 'Go to Settings',
+        showCancel: true,
+        cancelText: isIndonesian ? 'Batal' : 'Cancel',
+        onConfirm: () => {
+          setModalAlert(null);
+          if (typeof onNavigateTab === 'function') {
+            onNavigateTab('settings');
+          }
+        },
+        onCancel: () => setModalAlert(null),
+      });
+      return;
+    }
+    setPdfModalVisible(true);
   };
 
   const [isHoldingVoice, setIsHoldingVoice] = useState(false);
@@ -518,6 +547,26 @@ export const FinanceScreen = React.memo(({ onNavigateTab }) => {
                 {isIndonesian ? 'Manajemen Keuangan & Dompet' : 'Finance & Wallet Dashboard'}
               </Text>
             </View>
+
+            <View style={styles.headerRight}>
+              <TouchableOpacity
+                style={[
+                  styles.headerActionButton,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.borderDark,
+                    shadowColor: colors.shadowColor,
+                  },
+                ]}
+                onPress={() => setExportModalVisible(true)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="download-outline" size={15} color={colors.text} />
+                <Text style={[styles.headerActionButtonText, { color: colors.text }]}>
+                  Excel
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Tablet Dual-Pane Independent Scroll Layout */}
@@ -611,6 +660,7 @@ export const FinanceScreen = React.memo(({ onNavigateTab }) => {
                   onSelectPeriod={setPeriodFilter}
                   typeFilter={typeFilter}
                   onSelectType={setTypeFilter}
+                  onPressExport={handleOpenAiReport}
                 />
               </ScrollView>
             </View>
@@ -737,6 +787,7 @@ export const FinanceScreen = React.memo(({ onNavigateTab }) => {
               onSelectPeriod={setPeriodFilter}
               typeFilter={typeFilter}
               onSelectType={setTypeFilter}
+              onPressExport={handleOpenAiReport}
             />
           )}
         </ScrollView>
@@ -787,6 +838,32 @@ export const FinanceScreen = React.memo(({ onNavigateTab }) => {
           }}
           transactions={filteredTransactions}
           summary={summary}
+          periodLabel={getPeriodLabel()}
+        />
+      )}
+
+      {/* AI Financial PDF Report Modal */}
+      {pdfModalVisible && (
+        <PdfReportModal
+          visible={pdfModalVisible}
+          onClose={() => setPdfModalVisible(false)}
+          onSuccess={(fileName) => {
+            showSyncToast(
+              isIndonesian ? `Laporan PDF ${fileName} siap dibagikan!` : `PDF Report ${fileName} generated!`,
+              'document-text'
+            );
+          }}
+          onError={(err) => {
+            setModalAlert({
+              title: isIndonesian ? 'Gagal Membuat PDF' : 'PDF Generation Failed',
+              message: getFriendlyErrorMessage(err, 'pdf_export', isIndonesian),
+              type: 'danger',
+              confirmText: isIndonesian ? 'Tutup' : 'Close',
+            });
+          }}
+          transactions={filteredTransactions}
+          summary={summary}
+          categoryStats={categoryStats}
           periodLabel={getPeriodLabel()}
         />
       )}
@@ -910,7 +987,10 @@ export const FinanceScreen = React.memo(({ onNavigateTab }) => {
       {modalAlert && (
         <ConfirmModal
           visible={Boolean(modalAlert)}
-          onClose={() => setModalAlert(null)}
+          onClose={() => {
+            if (modalAlert.onCancel) modalAlert.onCancel();
+            setModalAlert(null);
+          }}
           onConfirm={() => {
             if (modalAlert.onConfirm) modalAlert.onConfirm();
             setModalAlert(null);
@@ -920,7 +1000,8 @@ export const FinanceScreen = React.memo(({ onNavigateTab }) => {
           type={modalAlert.type || 'info'}
           iconName={modalAlert.iconName}
           confirmText={modalAlert.confirmText || (isIndonesian ? 'Selesai' : 'Done')}
-          showCancel={false}
+          cancelText={modalAlert.cancelText || (isIndonesian ? 'Batal' : 'Cancel')}
+          showCancel={modalAlert.showCancel !== undefined ? modalAlert.showCancel : false}
         />
       )}
       {/* Push-To-Talk Floating Action Button - Exclusively on Finance Tab */}
@@ -979,6 +1060,33 @@ const styles = StyleSheet.create({
   headerLeft: {
     flexShrink: 0,
     marginRight: 12,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    elevation: 2,
+    shadowOffset: { width: 1.5, height: 1.5 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+  },
+  headerAiButton: {
+    elevation: 3,
+    shadowOffset: { width: 2, height: 2 },
+  },
+  headerActionButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
   logoRow: {
     flexDirection: 'row',

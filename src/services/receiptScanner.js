@@ -5,7 +5,7 @@ import { getFriendlyErrorMessage } from '../utils/errorHandler';
 /**
  * Helper to fetch with an AbortController timeout
  */
-const fetchWithTimeout = async (url, options = {}, timeoutMs = 30000) => {
+export const fetchWithTimeout = async (url, options = {}, timeoutMs = 30000) => {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeoutMs);
   try {

@@ -74,101 +74,175 @@ export const getDatabaseSync = () => _db;
 
 // ─── Schema & Migrations ────────────────────────────────────
 
-const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 1;
 
 /**
- * Versioned schema migrations.
+ * Helper to safely add a column to a table if it does not already exist.
+ * Avoids SQLite crash when ALTER TABLE ADD COLUMN is called on an existing column.
  */
-const runSchemaMigration = async (db, fromVersion) => {
-  if (fromVersion < 1) {
-    await db.execAsync(`
-      PRAGMA journal_mode = WAL;
-
-      -- Transactions table
-      CREATE TABLE IF NOT EXISTS transactions (
-        id TEXT PRIMARY KEY NOT NULL,
-        type TEXT NOT NULL DEFAULT 'expense',
-        name TEXT NOT NULL DEFAULT '',
-        amount REAL NOT NULL DEFAULT 0,
-        wallet_id TEXT NOT NULL DEFAULT 'wallet_cash',
-        wallet_name TEXT NOT NULL DEFAULT 'Tunai',
-        category_id TEXT NOT NULL DEFAULT 'other',
-        category_name TEXT NOT NULL DEFAULT 'Lain-lain',
-        icon_name TEXT DEFAULT 'cube',
-        icon_family TEXT DEFAULT 'Ionicons',
-        category_color TEXT DEFAULT '#64748B',
-        category_bg_color TEXT DEFAULT '#F1F5F9',
-        raw_text TEXT DEFAULT '',
-        date TEXT NOT NULL,
-        transfer_id TEXT,
-        is_transfer INTEGER DEFAULT 0,
-        transfer_role TEXT,
-        target_wallet_id TEXT,
-        target_wallet_name TEXT,
-        source_wallet_id TEXT,
-        source_wallet_name TEXT,
-        is_transfer_fee INTEGER DEFAULT 0,
-        is_increase INTEGER,
-        adjustment_diff REAL,
-        extra_data TEXT
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_tx_date ON transactions(date);
-      CREATE INDEX IF NOT EXISTS idx_tx_wallet ON transactions(wallet_id);
-      CREATE INDEX IF NOT EXISTS idx_tx_type ON transactions(type);
-
-      -- Wallets table
-      CREATE TABLE IF NOT EXISTS wallets (
-        id TEXT PRIMARY KEY NOT NULL,
-        name TEXT NOT NULL,
-        type TEXT DEFAULT 'other',
-        icon TEXT DEFAULT 'wallet-outline',
-        color TEXT DEFAULT '#10B981',
-        initial_balance REAL DEFAULT 0,
-        is_default INTEGER DEFAULT 0,
-        created_at TEXT,
-        sort_order INTEGER DEFAULT 0
-      );
-
-      -- Custom categories table
-      CREATE TABLE IF NOT EXISTS custom_categories (
-        id TEXT PRIMARY KEY NOT NULL,
-        name TEXT NOT NULL,
-        type TEXT NOT NULL DEFAULT 'expense',
-        icon_name TEXT DEFAULT 'cube',
-        icon_family TEXT DEFAULT 'Ionicons',
-        color TEXT DEFAULT '#3B82F6',
-        bg_color TEXT,
-        is_custom INTEGER DEFAULT 1,
-        created_at TEXT,
-        keywords TEXT
-      );
-
-      -- Quran items table (favorites + history)
-      CREATE TABLE IF NOT EXISTS quran_items (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        kind TEXT NOT NULL,
-        surah INTEGER NOT NULL,
-        ayah INTEGER NOT NULL,
-        surah_name TEXT,
-        surah_name_ar TEXT,
-        arab TEXT,
-        latin TEXT,
-        translation TEXT,
-        translation_id TEXT,
-        audio TEXT,
-        timestamp TEXT,
-        extra_data TEXT,
-        UNIQUE(kind, surah, ayah)
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_quran_kind ON quran_items(kind);
-    `);
+export const addColumnIfNotExists = async (db, tableName, columnName, columnDef) => {
+  try {
+    const columns = await db.getAllAsync(`PRAGMA table_info(${tableName});`);
+    const exists = columns.some((col) => col.name.toLowerCase() === columnName.toLowerCase());
+    if (!exists) {
+      await db.execAsync(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDef};`);
+      return true;
+    }
+    return false;
+  } catch (err) {
+    console.warn(`[DB] addColumnIfNotExists error for ${tableName}.${columnName}:`, err);
+    return false;
   }
+};
 
-  // Bump version
-  await db.execAsync(`PRAGMA user_version = ${SCHEMA_VERSION}`);
-  console.log(`[DB] Schema migrated from v${fromVersion} to v${SCHEMA_VERSION}`);
+/**
+ * Sequential migration registry.
+ * Each migration must define:
+ * - version: positive integer (strictly sequential: 1, 2, 3...)
+ * - name: descriptive string
+ * - up: async function(db) => Promise<void>
+ */
+export const MIGRATIONS = [
+  {
+    version: 1,
+    name: 'initial_schema',
+    up: async (db) => {
+      await db.execAsync(`
+        PRAGMA journal_mode = WAL;
+
+        -- Migration audit log table
+        CREATE TABLE IF NOT EXISTS _schema_migrations (
+          version INTEGER PRIMARY KEY NOT NULL,
+          name TEXT NOT NULL,
+          applied_at TEXT NOT NULL
+        );
+
+        -- Transactions table
+        CREATE TABLE IF NOT EXISTS transactions (
+          id TEXT PRIMARY KEY NOT NULL,
+          type TEXT NOT NULL DEFAULT 'expense',
+          name TEXT NOT NULL DEFAULT '',
+          amount REAL NOT NULL DEFAULT 0,
+          wallet_id TEXT NOT NULL DEFAULT 'wallet_cash',
+          wallet_name TEXT NOT NULL DEFAULT 'Tunai',
+          category_id TEXT NOT NULL DEFAULT 'other',
+          category_name TEXT NOT NULL DEFAULT 'Lain-lain',
+          icon_name TEXT DEFAULT 'cube',
+          icon_family TEXT DEFAULT 'Ionicons',
+          category_color TEXT DEFAULT '#64748B',
+          category_bg_color TEXT DEFAULT '#F1F5F9',
+          raw_text TEXT DEFAULT '',
+          date TEXT NOT NULL,
+          transfer_id TEXT,
+          is_transfer INTEGER DEFAULT 0,
+          transfer_role TEXT,
+          target_wallet_id TEXT,
+          target_wallet_name TEXT,
+          source_wallet_id TEXT,
+          source_wallet_name TEXT,
+          is_transfer_fee INTEGER DEFAULT 0,
+          is_increase INTEGER,
+          adjustment_diff REAL,
+          extra_data TEXT
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_tx_date ON transactions(date);
+        CREATE INDEX IF NOT EXISTS idx_tx_wallet ON transactions(wallet_id);
+        CREATE INDEX IF NOT EXISTS idx_tx_type ON transactions(type);
+
+        -- Wallets table
+        CREATE TABLE IF NOT EXISTS wallets (
+          id TEXT PRIMARY KEY NOT NULL,
+          name TEXT NOT NULL,
+          type TEXT DEFAULT 'other',
+          icon TEXT DEFAULT 'wallet-outline',
+          color TEXT DEFAULT '#10B981',
+          initial_balance REAL DEFAULT 0,
+          is_default INTEGER DEFAULT 0,
+          created_at TEXT,
+          sort_order INTEGER DEFAULT 0
+        );
+
+        -- Custom categories table
+        CREATE TABLE IF NOT EXISTS custom_categories (
+          id TEXT PRIMARY KEY NOT NULL,
+          name TEXT NOT NULL,
+          type TEXT NOT NULL DEFAULT 'expense',
+          icon_name TEXT DEFAULT 'cube',
+          icon_family TEXT DEFAULT 'Ionicons',
+          color TEXT DEFAULT '#3B82F6',
+          bg_color TEXT,
+          is_custom INTEGER DEFAULT 1,
+          created_at TEXT,
+          keywords TEXT
+        );
+
+        -- Quran items table (favorites + history)
+        CREATE TABLE IF NOT EXISTS quran_items (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          kind TEXT NOT NULL,
+          surah INTEGER NOT NULL,
+          ayah INTEGER NOT NULL,
+          surah_name TEXT,
+          surah_name_ar TEXT,
+          arab TEXT,
+          latin TEXT,
+          translation TEXT,
+          translation_id TEXT,
+          audio TEXT,
+          timestamp TEXT,
+          extra_data TEXT,
+          UNIQUE(kind, surah, ayah)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_quran_kind ON quran_items(kind);
+      `);
+    },
+  },
+];
+
+/**
+ * Versioned schema migrations executed sequentially with atomic transactions.
+ */
+export const runSchemaMigration = async (db, fromVersion, targetVersion = SCHEMA_VERSION) => {
+  if (fromVersion >= targetVersion) return;
+
+  const pendingMigrations = MIGRATIONS.filter(
+    (m) => m.version > fromVersion && m.version <= targetVersion
+  ).sort((a, b) => a.version - b.version);
+
+  for (const migration of pendingMigrations) {
+    console.log(`[DB] Running schema migration v${migration.version}: ${migration.name}...`);
+
+    await db.execAsync('BEGIN TRANSACTION;');
+    try {
+      await migration.up(db);
+
+      // Record migration audit log
+      try {
+        await db.runAsync(
+          'INSERT OR REPLACE INTO _schema_migrations (version, name, applied_at) VALUES (?, ?, ?);',
+          [migration.version, migration.name, new Date().toISOString()]
+        );
+      } catch (logErr) {
+        // Table might be created in migration 1 itself
+      }
+
+      // Update PRAGMA user_version atomically inside transaction
+      await db.execAsync(`PRAGMA user_version = ${migration.version};`);
+      await db.execAsync('COMMIT;');
+
+      console.log(`[DB] Schema migration v${migration.version} completed successfully ✓`);
+    } catch (err) {
+      try {
+        await db.execAsync('ROLLBACK;');
+      } catch (rollbackErr) {
+        // Ignore rollback error
+      }
+      console.error(`[DB] Schema migration v${migration.version} failed. Rolled back! Error:`, err);
+      throw err;
+    }
+  }
 };
 
 // ─── AsyncStorage → SQLite One-Time Migration ───────────────

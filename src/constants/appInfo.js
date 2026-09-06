@@ -7,11 +7,19 @@ export const APP_INFO = {
   name: 'DalAy',
   fullName: 'DalAy (Daily Ayah & Finance)',
   slug: 'dalay',
-  version: packageJson.version || '3.5.0',
-  buildLabel: 'AI Vision & Multi-Wallet',
+  version: packageJson.version || '4.5.0',
+  buildLabel: 'AI Financial Report & Multi-Wallet',
   tagline: 'Quran Reminder & Smart Finance',
 
   features: [
+    {
+      id: 'ai_financial_report',
+      titleId: 'Laporan Finansial AI (PDF)',
+      titleEn: 'AI Financial PDF Report',
+      descId: 'Laporan A4 rapi, grafik donut & ulasan AI.',
+      descEn: 'Formal A4 report, donut charts & AI coach.',
+      icon: 'document-text-outline',
+    },
     {
       id: 'ai_vision_receipt',
       titleId: 'Scan Struk AI 3.6',
@@ -56,7 +64,7 @@ export const APP_INFO = {
 
   getVersionBadgeText: (isIndonesian = true) => {
     const prefix = isIndonesian ? 'Versi' : 'Version';
-    return `${prefix} ${packageJson.version || '3.5.0'}`;
+    return `${prefix} ${packageJson.version || '4.5.0'}`;
   },
 };
 

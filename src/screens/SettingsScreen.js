@@ -20,8 +20,10 @@ import { useFinance } from '../stores/financeStore';
 import { exportTransactionsToExcel } from '../services/excelExport';
 import { ReminderModal } from '../components/quran/ReminderModal';
 import { ImportModal } from '../components/finance/ImportModal';
+import { PdfReportModal } from '../components/finance/PdfReportModal';
 import { GoogleSyncCard } from '../components/sync/GoogleSyncCard';
 import { GeminiAiCard } from '../components/settings/GeminiAiCard';
+import { useAi } from '../stores/aiStore';
 import { APP_INFO } from '../constants/appInfo';
 
 export const SettingsScreen = React.memo(({ onNavigateTab }) => {
@@ -30,9 +32,13 @@ export const SettingsScreen = React.memo(({ onNavigateTab }) => {
   const { colors, currentThemeId, setTheme, availableThemes } = useTheme();
   const { currentLanguage, setLanguage, availableLanguages, t, isIndonesian } = useLanguage();
   const { clearHistory, history } = useQuran();
-  const { clearAllTransactions, transactions, summary } = useFinance();
+  const { clearAllTransactions, transactions, summary, categoryStats } = useFinance();
+  const { hasApiKey } = useAi();
+  const scrollViewRef = useRef(null);
+  const geminiSectionYRef = useRef(null);
   const [reminderModalVisible, setReminderModalVisible] = useState(false);
   const [importModalVisible, setImportModalVisible] = useState(false);
+  const [pdfModalVisible, setPdfModalVisible] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
   const toastTimeoutRef = useRef(null);
@@ -149,6 +155,32 @@ export const SettingsScreen = React.memo(({ onNavigateTab }) => {
     }
   };
 
+  const handleOpenAiReportInSettings = () => {
+    if (!hasApiKey) {
+      setConfirmDialog({
+        title: isIndonesian ? 'API Key Belum Diatur' : 'API Key Required',
+        message: isIndonesian
+          ? 'Fitur laporan ini menggunakan AI. Silakan masukkan Google Gemini API Key pada bagian Google Gemini AI terlebih dahulu.'
+          : 'This report feature is powered by AI. Please configure your Google Gemini API key in the section above first.',
+        type: 'warning',
+        confirmText: isIndonesian ? 'Isi API Key Sekarang' : 'Configure API Key',
+        showCancel: true,
+        cancelText: isIndonesian ? 'Batal' : 'Cancel',
+        onConfirm: () => {
+          setConfirmDialog(null);
+          if (geminiSectionYRef.current !== null && scrollViewRef.current) {
+            scrollViewRef.current.scrollTo({
+              y: Math.max(0, geminiSectionYRef.current - 16),
+              animated: true,
+            });
+          }
+        },
+      });
+      return;
+    }
+    setPdfModalVisible(true);
+  };
+
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
       {/* Floating Top Screen Toast Banner - Always visible regardless of scroll position */}
@@ -175,6 +207,7 @@ export const SettingsScreen = React.memo(({ onNavigateTab }) => {
       )}
 
       <ScrollView
+        ref={scrollViewRef}
         style={styles.scrollView}
         contentContainerStyle={[
           styles.scrollContent,
@@ -524,24 +557,30 @@ export const SettingsScreen = React.memo(({ onNavigateTab }) => {
         <GoogleSyncCard onToast={showToast} />
 
         {/* Gemini AI Settings Section */}
-        <View style={styles.sectionTitleRow}>
-          <Ionicons
-            name="sparkles-outline"
-            size={16}
-            color={colors.primary}
-          />
-          <Text style={[styles.sectionHeader, { color: colors.text }]}>
-            {t('settings.aiSection', 'GOOGLE GEMINI AI')}
+        <View
+          onLayout={(e) => {
+            geminiSectionYRef.current = e.nativeEvent.layout.y;
+          }}
+        >
+          <View style={styles.sectionTitleRow}>
+            <Ionicons
+              name="sparkles-outline"
+              size={16}
+              color={colors.primary}
+            />
+            <Text style={[styles.sectionHeader, { color: colors.text }]}>
+              {t('settings.aiSection', 'GOOGLE GEMINI AI')}
+            </Text>
+          </View>
+          <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
+            {t(
+              'settings.aiSectionSub',
+              'Konfigurasi token untuk scan struk belanja pintar dengan AI Vision'
+            )}
           </Text>
-        </View>
-        <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>
-          {t(
-            'settings.aiSectionSub',
-            'Konfigurasi token untuk scan struk belanja pintar dengan AI Vision'
-          )}
-        </Text>
 
-        <GeminiAiCard onToast={showToast} />
+          <GeminiAiCard onToast={showToast} />
+        </View>
 
         {/* Data & Storage Management */}
         <View style={styles.sectionTitleRow}>
@@ -552,6 +591,49 @@ export const SettingsScreen = React.memo(({ onNavigateTab }) => {
         </View>
 
         <NeoCard variant="white" padding={14} style={styles.actionCard}>
+          {/* AI Financial PDF Report */}
+          <View style={styles.actionItem}>
+            <View style={styles.actionTexts}>
+              <View style={styles.aiReportTitleRow}>
+                <Text style={[styles.actionTitle, { color: colors.text }]}>
+                  {isIndonesian ? 'Laporan Keuangan AI (PDF)' : 'AI Financial Report (PDF)'}
+                </Text>
+                <View
+                  style={[
+                    styles.aiReportBadge,
+                    {
+                      backgroundColor: colors.primaryLight,
+                      borderColor: colors.primary,
+                    },
+                  ]}
+                >
+                  <Ionicons name="sparkles" size={10} color={colors.primary} />
+                  <Text
+                    style={[styles.aiReportBadgeText, { color: colors.primary }]}
+                  >
+                    AI REPORT
+                  </Text>
+                </View>
+              </View>
+              <Text style={[styles.actionSubtitle, { color: colors.textSecondary }]}>
+                {isIndonesian
+                  ? 'Report with AI: Buat laporan visual mobile-friendly lengkap dengan grafik proporsi pengeluaran, insight analitis cerdas, dan kutipan ekonom terpercaya.'
+                  : 'Report with AI: Generate mobile-friendly financial report with expense charts, smart AI insights, and verified economist citations.'}
+              </Text>
+            </View>
+            <NeoButton
+              title={isIndonesian ? 'Laporan AI' : 'AI Report'}
+              iconName="sparkles"
+              variant="primary"
+              size="sm"
+              onPress={handleOpenAiReportInSettings}
+            />
+          </View>
+
+          <View
+            style={[styles.divider, { backgroundColor: colors.borderLight }]}
+          />
+
           {/* Import Excel / CSV */}
           <View style={styles.actionItem}>
             <View style={styles.actionTexts}>
@@ -706,6 +788,34 @@ export const SettingsScreen = React.memo(({ onNavigateTab }) => {
           confirmText={confirmDialog.confirmText}
           cancelText={isIndonesian ? 'Batal' : 'Cancel'}
           showCancel={confirmDialog.showCancel !== false}
+        />
+      )}
+
+      {/* AI Financial PDF Report Modal */}
+      {pdfModalVisible && (
+        <PdfReportModal
+          visible={pdfModalVisible}
+          onClose={() => setPdfModalVisible(false)}
+          onSuccess={(fileName) => {
+            showToast(
+              isIndonesian ? `Laporan PDF ${fileName} siap dibagikan!` : `PDF Report ${fileName} generated!`,
+              'document-text-outline'
+            );
+          }}
+          onError={(err) => {
+            setConfirmDialog({
+              title: isIndonesian ? 'Gagal Membuat PDF' : 'PDF Generation Failed',
+              message: typeof err === 'string' ? err : (err?.message || 'Error generating report'),
+              type: 'danger',
+              showCancel: false,
+              confirmText: isIndonesian ? 'Tutup' : 'Close',
+              onConfirm: () => setConfirmDialog(null),
+            });
+          }}
+          transactions={transactions}
+          summary={summary}
+          categoryStats={categoryStats}
+          periodLabel={isIndonesian ? 'Semua Periode' : 'All Periods'}
         />
       )}
     </View>
@@ -980,6 +1090,26 @@ const styles = StyleSheet.create({
   },
   actionCardTexts: {
     flex: 1,
+  },
+  aiReportTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  aiReportBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  aiReportBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   actionItem: {
     flexDirection: 'row',

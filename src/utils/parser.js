@@ -73,7 +73,7 @@ export const extractTailWallet = (text, wallets = [], defaultWalletId = null) =>
       if (!wallet.name) continue;
       const rawName = wallet.name.toLowerCase().replace(/[\(\)\/]/g, ' ').trim();
 
-      const fullTailRegex = new RegExp(`(?:\\s*(?:pakai|pake|dari|ke|di|lewat|via|dengan)?\\s*)?\\b${escapeRegex(rawName)}\\b[.:;,\\s]*$`, 'i');
+      const fullTailRegex = new RegExp(`(?:\\s*(?:bayar\\s+)?(?:pakai|pake|dari|ke|di|lewat|via|dengan)?\\s*)?\\b${escapeRegex(rawName)}\\b[.:;,\\s]*$`, 'i');
       if (fullTailRegex.test(cleanText)) {
         matchedWallet = wallet;
         cleanText = cleanText.replace(fullTailRegex, '').trim();
@@ -86,7 +86,7 @@ export const extractTailWallet = (text, wallets = [], defaultWalletId = null) =>
         if (['rekening', 'dompet', 'wallet', 'akun'].includes(token) && tokens.length > 1) {
           continue;
         }
-        const tokenTailRegex = new RegExp(`(?:\\s*(?:pakai|pake|dari|ke|di|lewat|via|dengan)?\\s*)?\\b${escapeRegex(token)}\\b[.:;,\\s]*$`, 'i');
+        const tokenTailRegex = new RegExp(`(?:\\s*(?:bayar\\s+)?(?:pakai|pake|dari|ke|di|lewat|via|dengan)?\\s*)?\\b${escapeRegex(token)}\\b[.:;,\\s]*$`, 'i');
         if (tokenTailRegex.test(cleanText)) {
           matchedWallet = wallet;
           cleanText = cleanText.replace(tokenTailRegex, '').trim();
@@ -100,9 +100,9 @@ export const extractTailWallet = (text, wallets = [], defaultWalletId = null) =>
     // 2. Generic Tail Aliases (e.g. "rekening bank", "rekening bang", "rekening", "bank", "bang", "tunai", "gopay")
     if (!matchedWallet) {
       const genericTailMatches = [
-        { regex: /(?:\s*(?:pakai|pake|di|via|ke)?\s*)?\b(?:rekening\s*bank|rekening\s*bang|rekening|bank|bang)\b[.:;,\\s]*$/i, type: 'bank' },
-        { regex: /(?:\s*(?:pakai|pake|di|via|ke)?\s*)?\b(?:tunai|cash|uang\s*tunai)\b[.:;,\\s]*$/i, type: 'cash' },
-        { regex: /(?:\s*(?:pakai|pake|di|via|ke)?\s*)?\b(?:gopay|ovo|dana|shopeepay|qris|ewallet|e-wallet)\b[.:;,\\s]*$/i, type: 'ewallet' },
+        { regex: /(?:\s*(?:bayar\s+)?(?:pakai|pake|di|via|ke)?\s*)?\b(?:rekening\s*bank|rekening\s*bang|rekening|bank|bang)\b[.:;,\s]*$/i, type: 'bank' },
+        { regex: /(?:\s*(?:bayar\s+)?(?:pakai|pake|di|via|ke)?\s*)?\b(?:tunai|cash|uang\s*tunai)\b[.:;,\s]*$/i, type: 'cash' },
+        { regex: /(?:\s*(?:bayar\s+)?(?:pakai|pake|di|via|ke)?\s*)?\b(?:gopay|ovo|dana|shopeepay|qris|ewallet|e-wallet)\b[.:;,\s]*$/i, type: 'ewallet' },
       ];
 
       for (const g of genericTailMatches) {
