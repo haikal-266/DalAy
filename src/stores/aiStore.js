@@ -27,6 +27,12 @@ export const AiProvider = ({ children }) => {
       if (savedKey) {
         setGeminiApiKeyState(savedKey);
         setIsValidated(savedValidated === 'true');
+      } else {
+        const envKey = (typeof process !== 'undefined' && process.env?.EXPO_PUBLIC_GEMINI_API_KEY) || '';
+        if (envKey.trim().length > 10) {
+          setGeminiApiKeyState(envKey.trim());
+          setIsValidated(true);
+        }
       }
     } catch (e) {
       console.log('Error loading AI config:', e);

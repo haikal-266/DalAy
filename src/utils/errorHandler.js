@@ -19,8 +19,10 @@ export const getFriendlyErrorMessage = (error, context = 'general', isIndonesian
   // 1. Network / Internet Connection Errors
   if (
     lower.includes('unknownhostexception') ||
+    lower.includes('unable to resolve host') ||
     lower.includes('no address associated with hostname') ||
     lower.includes('failed to fetch') ||
+    lower.includes('fetch failed') ||
     lower.includes('network request failed') ||
     lower.includes('enotfound') ||
     lower.includes('econnrefused') ||

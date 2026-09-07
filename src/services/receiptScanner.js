@@ -2,121 +2,14 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { EXPENSE_CATEGORIES, detectCategory } from '../utils/categories';
 import { getFriendlyErrorMessage } from '../utils/errorHandler';
 
-/**
- * Helper to fetch with an AbortController timeout
- */
-export const fetchWithTimeout = async (url, options = {}, timeoutMs = 30000) => {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const response = await fetch(url, {
-      ...options,
-      signal: controller.signal,
-    });
-    clearTimeout(id);
-    return response;
-  } catch (err) {
-    clearTimeout(id);
-    if (err.name === 'AbortError') {
-      throw new Error(`Request timeout (${timeoutMs / 1000}s)`);
-    }
-    throw err;
-  }
-};
-
-export const CANDIDATE_MODELS = [
-  'gemini-3.6-flash-lite',
-  'gemini-3.6-flash',
-  'gemini-2.5-flash-lite',
-  'gemini-2.5-flash',
-  'gemini-2.0-flash-lite',
-  'gemini-2.0-flash',
-  'gemini-1.5-flash-8b',
-  'gemini-1.5-flash',
-];
-
-/**
- * Dynamically fetch all active generateContent models for this specific API key
- * @param {string} apiKey 
- * @returns {Promise<string[]>}
- */
-export const getAvailableGeminiModels = async (apiKey) => {
-  if (!apiKey || !apiKey.trim()) return CANDIDATE_MODELS;
-
-  try {
-    const res = await fetchWithTimeout(
-      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey.trim()}`,
-      { method: 'GET' },
-      8000
-    );
-    if (res.ok) {
-      const data = await res.json();
-      if (Array.isArray(data?.models)) {
-        const generateModels = data.models
-          .filter(
-            (m) =>
-              Array.isArray(m.supportedGenerationMethods) &&
-              m.supportedGenerationMethods.includes('generateContent')
-          )
-          .map((m) => m.name.replace(/^models\//, ''));
-
-        console.log('[Gemini Models] Discovered API models for key:', generateModels);
-        if (generateModels.length > 0) {
-          // Prioritize by candidate precedence (gemini-3.6-flash first)
-          const prioritized = [];
-          for (const cand of CANDIDATE_MODELS) {
-            const match = generateModels.find((m) => m.toLowerCase() === cand.toLowerCase());
-            if (match && !prioritized.includes(match)) {
-              prioritized.push(match);
-            }
-          }
-          // Append any other discovered models
-          generateModels.forEach((m) => {
-            if (!prioritized.includes(m)) {
-              prioritized.push(m);
-            }
-          });
-          return prioritized;
-        }
-      }
-    }
-  } catch (e) {
-    console.warn('[Gemini Models] Models lookup error:', e.message);
-  }
-  return CANDIDATE_MODELS;
-};
-
-/**
- * Validate Gemini API key by making a lightweight request
- * @param {string} apiKey 
- * @returns {Promise<{success: boolean, message: string}>}
- */
-export const validateGeminiKey = async (apiKey) => {
-  if (!apiKey || typeof apiKey !== 'string' || apiKey.trim().length < 10) {
-    console.error('[Gemini Validation] Key format invalid');
-    return { success: false, message: 'Format API key tidak valid' };
-  }
-
-  try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey.trim()}`;
-    console.log('[Gemini Validation] Querying Google AI models list endpoint...');
-    const response = await fetchWithTimeout(url, { method: 'GET' }, 10000);
-    const data = await response.json();
-    console.log('[Gemini Validation] HTTP response status:', response.status);
-
-    if (response.ok && data.models) {
-      console.log('[Gemini Validation] Key validation SUCCESS! Found models count:', data.models.length);
-      return { success: true, message: 'API Key valid dan terhubung!' };
-    }
-
-    const rawErrMsg = data?.error?.message || 'API Key tidak valid atau dinonaktifkan';
-    console.warn('[Gemini Validation] Key validation FAILED:', rawErrMsg);
-    return { success: false, message: getFriendlyErrorMessage(rawErrMsg, 'general', true) };
-  } catch (err) {
-    console.error('[Gemini Validation] Error validating Gemini key:', err.message);
-    return { success: false, message: getFriendlyErrorMessage(err, 'general', true) };
-  }
-};
+export {
+  fetchWithTimeout,
+  CANDIDATE_MODELS,
+  getAvailableGeminiModels,
+  validateGeminiKey,
+  callGeminiAi,
+} from './geminiClient';
+import { callGeminiAi } from './geminiClient';
 
 /**
  * Resilient JSON Parser & Salvager for AI Receipt Extraction
@@ -253,126 +146,28 @@ Perhatian Khusus:
 - Pastikan totalAmount adalah angka murni (number), bukan string.
 - HANYA kembalikan JSON valid.`;
 
-  // 3. Dynamically discover supported models for this user's API key
-  const availableModels = await getAvailableGeminiModels(apiKey);
-  const modelsToTry = Array.from(new Set([...availableModels, ...CANDIDATE_MODELS]));
-  console.log('[Gemini Scan] Final models to try queue:', modelsToTry);
-
-  let responseJson = null;
-  let lastError = null;
-
-  const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
-
-  for (const modelName of modelsToTry) {
-    const versions = ['v1beta', 'v1'];
-
-    for (const ver of versions) {
-      try {
-        const endpoint = `https://generativelanguage.googleapis.com/${ver}/models/${modelName}:generateContent?key=${apiKey.trim()}`;
-        console.log(`[Gemini Scan] Trying model: ${modelName} (${ver})...`);
-
-        let reqBody = {
-          contents: [
-            {
-              parts: [
-                { text: systemPrompt },
-                {
-                  inlineData: {
-                    mimeType,
-                    data: base64Data,
-                  },
-                },
-              ],
-            },
-          ],
-          generationConfig: {
-            temperature: 0.1,
-            maxOutputTokens: 4096,
-            responseMimeType: 'application/json',
-          },
-        };
-
-        // Reliable 30s timeout
-        let response = await fetchWithTimeout(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(reqBody),
-        }, 30000);
-
-        console.log(`[Gemini Scan] ${modelName} (${ver}) Response HTTP status:`, response.status);
-
-        // Handle Rate Limit (HTTP 429) with Exponential Backoff Retry
-        if (response.status === 429) {
-          console.warn(`[Gemini Scan] Model ${modelName} (${ver}) hit Rate Limit (429). Retrying after backoff delay...`);
-          await sleep(2500);
-          response = await fetchWithTimeout(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(reqBody),
-          }, 30000);
-          console.log(`[Gemini Scan] ${modelName} (${ver}) Backoff retry HTTP status:`, response.status);
-        }
-
-        // If responseMimeType fails with 400 Bad Request, retry without responseMimeType
-        if (!response.ok && response.status === 400) {
-          console.log(`[Gemini Scan] Retrying ${modelName} (${ver}) without responseMimeType...`);
-          reqBody = {
-            contents: [
-              {
-                parts: [
-                  { text: systemPrompt + '\nKembalikan output murni dalam format JSON.' },
-                  {
-                    inlineData: {
-                      mimeType,
-                      data: base64Data,
-                    },
-                  },
-                ],
-              },
-            ],
-            generationConfig: {
-              temperature: 0.1,
-              maxOutputTokens: 4096,
-            },
-          };
-          response = await fetchWithTimeout(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(reqBody),
-          }, 30000);
-          console.log(`[Gemini Scan] Retry status without responseMimeType:`, response.status);
-        }
-
-        const resData = await response.json();
-
-        if (response.ok && resData?.candidates?.[0]?.content?.parts?.[0]?.text) {
-          console.log(`[Gemini Scan] SUCCESS with model ${modelName} (${ver})!`);
-          responseJson = resData;
-          break;
-        } else {
-          const apiErr = resData?.error;
-          console.warn(`[Gemini Scan] Model ${modelName} (${ver}) failed:`, apiErr || resData);
-          lastError = apiErr?.message || `Model ${modelName} status ${response.status}`;
-          // Continue to try next model in loop
-        }
-      } catch (err) {
-        console.error(`[Gemini Scan] Fetch exception for ${modelName} (${ver}):`, err.message);
-        lastError = err.message;
-        // Continue to try next model in loop
-      }
-    }
-
-    if (responseJson) {
-      break;
-    }
-  }
-
-  if (!responseJson) {
-    const friendlyMsg = getFriendlyErrorMessage(lastError, 'receipt_scan', true);
+  // 3. Centralized AI execution via geminiClient
+  let rawText = '';
+  try {
+    const result = await callGeminiAi({
+      apiKey,
+      prompt: systemPrompt,
+      inlineData: {
+        mimeType,
+        data: base64Data,
+      },
+      temperature: 0.1,
+      maxOutputTokens: 4096,
+      responseMimeType: 'application/json',
+      tag: 'Gemini Scan',
+    });
+    rawText = result.text;
+  } catch (err) {
+    console.error('[Gemini Scan] Execution error:', err.message);
+    const friendlyMsg = getFriendlyErrorMessage(err, 'receipt_scan', true);
     throw new Error(friendlyMsg);
   }
 
-  const rawText = responseJson?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!rawText) {
     throw new Error('AI tidak dapat membaca teks struk. Pastikan foto struk terang dan jelas.');
   }

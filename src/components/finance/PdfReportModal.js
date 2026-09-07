@@ -8,7 +8,7 @@ import { ConfirmModal } from '../neo/ConfirmModal';
 import { useTheme } from '../../stores/themeStore';
 import { useLanguage } from '../../stores/languageStore';
 import { useAi } from '../../stores/aiStore';
-import { generateAndSharePdfReport } from '../../services/pdfReportGenerator';
+import { generateAndSharePdfReport, translatePeriod } from '../../services/pdfReportGenerator';
 import { formatRupiah } from '../../utils/formatters';
 
 export const PdfReportModal = ({
@@ -22,14 +22,15 @@ export const PdfReportModal = ({
   periodLabel,
 }) => {
   const { colors, isDark } = useTheme();
-  const { t, isIndonesian } = useLanguage();
+  const { isIndonesian } = useLanguage();
   const { geminiApiKey, hasApiKey } = useAi();
   const [reportLang, setReportLang] = useState(isIndonesian ? 'id' : 'en');
   const [generating, setGenerating] = useState(false);
   const [alertConfig, setAlertConfig] = useState(null);
 
-  const resolvedPeriodLabel = periodLabel || t('finance.allPeriods', 'Semua Periode');
   const isReportIndonesian = reportLang === 'id';
+  const rawPeriod = periodLabel || (isReportIndonesian ? 'Semua Periode' : 'All Periods');
+  const resolvedPeriodLabel = translatePeriod(rawPeriod, isReportIndonesian);
 
   const handleGenerate = async () => {
     if (transactions.length === 0) {
@@ -47,17 +48,18 @@ export const PdfReportModal = ({
 
     try {
       setGenerating(true);
-      await generateAndSharePdfReport({
+      const result = await generateAndSharePdfReport({
         transactions,
         summary,
         categoryStats,
         periodLabel: resolvedPeriodLabel,
         isIndonesian: isReportIndonesian,
+        geminiApiKey,
         apiKey: geminiApiKey,
       });
 
       if (typeof onSuccess === 'function') {
-        onSuccess();
+        onSuccess(result?.fileName, result);
       }
       onClose();
     } catch (err) {
@@ -280,11 +282,19 @@ export const PdfReportModal = ({
               { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' },
             ]}
           >
-            <Ionicons name="sparkles" size={16} color="#9333EA" />
+            <Ionicons
+              name={hasApiKey ? "sparkles" : "flash-outline"}
+              size={16}
+              color={hasApiKey ? "#9333EA" : colors.primary}
+            />
             <Text style={[styles.featureText, { color: colors.text }]}>
               {hasApiKey
-                ? (isReportIndonesian ? 'Analisis finansial bersahabat ditenagai Gemini AI' : 'Friendly personal financial insights by Gemini AI')
-                : (isReportIndonesian ? 'Analisis cerdas & kutipan buku/ekonom terpercaya' : 'Smart analysis & verified economist quotes')}
+                ? (isReportIndonesian
+                    ? 'Analisis finansial bersahabat ditenagai Gemini AI'
+                    : 'Friendly personal financial insights by Gemini AI')
+                : (isReportIndonesian
+                    ? 'Analisis otomatis oleh DaLay Engine Lokal (Kunci AI belum diatur)'
+                    : 'Automated analysis by Local DaLay Engine (AI Key not set)')}
             </Text>
           </View>
 

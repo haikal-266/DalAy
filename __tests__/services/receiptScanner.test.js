@@ -244,5 +244,24 @@ describe('receiptScanner Service (AI Scan Struk)', () => {
       expect(result.items.length).toBe(2);
       expect(result.notes).toBe('Buku bacaan finansial');
     });
+
+    it('should immediately throw friendly offline error on UnknownHostException without looping models', async () => {
+      let callCount = 0;
+      global.fetch = jest.fn().mockImplementation(() => {
+        callCount++;
+        return Promise.reject(
+          new Error(
+            'fetch failed: java.net.UnknownHostException: Unable to resolve host "generativelanguage.googleapis.com": No address associated with hostname'
+          )
+        );
+      });
+
+      await expect(
+        scanReceiptWithGemini('file:///test/receipt.jpg', 'AIzaSyDummyGeminiKeyValid123456789')
+      ).rejects.toThrow(/Tidak ada koneksi internet/i);
+
+      // Discovery (1) + model 1st attempt (1) + cold-start retry (1) = at most 3 calls before instant abort
+      expect(callCount).toBeLessThanOrEqual(3);
+    });
   });
 });

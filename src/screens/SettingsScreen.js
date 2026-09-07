@@ -796,11 +796,24 @@ export const SettingsScreen = React.memo(({ onNavigateTab }) => {
         <PdfReportModal
           visible={pdfModalVisible}
           onClose={() => setPdfModalVisible(false)}
-          onSuccess={(fileName) => {
-            showToast(
-              isIndonesian ? `Laporan PDF ${fileName} siap dibagikan!` : `PDF Report ${fileName} generated!`,
-              'document-text-outline'
-            );
+          onSuccess={(fileName, result) => {
+            if (result && !result.isAiGenerated) {
+              const fallbackMsg = result.fallbackReason === 'network_or_api_error'
+                ? (isIndonesian
+                    ? 'Koneksi AI terhambat, analisis disusun oleh DaLay Engine Lokal'
+                    : 'AI connection failed, analyzed by local DaLay Engine')
+                : (isIndonesian
+                    ? `Laporan PDF ${fileName || ''} siap! (DaLay Engine Lokal)`
+                    : `PDF Report ${fileName || ''} ready! (Local DaLay Engine)`);
+              showToast(fallbackMsg, 'information-circle-outline');
+            } else {
+              showToast(
+                isIndonesian
+                  ? `Laporan PDF ${fileName || ''} siap dibagikan! (Gemini AI)`
+                  : `PDF Report ${fileName || ''} generated! (Gemini AI)`,
+                'document-text-outline'
+              );
+            }
           }}
           onError={(err) => {
             setConfirmDialog({
