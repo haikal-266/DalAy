@@ -24,9 +24,8 @@ describe('geminiClient Service (Centralized AI Gateway)', () => {
   describe('CANDIDATE_MODELS', () => {
     it('should provide priority-ordered list of Google Gemini Flash models', () => {
       expect(Array.isArray(CANDIDATE_MODELS)).toBe(true);
-      expect(CANDIDATE_MODELS).toContain('gemini-2.0-flash');
-      expect(CANDIDATE_MODELS).toContain('gemini-2.5-flash');
-      expect(CANDIDATE_MODELS).toContain('gemini-1.5-flash');
+      expect(CANDIDATE_MODELS).toContain('gemini-3.6-flash');
+      expect(CANDIDATE_MODELS).toContain('gemini-flash-latest');
     });
   });
 
@@ -108,6 +107,29 @@ describe('geminiClient Service (Centralized AI Gateway)', () => {
       expect(models).toContain('gemini-2.0-flash');
       expect(models).toContain('gemini-1.5-flash');
       expect(models).not.toContain('embedding-001');
+    });
+
+    it('should prioritize gemini-3.6-flash and filter out audio/image specialized models', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          models: [
+            { name: 'models/gemini-2.5-flash-preview-tts', supportedGenerationMethods: ['generateContent'] },
+            { name: 'models/gemini-3.6-flash', supportedGenerationMethods: ['generateContent'] },
+            { name: 'models/gemini-2.5-flash-image', supportedGenerationMethods: ['generateContent'] },
+            { name: 'models/lyria-3.5', supportedGenerationMethods: ['generateContent'] },
+            { name: 'models/gemini-flash-latest', supportedGenerationMethods: ['generateContent'] },
+          ],
+        }),
+      });
+
+      const models = await getAvailableGeminiModels('AIzaSyDummyKey123456789');
+      expect(models[0]).toBe('gemini-3.6-flash');
+      expect(models[1]).toBe('gemini-flash-latest');
+      expect(models).not.toContain('gemini-2.5-flash-preview-tts');
+      expect(models).not.toContain('gemini-2.5-flash-image');
+      expect(models).not.toContain('lyria-3.5');
     });
   });
 

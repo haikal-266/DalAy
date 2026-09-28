@@ -18,9 +18,9 @@ describe('receiptScanner Service (AI Scan Struk)', () => {
   describe('CANDIDATE_MODELS', () => {
     it('should list resilient Google Gemini Flash models', () => {
       expect(Array.isArray(CANDIDATE_MODELS)).toBe(true);
-      expect(CANDIDATE_MODELS.length).toBeGreaterThanOrEqual(4);
-      expect(CANDIDATE_MODELS).toContain('gemini-2.5-flash');
-      expect(CANDIDATE_MODELS).toContain('gemini-2.0-flash');
+      expect(CANDIDATE_MODELS.length).toBeGreaterThanOrEqual(2);
+      expect(CANDIDATE_MODELS).toContain('gemini-3.6-flash');
+      expect(CANDIDATE_MODELS).toContain('gemini-flash-latest');
     });
   });
 

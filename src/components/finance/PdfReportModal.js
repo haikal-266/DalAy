@@ -16,6 +16,7 @@ export const PdfReportModal = ({
   onClose,
   onSuccess,
   onError,
+  onGenerateStarted,
   transactions = [],
   summary = { totalIncome: 0, totalExpense: 0, balance: 0 },
   categoryStats = [],
@@ -42,6 +43,16 @@ export const PdfReportModal = ({
         type: 'warning',
         showCancel: false,
         confirmText: isReportIndonesian ? 'Tutup' : 'Close',
+      });
+      return;
+    }
+
+    // Support background processing: dismiss modal immediately and notify parent
+    if (typeof onGenerateStarted === 'function') {
+      onClose();
+      onGenerateStarted({
+        periodLabel: resolvedPeriodLabel,
+        isIndonesian: isReportIndonesian,
       });
       return;
     }

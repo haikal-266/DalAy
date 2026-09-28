@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NeoCard } from '../neo/NeoCard';
 import { useTheme } from '../../stores/themeStore';
@@ -15,7 +15,7 @@ export const SummaryCards = ({
 }) => {
   const { colors } = useTheme();
   const { t, isIndonesian } = useLanguage();
-  const { isBalanceHidden } = useWallet();
+  const { isBalanceHidden, toggleBalanceHidden } = useWallet();
 
   const resolvedPeriodLabel = React.useMemo(() => {
     if (periodLabel) return periodLabel;
@@ -36,6 +36,27 @@ export const SummaryCards = ({
           <Text style={[styles.saldoLabel, { color: colors.textSecondary }]}>
             {isIndonesian ? 'SEMUA DOMPET' : 'ALL WALLETS'}
           </Text>
+          <Pressable
+            onPress={toggleBalanceHidden}
+            style={({ pressed }) => [
+              styles.eyeBtn,
+              {
+                backgroundColor: isBalanceHidden
+                  ? (colors.primaryLight || '#F0FDF4')
+                  : colors.surfaceLight,
+                borderColor: isBalanceHidden ? colors.primary : colors.border,
+              },
+              pressed && { opacity: 0.6 },
+            ]}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityLabel={isBalanceHidden ? 'Tampilkan Saldo' : 'Sembunyikan Saldo'}
+          >
+            <Ionicons
+              name={isBalanceHidden ? 'eye-off-outline' : 'eye-outline'}
+              size={13}
+              color={isBalanceHidden ? (colors.primaryDark || colors.primary) : colors.textSecondary}
+            />
+          </Pressable>
         </View>
 
         <View
@@ -110,7 +131,7 @@ export const SummaryCards = ({
             adjustsFontSizeToFit
             minimumFontScale={0.75}
           >
-            +{formatRupiah(summary.totalIncome)}
+            {isBalanceHidden ? '+Rp ••••••••' : `+${formatRupiah(summary.totalIncome)}`}
           </Text>
         </View>
 
@@ -129,7 +150,7 @@ export const SummaryCards = ({
             adjustsFontSizeToFit
             minimumFontScale={0.75}
           >
-            -{formatRupiah(summary.totalExpense)}
+            {isBalanceHidden ? '-Rp ••••••••' : `-${formatRupiah(summary.totalExpense)}`}
           </Text>
         </View>
       </View>
@@ -162,6 +183,15 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.5,
     includeFontPadding: false,
+  },
+  eyeBtn: {
+    paddingHorizontal: 6,
+    paddingVertical: 2.5,
+    borderRadius: 6,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 2,
   },
   periodBadge: {
     paddingVertical: 4,

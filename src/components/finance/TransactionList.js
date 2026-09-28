@@ -13,6 +13,7 @@ import { useTheme } from '../../stores/themeStore';
 import { useLanguage } from '../../stores/languageStore';
 import { getRelativeDateLabel, formatRupiah } from '../../utils/formatters';
 import { useCategories } from '../../stores/categoryStore';
+import { useWallet } from '../../stores/walletStore';
 
 export const TransactionList = ({
   transactions = [],
@@ -29,6 +30,7 @@ export const TransactionList = ({
   const { colors } = useTheme();
   const { t, isIndonesian } = useLanguage();
   const { expenseCategories, incomeCategories, allCategories } = useCategories();
+  const { isBalanceHidden } = useWallet();
   const [deleteTarget, setDeleteTarget] = useState(null);
 
   const handleDeleteConfirm = useCallback(() => {
@@ -305,12 +307,12 @@ export const TransactionList = ({
                 <View style={styles.dateTotals}>
                   {group.totalIncome > 0 && (
                     <Text style={[styles.groupIncome, { color: colors.incomeDark }]}>
-                      +{formatRupiah(Math.abs(group.totalIncome))}
+                      {isBalanceHidden ? '+Rp ••••••' : `+${formatRupiah(Math.abs(group.totalIncome))}`}
                     </Text>
                   )}
                   {group.totalExpense > 0 && (
                     <Text style={[styles.groupExpense, { color: colors.expenseDark }]}>
-                      -{formatRupiah(Math.abs(group.totalExpense))}
+                      {isBalanceHidden ? '-Rp ••••••' : `-${formatRupiah(Math.abs(group.totalExpense))}`}
                     </Text>
                   )}
                 </View>

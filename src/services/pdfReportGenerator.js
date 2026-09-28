@@ -741,6 +741,11 @@ export const generateAndSharePdfReport = async ({
 }) => {
   try {
     const effectiveApiKey = (geminiApiKey || apiKey || '').trim();
+    console.log('[PDF Generator] ──────────────────────────────────────────────────');
+    console.log('[PDF Generator] Memulai proses penyusunan Laporan PDF Keuangan...');
+    console.log('[PDF Generator] Periode:', periodLabel, '| Jumlah Transaksi:', transactions.length);
+    console.log('[PDF Generator] Status API Key Gemini:', effectiveApiKey ? `Tersedia (${effectiveApiKey.slice(0, 6)}...${effectiveApiKey.slice(-4)}, ${effectiveApiKey.length} chars)` : 'TIDAK TERSEDIA');
+
     const totalExpense = summary.totalExpense || 0;
     const rawCategories = Array.isArray(categoryStats)
       ? categoryStats
@@ -767,6 +772,7 @@ export const generateAndSharePdfReport = async ({
       .map((t) => `${t.name} (${formatRupiah(t.amount)})`);
 
     // 1. Fetch AI insights & quote (uses Gemini if API key exists, otherwise smart offline engine)
+    console.log('[PDF Generator] Mengambil financial insights...');
     const aiData = customAiData || await fetchGeminiAiFinancialInsights(
       {
         totalIncome: summary.totalIncome || 0,
@@ -781,6 +787,14 @@ export const generateAndSharePdfReport = async ({
       effectiveApiKey,
       isIndonesian
     );
+
+    console.log('[PDF Generator] Hasil Insight:', {
+      isAiGenerated: aiData?.isAiGenerated,
+      model: aiData?.model,
+      fallbackReason: aiData?.fallbackReason,
+      jumlahInsights: aiData?.insights?.length || 0,
+      kutipanPakar: aiData?.citation?.author || 'N/A',
+    });
 
     // 2. Build Mobile-friendly HTML
     const htmlContent = buildReportHtml({

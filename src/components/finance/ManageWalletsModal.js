@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -26,7 +26,7 @@ import { formatRupiah } from '../../utils/formatters';
 export const ManageWalletsModal = ({ visible, onClose, onToast, initialAddMode = false }) => {
   const { colors } = useTheme();
   const { isIndonesian } = useLanguage();
-  const { wallets, addWallet, updateWallet, deleteWallet, getWalletBalance } = useWallet();
+  const { wallets, addWallet, updateWallet, deleteWallet, setDefaultWallet, getWalletBalance } = useWallet();
   const { transactions, addTransaction } = useFinance();
 
   // Mode: 'list' | 'create' | 'edit'
@@ -44,6 +44,17 @@ export const ManageWalletsModal = ({ visible, onClose, onToast, initialAddMode =
 
   // Delete Confirm Modal
   const [deleteTarget, setDeleteTarget] = useState(null);
+
+  // Debounced Toast Timer
+  const toastTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current) {
+        clearTimeout(toastTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const resetForm = () => {
     setName('');
@@ -76,6 +87,25 @@ export const ManageWalletsModal = ({ visible, onClose, onToast, initialAddMode =
     }
     setSelectedColor(wallet.color || WALLET_COLORS[0]);
     setMode('edit');
+  };
+
+  const handleSetDefault = (wallet) => {
+    if (wallet.isDefault) return;
+    setDefaultWallet(wallet.id);
+
+    if (onToast) {
+      if (toastTimeoutRef.current) {
+        clearTimeout(toastTimeoutRef.current);
+      }
+      toastTimeoutRef.current = setTimeout(() => {
+        onToast(
+          isIndonesian
+            ? `"${wallet.name}" dijadikan dompet default`
+            : `"${wallet.name}" set as default wallet`,
+          'checkmark-circle'
+        );
+      }, 350);
+    }
   };
 
   const formatBalanceInput = (digits, isNeg) => {
@@ -312,20 +342,49 @@ export const ManageWalletsModal = ({ visible, onClose, onToast, initialAddMode =
         {mode === 'list' ? (
           /* WALLET LIST VIEW */
           <View style={styles.listContainer}>
+            <View
+              style={[
+                styles.instructionBanner,
+                {
+                  backgroundColor: colors.surfaceLight,
+                  borderColor: colors.borderLight,
+                },
+              ]}
+            >
+              <Ionicons name="information-circle-outline" size={16} color={colors.primary} />
+              <Text style={[styles.instructionText, { color: colors.textSecondary }]}>
+                {isIndonesian
+                  ? 'Ketuk dompet untuk menjadikannya dompet utama (default).'
+                  : 'Tap any wallet to set it as the default wallet.'}
+              </Text>
+            </View>
+
             {wallets.map((wallet) => {
               const stats = getWalletBalance(wallet.id, transactions);
               const cardColor = wallet.color || colors.primary;
 
               return (
-                <View
+                <Pressable
                   key={wallet.id}
-                  style={[
+                  onPress={() => handleSetDefault(wallet)}
+                  style={({ pressed }) => [
                     styles.walletItem,
                     {
-                      backgroundColor: colors.surfaceLight,
-                      borderColor: colors.border,
+                      backgroundColor: wallet.isDefault
+                        ? (colors.primary + '12')
+                        : colors.surfaceLight,
+                      borderColor: wallet.isDefault
+                        ? colors.primary
+                        : colors.border,
+                      borderWidth: wallet.isDefault ? 2 : 1,
                     },
+                    pressed && { opacity: 0.75, transform: [{ scale: 0.99 }] },
                   ]}
+                  accessibilityLabel={
+                    wallet.isDefault
+                      ? `${wallet.name} (Dompet Utama)`
+                      : `Ketuk untuk menjadikan ${wallet.name} sebagai dompet utama`
+                  }
                 >
                   <View style={styles.walletItemLeft}>
                     <View
@@ -341,29 +400,16 @@ export const ManageWalletsModal = ({ visible, onClose, onToast, initialAddMode =
                       />
                     </View>
                     <View style={styles.walletItemText}>
-                      <View style={styles.nameRow}>
-                        <Text
-                          style={[styles.walletItemTitle, { color: colors.text }]}
-                          numberOfLines={1}
-                          ellipsizeMode="tail"
-                        >
-                          {wallet.name}
-                        </Text>
-                        {wallet.isDefault && (
-                          <View
-                            style={[
-                              styles.defaultBadge,
-                              { backgroundColor: colors.primary + '20' },
-                            ]}
-                          >
-                            <Text
-                              style={[styles.defaultBadgeText, { color: colors.primary }]}
-                            >
-                              DEFAULT
-                            </Text>
-                          </View>
-                        )}
-                      </View>
+                      <Text
+                        style={[
+                          styles.walletItemTitle,
+                          { color: colors.text, fontWeight: wallet.isDefault ? '900' : '700' },
+                        ]}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                      >
+                        {wallet.name}
+                      </Text>
                       <View style={styles.balanceRow}>
                         <Text
                           style={[
@@ -396,33 +442,45 @@ export const ManageWalletsModal = ({ visible, onClose, onToast, initialAddMode =
 
                   <View style={styles.actionsRow}>
                     <Pressable
-                      onPress={() => handleStartEdit(wallet)}
-                      style={[
+                      onPress={(e) => {
+                        e.stopPropagation?.();
+                        handleStartEdit(wallet);
+                      }}
+                      style={({ pressed }) => [
                         styles.iconActionBtn,
                         {
                           backgroundColor: colors.surface,
                           borderColor: colors.borderLight,
                         },
+                        pressed && { opacity: 0.6 },
                       ]}
+                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                      accessibilityLabel="Edit Dompet"
                     >
                       <Ionicons name="pencil" size={14} color={colors.primary} />
                     </Pressable>
                     {!wallet.isDefault && (
                       <Pressable
-                        onPress={() => setDeleteTarget(wallet)}
-                        style={[
+                        onPress={(e) => {
+                          e.stopPropagation?.();
+                          setDeleteTarget(wallet);
+                        }}
+                        style={({ pressed }) => [
                           styles.iconActionBtn,
                           {
                             backgroundColor: colors.surface,
                             borderColor: colors.borderLight,
                           },
+                          pressed && { opacity: 0.6 },
                         ]}
+                        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                        accessibilityLabel="Hapus Dompet"
                       >
                         <Ionicons name="trash-outline" size={14} color={colors.expense} />
                       </Pressable>
                     )}
                   </View>
-                </View>
+                </Pressable>
               );
             })}
           </View>
@@ -658,6 +716,21 @@ const styles = StyleSheet.create({
   listContainer: {
     gap: 10,
   },
+  instructionBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 10,
+  },
+  instructionText: {
+    fontSize: 12,
+    fontWeight: '600',
+    flex: 1,
+  },
   walletItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -688,25 +761,9 @@ const styles = StyleSheet.create({
     minWidth: 0,
     justifyContent: 'center',
   },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
   walletItemTitle: {
     fontSize: TYPOGRAPHY.size.sm,
     fontWeight: '800',
-    flexShrink: 1,
-  },
-  defaultBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    flexShrink: 0,
-  },
-  defaultBadgeText: {
-    fontSize: 9,
-    fontWeight: '900',
   },
   balanceRow: {
     flexDirection: 'row',

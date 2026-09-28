@@ -9,6 +9,7 @@ import { CategoryIcon } from '../common/CategoryIcon';
 import { useTheme } from '../../stores/themeStore';
 import { useLanguage } from '../../stores/languageStore';
 import { useFinance } from '../../stores/financeStore';
+import { useWallet } from '../../stores/walletStore';
 import { formatRupiah, formatCompact } from '../../utils/formatters';
 
 export const PieChartSection = ({
@@ -22,6 +23,7 @@ export const PieChartSection = ({
   const { colors } = useTheme();
   const { t, isIndonesian } = useLanguage();
   const { getCategoryStats } = useFinance();
+  const { isBalanceHidden } = useWallet();
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [chartType, setChartType] = useState(typeFilter === 'income' ? 'income' : 'expense');
 
@@ -278,7 +280,7 @@ export const PieChartSection = ({
                     adjustsFontSizeToFit={true}
                     minimumFontScale={0.7}
                   >
-                    {formatCompact(selectedCategory.amount)}
+                    {isBalanceHidden ? 'Rp ••••' : formatCompact(selectedCategory.amount)}
                   </Text>
                   <Text
                     style={[styles.donutCenterSub, { color: colors.primary }]}
@@ -305,7 +307,7 @@ export const PieChartSection = ({
                     adjustsFontSizeToFit={true}
                     minimumFontScale={0.7}
                   >
-                    {formatCompact(totalNominal)}
+                    {isBalanceHidden ? 'Rp ••••' : formatCompact(totalNominal)}
                   </Text>
                   <Text
                     style={[
@@ -373,7 +375,7 @@ export const PieChartSection = ({
                       <Text
                         style={[styles.legendAmount, { color: colors.textSecondary }]}
                       >
-                        {formatRupiah(cat.amount)}
+                        {isBalanceHidden ? 'Rp ••••••••' : formatRupiah(cat.amount)}
                       </Text>
                     </View>
                   </View>

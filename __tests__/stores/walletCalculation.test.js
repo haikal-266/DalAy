@@ -119,4 +119,65 @@ describe('Wallet Calculations & Financial Logic', () => {
       expect(adj.type).toBe('expense');
     });
   });
+
+  describe('Default Wallet Mechanism', () => {
+    const setDefaultWalletHelper = (wallets, id) => {
+      const target = wallets.find((w) => w.id === id);
+      if (!target) return { success: false, wallets };
+      const updated = wallets.map((w) => ({
+        ...w,
+        isDefault: w.id === id,
+      }));
+      return { success: true, wallets: updated, target };
+    };
+
+    const resolveDefaultWallet = (wallets = []) => {
+      return wallets.find((w) => w.isDefault) || wallets[0] || null;
+    };
+
+    it('mengubah dompet default dan me-reset status default dompet lainnya', () => {
+      const wallets = [
+        { id: 'w1', name: 'Tunai', isDefault: true },
+        { id: 'w2', name: 'BCA', isDefault: false },
+        { id: 'w3', name: 'GoPay', isDefault: false },
+      ];
+
+      const res = setDefaultWalletHelper(wallets, 'w2');
+      expect(res.success).toBe(true);
+      expect(res.wallets.find((w) => w.id === 'w2').isDefault).toBe(true);
+      expect(res.wallets.find((w) => w.id === 'w1').isDefault).toBe(false);
+      expect(res.wallets.find((w) => w.id === 'w3').isDefault).toBe(false);
+    });
+
+    it('mengambil dompet default dengan benar atau fallback ke dompet pertama', () => {
+      const walletsWithDefault = [
+        { id: 'w1', name: 'Tunai', isDefault: false },
+        { id: 'w2', name: 'BCA', isDefault: true },
+      ];
+      expect(resolveDefaultWallet(walletsWithDefault).id).toBe('w2');
+
+      const walletsWithoutDefault = [
+        { id: 'w1', name: 'Tunai', isDefault: false },
+        { id: 'w2', name: 'BCA', isDefault: false },
+      ];
+      expect(resolveDefaultWallet(walletsWithoutDefault).id).toBe('w1');
+    });
+
+    it('mencegah penghapusan dompet default', () => {
+      const wallets = [
+        { id: 'w1', name: 'Tunai', isDefault: true },
+        { id: 'w2', name: 'BCA', isDefault: false },
+      ];
+
+      const canDelete = (id) => {
+        const target = wallets.find((w) => w.id === id);
+        if (wallets.length <= 1) return false;
+        if (target?.isDefault) return false;
+        return true;
+      };
+
+      expect(canDelete('w1')).toBe(false);
+      expect(canDelete('w2')).toBe(true);
+    });
+  });
 });

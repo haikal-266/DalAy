@@ -447,8 +447,11 @@ export const fetchGeminiAiFinancialInsights = async (metrics, apiKey, isIndonesi
   const envKey = (typeof process !== 'undefined' && process.env?.EXPO_PUBLIC_GEMINI_API_KEY) || '';
   const effectiveKey = (apiKey || envKey || '').trim();
 
+  console.log('[Gemini AI Report] ─── Memulai Proses Analisis Finansial AI ───');
+  console.log('[Gemini AI Report] Status API Key:', effectiveKey ? `Tersedia (${effectiveKey.slice(0, 6)}...${effectiveKey.slice(-4)}, panjang: ${effectiveKey.length})` : 'TIDAK TERSEDIA / KOSONG');
+
   if (!effectiveKey || effectiveKey.length < 10) {
-    console.log('[Gemini AI Report] API Key Gemini tidak tersedia/kosong. Menggunakan smart offline engine (DaLay Local).');
+    console.warn('[Gemini AI Report] ⚠️ API Key Gemini tidak diatur atau kurang dari 10 karakter. Menggunakan smart offline engine (DaLay Local).');
     return {
       ...getOfflineSmartInsights(metrics, isIndonesian),
       isAiGenerated: false,
@@ -461,6 +464,7 @@ export const fetchGeminiAiFinancialInsights = async (metrics, apiKey, isIndonesi
   const prompt = buildAiUserPrompt(metrics, isIndonesian);
 
   try {
+    console.log('[Gemini AI Report] Mengirim prompt ke Gemini via geminiClient...');
     const result = await callGeminiAi({
       apiKey: effectiveKey,
       prompt,
@@ -471,9 +475,11 @@ export const fetchGeminiAiFinancialInsights = async (metrics, apiKey, isIndonesi
       tag: 'Gemini AI Report',
     });
 
+    console.log(`[Gemini AI Report] Menerima respons dari model ${result.model}. Membedah JSON...`);
     const parsed = safeParseAiJson(result.text, isIndonesian, metrics);
+
     if (parsed && Array.isArray(parsed.insights) && parsed.insights.length > 0 && parsed.citation?.quote) {
-      console.log(`[Gemini AI Report] SUCCESS! Insight finansial berhasil digenerate oleh Gemini AI (${result.model})!`);
+      console.log(`[Gemini AI Report] 🎉 SUCCESS! Berhasil menyusun ${parsed.insights.length} insight finansial & kutipan (${result.model})!`);
       return {
         insights: parsed.insights.slice(0, 3),
         citation: {
@@ -485,12 +491,14 @@ export const fetchGeminiAiFinancialInsights = async (metrics, apiKey, isIndonesi
         fallbackReason: null,
         model: result.model,
       };
+    } else {
+      console.warn('[Gemini AI Report] ⚠️ safeParseAiJson tidak menghasilkan struktur valid. Raw text:', result.text);
     }
   } catch (err) {
-    console.warn('[Gemini AI Report] Gagal request pada model Gemini:', err.message);
+    console.error('[Gemini AI Report] ❌ Gagal request pada model Gemini:', err.message);
   }
 
-  console.warn('[Gemini AI Report] Seluruh model Gemini gagal dihubungi. Menggunakan smart offline engine (DaLay Local) sebagai fallback.');
+  console.warn('[Gemini AI Report] ⚠️ Seluruh percobaan Gemini gagal/invalid. Menggunakan smart offline engine (DaLay Local) sebagai fallback.');
   return {
     ...getOfflineSmartInsights(metrics, isIndonesian),
     isAiGenerated: false,

@@ -27,6 +27,8 @@ import { ManualTransactionModal } from '../components/finance/ManualTransactionM
 import { ExportModal } from '../components/finance/ExportModal';
 import { ImportModal } from '../components/finance/ImportModal';
 import { PdfReportModal } from '../components/finance/PdfReportModal';
+import { generateAndSharePdfReport } from '../services/pdfReportGenerator';
+import { sendLocalNotification } from '../services/notificationService';
 import { WalletCarousel } from '../components/finance/WalletCarousel';
 import { ManageWalletsModal } from '../components/finance/ManageWalletsModal';
 import { TransferModal } from '../components/finance/TransferModal';
@@ -51,7 +53,7 @@ export const FinanceScreen = React.memo(({ onNavigateTab }) => {
   const { t, isIndonesian } = useLanguage();
 
   const { getTotalNetWorth, wallets } = useWallet();
-  const { hasApiKey } = useAi();
+  const { hasApiKey, geminiApiKey } = useAi();
 
   const {
     transactions,
@@ -129,6 +131,7 @@ export const FinanceScreen = React.memo(({ onNavigateTab }) => {
   const [syncFeedback, setSyncFeedback] = useState(null);
   const [modalAlert, setModalAlert] = useState(null);
   const [bgScanStatus, setBgScanStatus] = useState(null);
+  const [bgReportStatus, setBgReportStatus] = useState(null);
 
   const [receiptDetailModalVisible, setReceiptDetailModalVisible] = useState(false);
   const [selectedReceiptDetail, setSelectedReceiptDetail] = useState(null);
@@ -155,7 +158,75 @@ export const FinanceScreen = React.memo(({ onNavigateTab }) => {
   const showSyncToast = (msg, icon = 'checkmark-circle') => {
     const toastObj = typeof msg === 'string' ? { text: msg, icon } : msg;
     setSyncFeedback(toastObj);
-    setTimeout(() => setSyncFeedback(null), 3000);
+    setTimeout(() => setSyncFeedback(null), 3500);
+  };
+
+  const handleStartBackgroundReport = async ({
+    periodLabel: resolvedPeriodLabel,
+    isIndonesian: isReportIndonesian,
+  }) => {
+    const statusMsg = isReportIndonesian
+      ? 'Menyusun Laporan PDF AI di latar belakang...'
+      : 'Generating AI PDF report in background...';
+
+    setBgReportStatus({ statusMsg });
+
+    try {
+      const result = await generateAndSharePdfReport({
+        transactions: filteredTransactions,
+        summary,
+        categoryStats,
+        periodLabel: resolvedPeriodLabel,
+        isIndonesian: isReportIndonesian,
+        geminiApiKey,
+        apiKey: geminiApiKey,
+      });
+
+      setBgReportStatus(null);
+
+      // Trigger local Push Notification
+      await sendLocalNotification({
+        title: isReportIndonesian ? 'Laporan PDF Berhasil Dibuat!' : 'PDF Report Ready!',
+        body: isReportIndonesian
+          ? `Laporan Keuangan (${result?.fileName || 'DalAy_Report.pdf'}) siap dibagikan.`
+          : `Financial report (${result?.fileName || 'DalAy_Report.pdf'}) is ready to share.`,
+        data: { type: 'pdf_report_ready', fileName: result?.fileName },
+      });
+
+      if (result && !result.isAiGenerated) {
+        const fallbackMsg = result.fallbackReason === 'network_or_api_error'
+          ? (isReportIndonesian
+              ? 'Koneksi AI terhambat, analisis disusun oleh DaLay Engine Lokal'
+              : 'AI connection failed, analyzed by local DaLay Engine')
+          : (isReportIndonesian
+              ? `Laporan PDF ${result?.fileName || ''} siap! (DaLay Engine Lokal)`
+              : `PDF Report ${result?.fileName || ''} ready! (Local DaLay Engine)`);
+        showSyncToast(fallbackMsg, 'information-circle');
+      } else {
+        showSyncToast(
+          isReportIndonesian
+            ? `Laporan PDF ${result?.fileName || ''} siap dibagikan! (Gemini AI)`
+            : `PDF Report ${result?.fileName || ''} generated! (Gemini AI)`,
+          'document-text'
+        );
+      }
+    } catch (err) {
+      console.error('[FinanceScreen] Background report error:', err);
+      setBgReportStatus(null);
+
+      await sendLocalNotification({
+        title: isReportIndonesian ? 'Gagal Membuat Laporan PDF' : 'PDF Report Failed',
+        body: getFriendlyErrorMessage(err, 'pdf_export', isReportIndonesian),
+        data: { type: 'pdf_report_error' },
+      });
+
+      setModalAlert({
+        title: isReportIndonesian ? 'Gagal Membuat PDF' : 'PDF Generation Failed',
+        message: getFriendlyErrorMessage(err, 'pdf_export', isReportIndonesian),
+        type: 'danger',
+        confirmText: isReportIndonesian ? 'Tutup' : 'Close',
+      });
+    }
   };
 
   const handleRefresh = async () => {
@@ -504,22 +575,25 @@ export const FinanceScreen = React.memo(({ onNavigateTab }) => {
         </View>
       )}
 
-      {/* Floating Top Background Scan Status Banner */}
-      {bgScanStatus && (
+      {/* Floating Top Background Status Banner (Receipt Scan or PDF Report) */}
+      {(bgScanStatus || bgReportStatus) && (
         <View
           style={[
             styles.floatingScreenToast,
             {
               top: syncFeedback ? (Platform.OS === 'ios' ? 108 : 78) : (Platform.OS === 'ios' ? 52 : 24),
               backgroundColor: colors.surfaceLight || '#1E293B',
-              borderColor: colors.accent || '#8B5CF6',
+              borderColor: bgReportStatus ? (colors.primary || '#0D9488') : (colors.accent || '#8B5CF6'),
             },
           ]}
           pointerEvents="none"
         >
-          <ActivityIndicator size="small" color={colors.accent || '#8B5CF6'} />
+          <ActivityIndicator
+            size="small"
+            color={bgReportStatus ? (colors.primary || '#0D9488') : (colors.accent || '#8B5CF6')}
+          />
           <Text style={[styles.floatingScreenToastText, { color: colors.text }]}>
-            {bgScanStatus.statusMsg || (isIndonesian ? 'Memproses struk di background...' : 'Processing receipt in background...')}
+            {bgReportStatus?.statusMsg || bgScanStatus?.statusMsg || (isIndonesian ? 'Memproses di background...' : 'Processing in background...')}
           </Text>
         </View>
       )}
@@ -847,6 +921,7 @@ export const FinanceScreen = React.memo(({ onNavigateTab }) => {
         <PdfReportModal
           visible={pdfModalVisible}
           onClose={() => setPdfModalVisible(false)}
+          onGenerateStarted={handleStartBackgroundReport}
           onSuccess={(fileName, result) => {
             if (result && !result.isAiGenerated) {
               const fallbackMsg = result.fallbackReason === 'network_or_api_error'

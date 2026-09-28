@@ -5,6 +5,7 @@ import {
   dbInsertWallet,
   dbUpdateWallet,
   dbDeleteWallet,
+  dbSetDefaultWallet,
   dbReplaceAllWallets,
 } from '../services/database';
 
@@ -119,6 +120,8 @@ export const DEFAULT_WALLETS = [
 ];
 
 const WalletContext = createContext(null);
+
+let defaultWalletDebounceTimer = null;
 
 export const WalletProvider = ({ children }) => {
   const [wallets, setWallets] = useState(DEFAULT_WALLETS);
@@ -238,7 +241,10 @@ export const WalletProvider = ({ children }) => {
 
     const target = wallets.find((w) => w.id === id);
     if (target?.isDefault) {
-      return { success: false, message: 'Dompet utama default tidak dapat dihapus.' };
+      return {
+        success: false,
+        message: 'Dompet utama (default) tidak dapat dihapus. Silakan jadikan dompet lain sebagai default terlebih dahulu.',
+      };
     }
 
     const updated = wallets.filter((w) => w.id !== id);
@@ -251,6 +257,36 @@ export const WalletProvider = ({ children }) => {
     });
     return { success: true };
   };
+
+  const setDefaultWallet = async (id) => {
+    const target = wallets.find((w) => w.id === id);
+    if (!target) return { success: false, message: 'Dompet tidak ditemukan.' };
+    if (target.isDefault) return { success: true, wallet: target };
+
+    const updated = wallets.map((w) => ({
+      ...w,
+      isDefault: w.id === id,
+    }));
+    setWallets(updated);
+
+    // Debounce SQLite disk write (250ms) to prevent database lock contention when spamming
+    if (defaultWalletDebounceTimer) {
+      clearTimeout(defaultWalletDebounceTimer);
+    }
+    defaultWalletDebounceTimer = setTimeout(() => {
+      dbSetDefaultWallet(id).catch((err) => {
+        console.warn('[DB] Background setDefaultWallet failed:', err);
+      });
+      defaultWalletDebounceTimer = null;
+    }, 250);
+
+    return { success: true, wallet: target };
+  };
+
+  const defaultWallet = useMemo(
+    () => wallets.find((w) => w.isDefault) || wallets[0] || DEFAULT_WALLETS[0],
+    [wallets]
+  );
 
   const getWalletById = (id) => {
     return wallets.find((w) => w.id === id) || wallets[0];
@@ -265,7 +301,8 @@ export const WalletProvider = ({ children }) => {
 
     const txs = transactions.filter((t) => {
       // If transaction has no walletId, assign to default wallet
-      const assignedWalletId = t.walletId || (wallets[0] ? wallets[0].id : 'wallet_cash');
+      const defW = wallets.find((w) => w.isDefault) || wallets[0];
+      const assignedWalletId = t.walletId || (defW ? defW.id : 'wallet_cash');
       return assignedWalletId === walletId;
     });
 
@@ -319,12 +356,14 @@ export const WalletProvider = ({ children }) => {
   const value = useMemo(
     () => ({
       wallets,
+      defaultWallet,
       selectedWalletId,
       loading,
       isBalanceHidden,
       toggleBalanceHidden,
       setBalanceHidden: setIsBalanceHidden,
       selectWallet,
+      setDefaultWallet,
       addWallet,
       updateWallet,
       deleteWallet,
@@ -333,7 +372,7 @@ export const WalletProvider = ({ children }) => {
       getTotalNetWorth,
       replaceWallets,
     }),
-    [wallets, selectedWalletId, loading, isBalanceHidden]
+    [wallets, selectedWalletId, loading, isBalanceHidden, defaultWallet]
   );
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;

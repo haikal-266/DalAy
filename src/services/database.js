@@ -33,6 +33,13 @@ export const initializeDatabase = async () => {
       const SQLite = require('expo-sqlite');
       const db = await SQLite.openDatabaseAsync(DB_NAME);
 
+      // Configure WAL journal mode outside of transactions
+      try {
+        await db.execAsync('PRAGMA journal_mode = WAL;');
+      } catch (walErr) {
+        console.warn('[DB] Could not enable WAL mode:', walErr);
+      }
+
       // Check current schema version
       const versionRow = await db.getFirstAsync('PRAGMA user_version');
       const currentVersion = versionRow?.user_version ?? 0;
@@ -43,6 +50,18 @@ export const initializeDatabase = async () => {
 
       // One-time data migration from AsyncStorage
       await migrateFromAsyncStorage(db);
+
+      // Diagnostic: scan residual keys in AsyncStorage
+      try {
+        const allKeys = await AsyncStorage.getAllKeys();
+        console.log('[DB Diagnostic] AsyncStorage keys on device:', allKeys);
+        for (const k of allKeys) {
+          if (k.includes('tx') || k.includes('trans') || k.includes('backup') || k.includes('dalay') || k.includes('quran')) {
+            const val = await AsyncStorage.getItem(k);
+            console.log(`[DB Diagnostic] Key "${k}": length=${val ? val.length : 0}`);
+          }
+        }
+      } catch (diagErr) {}
 
       // Only assign singleton _db after all schema & data migrations are complete
       _db = db;
@@ -108,8 +127,6 @@ export const MIGRATIONS = [
     name: 'initial_schema',
     up: async (db) => {
       await db.execAsync(`
-        PRAGMA journal_mode = WAL;
-
         -- Migration audit log table
         CREATE TABLE IF NOT EXISTS _schema_migrations (
           version INTEGER PRIMARY KEY NOT NULL,
@@ -481,8 +498,12 @@ const txRowToParams = (r) => [
 
 export const dbLoadAllTransactions = async () => {
   const db = await getDatabase();
-  if (!db) return [];
+  if (!db) {
+    console.warn('[DB] dbLoadAllTransactions: Database handle null');
+    return [];
+  }
   const rows = await db.getAllAsync('SELECT * FROM transactions ORDER BY date DESC');
+  console.log(`[DB] dbLoadAllTransactions: Mengambil ${rows.length} transaksi dari SQLite`);
   return rows.map(rowToTx);
 };
 
@@ -627,6 +648,15 @@ export const dbDeleteWallet = async (id) => {
   const db = await getDatabase();
   if (!db) return;
   await db.runAsync('DELETE FROM wallets WHERE id = ?', id);
+};
+
+export const dbSetDefaultWallet = async (id) => {
+  const db = await getDatabase();
+  if (!db) return;
+  await db.runAsync(
+    'UPDATE wallets SET is_default = (CASE WHEN id = ? THEN 1 ELSE 0 END)',
+    [id]
+  );
 };
 
 export const dbReplaceAllWallets = async (walletList) => {
