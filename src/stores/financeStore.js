@@ -75,9 +75,11 @@ export const FinanceProvider = ({ children }) => {
     transactionsRef.current = updated;
     setTransactions(updated);
 
-    dbInsertTransactionsBatch(itemsWithDate).catch((err) => {
-      console.warn('[DB] Background insert failed:', err);
-    });
+    try {
+      await dbInsertTransactionsBatch(itemsWithDate);
+    } catch (err) {
+      console.warn('[DB] Insert transactions batch error:', err);
+    }
 
     return { success: true, count: itemsWithDate.length, items: itemsWithDate };
   };
@@ -109,9 +111,11 @@ export const FinanceProvider = ({ children }) => {
     transactionsRef.current = updated;
     setTransactions(updated);
 
-    dbInsertTransaction(newTx).catch((err) => {
-      console.warn('[DB] Background insert failed:', err);
-    });
+    try {
+      await dbInsertTransaction(newTx);
+    } catch (err) {
+      console.warn('[DB] Insert single transaction error:', err);
+    }
 
     return newTx;
   };
@@ -147,9 +151,11 @@ export const FinanceProvider = ({ children }) => {
     transactionsRef.current = updated;
     setTransactions(updated);
 
-    dbInsertTransactionsBatch(newItems).catch((err) => {
-      console.warn('[DB] Background insert failed:', err);
-    });
+    try {
+      await dbInsertTransactionsBatch(newItems);
+    } catch (err) {
+      console.warn('[DB] Insert multiple transactions error:', err);
+    }
 
     return { success: true, count: newItems.length, items: newItems };
   };
@@ -166,9 +172,11 @@ export const FinanceProvider = ({ children }) => {
     transactionsRef.current = updated;
     setTransactions(updated);
 
-    dbInsertTransactionsBatch(importedList).catch((err) => {
-      console.warn('[DB] Background insert failed:', err);
-    });
+    try {
+      await dbInsertTransactionsBatch(importedList);
+    } catch (err) {
+      console.warn('[DB] Import transactions batch error:', err);
+    }
 
     return { success: true, count: importedList.length };
   };
@@ -267,9 +275,11 @@ export const FinanceProvider = ({ children }) => {
     transactionsRef.current = updated;
     setTransactions(updated);
 
-    dbInsertTransactionsBatch(newTxs).catch((err) => {
-      console.warn('[DB] Background insert failed:', err);
-    });
+    try {
+      await dbInsertTransactionsBatch(newTxs);
+    } catch (err) {
+      console.warn('[DB] Transfer insert error:', err);
+    }
 
     return { success: true, count: newTxs.length, transferId };
   };
@@ -282,9 +292,11 @@ export const FinanceProvider = ({ children }) => {
     transactionsRef.current = updated;
     setTransactions(updated);
 
-    dbUpdateTransaction(id, updatedFields).catch((err) => {
-      console.warn('[DB] Background update failed:', err);
-    });
+    try {
+      await dbUpdateTransaction(id, updatedFields);
+    } catch (err) {
+      console.warn('[DB] Update transaction error:', err);
+    }
   };
 
   const deleteTransaction = async (id) => {
@@ -296,25 +308,31 @@ export const FinanceProvider = ({ children }) => {
       updated = currentList.filter((t) => t.transferId !== target.transferId);
       transactionsRef.current = updated;
       setTransactions(updated);
-      dbDeleteTransactionsByTransferId(target.transferId).catch((err) => {
-        console.warn('[DB] Background delete failed:', err);
-      });
+      try {
+        await dbDeleteTransactionsByTransferId(target.transferId);
+      } catch (err) {
+        console.warn('[DB] Delete transfer error:', err);
+      }
     } else {
       updated = currentList.filter((t) => t.id !== id);
       transactionsRef.current = updated;
       setTransactions(updated);
-      dbDeleteTransaction(id).catch((err) => {
-        console.warn('[DB] Background delete failed:', err);
-      });
+      try {
+        await dbDeleteTransaction(id);
+      } catch (err) {
+        console.warn('[DB] Delete transaction error:', err);
+      }
     }
   };
 
   const clearAllTransactions = async () => {
     transactionsRef.current = [];
     setTransactions([]);
-    dbClearAllTransactions().catch((err) => {
-      console.warn('[DB] Background clear failed:', err);
-    });
+    try {
+      await dbClearAllTransactions();
+    } catch (err) {
+      console.warn('[DB] Clear transactions error:', err);
+    }
   };
 
   /**

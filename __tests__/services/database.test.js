@@ -182,5 +182,66 @@ describe('database.js - SQLite Data Layer & Schema Mapping', () => {
       expect(queries.some((q) => q === 'ROLLBACK;')).toBe(true);
     });
   });
+
+  describe('Dual-Persistence & Parameter Sanitization', () => {
+    it('txRowToParams menolak nilai undefined dan menggantinya dengan null atau default aman', () => {
+      const { txRowToParams } = require('../../src/services/database');
+      const incompleteRow = {
+        id: 'tx_incomplete_1',
+        type: undefined,
+        name: undefined,
+        amount: undefined,
+        wallet_id: undefined,
+        wallet_name: undefined,
+        category_id: undefined,
+        category_name: undefined,
+        icon_name: undefined,
+        icon_family: undefined,
+        category_color: undefined,
+        category_bg_color: undefined,
+        raw_text: undefined,
+        date: undefined,
+        transfer_id: undefined,
+        is_transfer: undefined,
+        transfer_role: undefined,
+        target_wallet_id: undefined,
+        target_wallet_name: undefined,
+        source_wallet_id: undefined,
+        source_wallet_name: undefined,
+        is_transfer_fee: undefined,
+        is_increase: undefined,
+        adjustment_diff: undefined,
+        extra_data: undefined,
+      };
+
+      const params = txRowToParams(incompleteRow);
+      expect(params).toHaveLength(25);
+      params.forEach((param, index) => {
+        expect(param).not.toBeUndefined();
+      });
+      expect(params[0]).toBe('tx_incomplete_1');
+      expect(params[1]).toBe('expense'); // default type
+      expect(params[3]).toBe(0); // default amount
+    });
+
+    it('saveTransactionsBackup dan loadTransactionsBackup bekerja sebagai fail-safe storage ganda', async () => {
+      const {
+        saveTransactionsBackup,
+        loadTransactionsBackup,
+      } = require('../../src/services/database');
+
+      const mockTxs = [
+        { id: 'tx_backup_1', name: 'Makan Bakso', amount: 25000 },
+        { id: 'tx_backup_2', name: 'Bensin Motor', amount: 20000 },
+      ];
+
+      await saveTransactionsBackup(mockTxs);
+      const loaded = await loadTransactionsBackup();
+
+      expect(loaded).toHaveLength(2);
+      expect(loaded[0].id).toBe('tx_backup_1');
+      expect(loaded[1].name).toBe('Bensin Motor');
+    });
+  });
 });
 

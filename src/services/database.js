@@ -477,6 +477,43 @@ export const rowToQuranItem = (row) => {
 
 // ─── DB CRUD Helpers ─────────────────────────────────────────
 
+// ─── Dual-Persistence Backup Helpers for Transactions ────────
+
+export const STORAGE_BACKUP_TRANSACTIONS = '@dalay_transactions_backup_v1';
+export const LEGACY_STORAGE_TRANSACTIONS = '@quranku_transactions';
+
+export const saveTransactionsBackup = async (txList) => {
+  try {
+    if (Array.isArray(txList)) {
+      await AsyncStorage.setItem(STORAGE_BACKUP_TRANSACTIONS, JSON.stringify(txList));
+    }
+  } catch (err) {
+    console.warn('[DB] Failed to save AsyncStorage transaction backup:', err);
+  }
+};
+
+export const loadTransactionsBackup = async () => {
+  try {
+    let raw = await AsyncStorage.getItem(STORAGE_BACKUP_TRANSACTIONS);
+    if (!raw) {
+      raw = await AsyncStorage.getItem(LEGACY_STORAGE_TRANSACTIONS);
+    }
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.filter((t) => t && !String(t.id).startsWith('tx_sample_'));
+      }
+    }
+  } catch (err) {
+    console.warn('[DB] Failed to read AsyncStorage transaction backup:', err);
+  }
+  return [];
+};
+
+const sanitizeParam = (val, fallback = null) => (val === undefined ? fallback : val);
+
+// ─── DB CRUD Helpers ─────────────────────────────────────────
+
 // -- Transactions --
 
 const INSERT_TX_SQL = `INSERT OR REPLACE INTO transactions (
@@ -486,114 +523,257 @@ const INSERT_TX_SQL = `INSERT OR REPLACE INTO transactions (
   source_wallet_id, source_wallet_name, is_transfer_fee, is_increase, adjustment_diff, extra_data
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
-const txRowToParams = (r) => [
-  r.id, r.type, r.name, r.amount, r.wallet_id, r.wallet_name,
-  r.category_id, r.category_name, r.icon_name, r.icon_family,
-  r.category_color, r.category_bg_color, r.raw_text, r.date,
-  r.transfer_id, r.is_transfer, r.transfer_role,
-  r.target_wallet_id, r.target_wallet_name,
-  r.source_wallet_id, r.source_wallet_name,
-  r.is_transfer_fee, r.is_increase, r.adjustment_diff, r.extra_data,
+const formatIsIncrease = (val) => {
+  if (val === null || val === undefined) return null;
+  return val ? 1 : 0;
+};
+
+export const txRowToParams = (r) => [
+  sanitizeParam(r.id),
+  sanitizeParam(r.type, 'expense'),
+  sanitizeParam(r.name, ''),
+  sanitizeParam(r.amount, 0),
+  sanitizeParam(r.wallet_id, 'wallet_cash'),
+  sanitizeParam(r.wallet_name, 'Tunai'),
+  sanitizeParam(r.category_id, 'other'),
+  sanitizeParam(r.category_name, 'Lain-lain'),
+  sanitizeParam(r.icon_name, 'cube'),
+  sanitizeParam(r.icon_family, 'Ionicons'),
+  sanitizeParam(r.category_color, '#64748B'),
+  sanitizeParam(r.category_bg_color, '#F1F5F9'),
+  sanitizeParam(r.raw_text, ''),
+  sanitizeParam(r.date, new Date().toISOString()),
+  sanitizeParam(r.transfer_id),
+  r.is_transfer ? 1 : 0,
+  sanitizeParam(r.transfer_role),
+  sanitizeParam(r.target_wallet_id),
+  sanitizeParam(r.target_wallet_name),
+  sanitizeParam(r.source_wallet_id),
+  sanitizeParam(r.source_wallet_name),
+  r.is_transfer_fee ? 1 : 0,
+  formatIsIncrease(r.is_increase),
+  sanitizeParam(r.adjustment_diff),
+  sanitizeParam(r.extra_data),
 ];
 
-export const dbLoadAllTransactions = async () => {
-  const db = await getDatabase();
-  if (!db) {
-    console.warn('[DB] dbLoadAllTransactions: Database handle null');
-    return [];
+const backfillSqliteFromBackup = async (backupList) => {
+  try {
+    const db = await getDatabase();
+    if (!db) return;
+    await db.withTransactionAsync(async () => {
+      for (const tx of backupList) {
+        const row = txToRow(tx);
+        await db.runAsync(INSERT_TX_SQL, txRowToParams(row));
+      }
+    });
+  } catch (e) {
+    console.warn('[DB] Backfill to SQLite failed:', e);
   }
-  const rows = await db.getAllAsync('SELECT * FROM transactions ORDER BY date DESC');
-  console.log(`[DB] dbLoadAllTransactions: Mengambil ${rows.length} transaksi dari SQLite`);
-  return rows.map(rowToTx);
+};
+
+export const dbLoadAllTransactions = async () => {
+  try {
+    const db = await getDatabase();
+    if (db) {
+      const rows = await db.getAllAsync('SELECT * FROM transactions ORDER BY date DESC');
+      console.log(`[DB] dbLoadAllTransactions: Mengambil ${rows.length} transaksi dari SQLite`);
+      if (rows && rows.length > 0) {
+        const txList = rows.map(rowToTx);
+        // Asynchronously keep backup fresh
+        saveTransactionsBackup(txList).catch(() => {});
+        return txList;
+      }
+    }
+  } catch (err) {
+    console.warn('[DB] dbLoadAllTransactions SQLite error, attempting backup fallback:', err);
+  }
+
+  // Fallback: recover transactions from AsyncStorage backup if SQLite is empty or failed
+  const backupList = await loadTransactionsBackup();
+  if (backupList && backupList.length > 0) {
+    console.log(`[DB] dbLoadAllTransactions: Memulihkan ${backupList.length} transaksi dari cadangan storage.`);
+    // Self-healing: try to backfill SQLite in background if available
+    backfillSqliteFromBackup(backupList).catch(() => {});
+    return backupList;
+  }
+
+  return [];
 };
 
 export const dbInsertTransaction = async (tx) => {
-  const db = await getDatabase();
-  if (!db) return;
-  const row = txToRow(tx);
-  await db.runAsync(INSERT_TX_SQL, txRowToParams(row));
+  // 1. Dual persistence: backup to AsyncStorage immediately
+  try {
+    const backupList = await loadTransactionsBackup();
+    const filtered = backupList.filter((t) => t.id !== tx.id);
+    const updatedBackup = [tx, ...filtered];
+    await saveTransactionsBackup(updatedBackup);
+  } catch (e) {
+    console.warn('[DB] Dual persistence backup error:', e);
+  }
+
+  // 2. Primary persistence: SQLite
+  try {
+    const db = await getDatabase();
+    if (db) {
+      const row = txToRow(tx);
+      await db.runAsync(INSERT_TX_SQL, txRowToParams(row));
+    }
+  } catch (err) {
+    console.warn('[DB] dbInsertTransaction SQLite write failed, safely preserved in AsyncStorage:', err);
+  }
 };
 
 export const dbInsertTransactionsBatch = async (txList) => {
-  const db = await getDatabase();
-  if (!db) return;
-  await db.withTransactionAsync(async () => {
-    for (const tx of txList) {
-      const row = txToRow(tx);
-      await db.runAsync(INSERT_TX_SQL, txRowToParams(row));
+  if (!Array.isArray(txList) || txList.length === 0) return;
+
+  // 1. Dual persistence: backup to AsyncStorage immediately
+  try {
+    const backupList = await loadTransactionsBackup();
+    const txIds = new Set(txList.map((t) => t.id));
+    const filtered = backupList.filter((t) => !txIds.has(t.id));
+    const updatedBackup = [...txList, ...filtered];
+    await saveTransactionsBackup(updatedBackup);
+  } catch (e) {
+    console.warn('[DB] Dual persistence batch backup error:', e);
+  }
+
+  // 2. Primary persistence: SQLite
+  try {
+    const db = await getDatabase();
+    if (db) {
+      await db.withTransactionAsync(async () => {
+        for (const tx of txList) {
+          const row = txToRow(tx);
+          await db.runAsync(INSERT_TX_SQL, txRowToParams(row));
+        }
+      });
     }
-  });
+  } catch (err) {
+    console.warn('[DB] dbInsertTransactionsBatch SQLite write failed, safely preserved in AsyncStorage:', err);
+  }
 };
 
 export const dbUpdateTransaction = async (id, updatedFields) => {
-  const db = await getDatabase();
-  if (!db) return;
-  // Build dynamic SET clause
-  const fieldMap = {
-    type: 'type', name: 'name', amount: 'amount',
-    walletId: 'wallet_id', walletName: 'wallet_name',
-    categoryId: 'category_id', categoryName: 'category_name',
-    iconName: 'icon_name', iconFamily: 'icon_family',
-    categoryColor: 'category_color', categoryBgColor: 'category_bg_color',
-    rawText: 'raw_text', date: 'date',
-    transferId: 'transfer_id', isTransfer: 'is_transfer',
-    transferRole: 'transfer_role',
-    targetWalletId: 'target_wallet_id', targetWalletName: 'target_wallet_name',
-    sourceWalletId: 'source_wallet_id', sourceWalletName: 'source_wallet_name',
-    isTransferFee: 'is_transfer_fee',
-    isIncrease: 'is_increase', adjustmentDiff: 'adjustment_diff',
-  };
-
-  const setClauses = [];
-  const values = [];
-
-  for (const [jsKey, dbCol] of Object.entries(fieldMap)) {
-    if (updatedFields[jsKey] !== undefined) {
-      setClauses.push(`${dbCol} = ?`);
-      let val = updatedFields[jsKey];
-      // Convert booleans to integers for SQLite
-      if (typeof val === 'boolean') val = val ? 1 : 0;
-      values.push(val);
-    }
+  // 1. Dual persistence update
+  try {
+    const backupList = await loadTransactionsBackup();
+    const updatedBackup = backupList.map((t) => (t.id === id ? { ...t, ...updatedFields } : t));
+    await saveTransactionsBackup(updatedBackup);
+  } catch (e) {
+    console.warn('[DB] Dual persistence update backup error:', e);
   }
 
-  if (setClauses.length === 0) return;
-  values.push(id);
+  // 2. Primary persistence: SQLite
+  try {
+    const db = await getDatabase();
+    if (!db) return;
+    // Build dynamic SET clause
+    const fieldMap = {
+      type: 'type', name: 'name', amount: 'amount',
+      walletId: 'wallet_id', walletName: 'wallet_name',
+      categoryId: 'category_id', categoryName: 'category_name',
+      iconName: 'icon_name', iconFamily: 'icon_family',
+      categoryColor: 'category_color', categoryBgColor: 'category_bg_color',
+      rawText: 'raw_text', date: 'date',
+      transferId: 'transfer_id', isTransfer: 'is_transfer',
+      transferRole: 'transfer_role',
+      targetWalletId: 'target_wallet_id', targetWalletName: 'target_wallet_name',
+      sourceWalletId: 'source_wallet_id', sourceWalletName: 'source_wallet_name',
+      isTransferFee: 'is_transfer_fee',
+      isIncrease: 'is_increase', adjustmentDiff: 'adjustment_diff',
+    };
 
-  await db.runAsync(
-    `UPDATE transactions SET ${setClauses.join(', ')} WHERE id = ?`,
-    values
-  );
+    const setClauses = [];
+    const values = [];
+
+    for (const [jsKey, dbCol] of Object.entries(fieldMap)) {
+      if (updatedFields[jsKey] !== undefined) {
+        setClauses.push(`${dbCol} = ?`);
+        let val = updatedFields[jsKey];
+        // Convert booleans to integers for SQLite
+        if (typeof val === 'boolean') val = val ? 1 : 0;
+        values.push(sanitizeParam(val));
+      }
+    }
+
+    if (setClauses.length === 0) return;
+    values.push(id);
+
+    await db.runAsync(
+      `UPDATE transactions SET ${setClauses.join(', ')} WHERE id = ?`,
+      values
+    );
+  } catch (err) {
+    console.warn('[DB] dbUpdateTransaction SQLite write failed, preserved in AsyncStorage:', err);
+  }
 };
 
 export const dbDeleteTransaction = async (id) => {
-  const db = await getDatabase();
-  if (!db) return;
-  await db.runAsync('DELETE FROM transactions WHERE id = ?', id);
+  // 1. Dual persistence update
+  try {
+    const backupList = await loadTransactionsBackup();
+    const updatedBackup = backupList.filter((t) => t.id !== id);
+    await saveTransactionsBackup(updatedBackup);
+  } catch (e) {
+    console.warn('[DB] Dual persistence delete backup error:', e);
+  }
+
+  // 2. Primary persistence: SQLite
+  try {
+    const db = await getDatabase();
+    if (!db) return;
+    await db.runAsync('DELETE FROM transactions WHERE id = ?', [id]);
+  } catch (err) {
+    console.warn('[DB] dbDeleteTransaction SQLite failed:', err);
+  }
 };
 
 export const dbDeleteTransactionsByTransferId = async (transferId) => {
-  const db = await getDatabase();
-  if (!db) return;
-  await db.runAsync('DELETE FROM transactions WHERE transfer_id = ?', transferId);
+  // 1. Dual persistence update
+  try {
+    const backupList = await loadTransactionsBackup();
+    const updatedBackup = backupList.filter((t) => t.transferId !== transferId);
+    await saveTransactionsBackup(updatedBackup);
+  } catch (e) {
+    console.warn('[DB] Dual persistence delete by transferId error:', e);
+  }
+
+  // 2. Primary persistence: SQLite
+  try {
+    const db = await getDatabase();
+    if (!db) return;
+    await db.runAsync('DELETE FROM transactions WHERE transfer_id = ?', [transferId]);
+  } catch (err) {
+    console.warn('[DB] dbDeleteTransactionsByTransferId SQLite failed:', err);
+  }
 };
 
 export const dbClearAllTransactions = async () => {
-  const db = await getDatabase();
-  if (!db) return;
-  await db.runAsync('DELETE FROM transactions');
+  await saveTransactionsBackup([]);
+  try {
+    const db = await getDatabase();
+    if (!db) return;
+    await db.runAsync('DELETE FROM transactions');
+  } catch (err) {
+    console.warn('[DB] dbClearAllTransactions SQLite failed:', err);
+  }
 };
 
 export const dbReplaceAllTransactions = async (txList) => {
-  const db = await getDatabase();
-  if (!db) return;
-  await db.withTransactionAsync(async () => {
-    await db.runAsync('DELETE FROM transactions');
-    for (const tx of txList) {
-      const row = txToRow(tx);
-      await db.runAsync(INSERT_TX_SQL, txRowToParams(row));
-    }
-  });
+  await saveTransactionsBackup(txList);
+  try {
+    const db = await getDatabase();
+    if (!db) return;
+    await db.withTransactionAsync(async () => {
+      await db.runAsync('DELETE FROM transactions');
+      for (const tx of txList) {
+        const row = txToRow(tx);
+        await db.runAsync(INSERT_TX_SQL, txRowToParams(row));
+      }
+    });
+  } catch (err) {
+    console.warn('[DB] dbReplaceAllTransactions SQLite failed, preserved in AsyncStorage:', err);
+  }
 };
 
 // -- Wallets --
